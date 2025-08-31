@@ -39,3 +39,9 @@
 
 # debug information files
 *.dwo
+/.vs/CopyTrading/copilot-chat
+/.vs/CopyTrading/CopilotIndices
+/.vs/CopyTrading/FileContentIndex
+/.vs
+/CopyTrading/bin
+/CopyTrading/obj
