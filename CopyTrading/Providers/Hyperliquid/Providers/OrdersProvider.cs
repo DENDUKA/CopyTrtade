@@ -8,8 +8,9 @@ public class OrdersProvider
 {
     private readonly HyperLiquidRestClient _hyperLiquidRestClient;
 
-    private readonly string key = "0x14cd6fa02f228283077e78994d446d3a0723db46";
-    private readonly string secret = "0x3ec006db11e45280c39147f6b39faf5f5a1aa8fa59ff2ab5182e1f28661f6f3a";
+    //Key Secret вынести в secret.json
+    private readonly string key = "";
+    private readonly string secret = "";
 
     public OrdersProvider()
     {

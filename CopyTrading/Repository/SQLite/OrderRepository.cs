@@ -1,4 +1,5 @@
-﻿using CopyTrading.Models.Enums;
+﻿
+using CopyTrading.Models.Enums.Order;
 using CopyTrading.Models.Orders;
 using Microsoft.Data.Sqlite;
 

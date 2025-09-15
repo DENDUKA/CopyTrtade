@@ -1,7 +1,7 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace CopyTrading.Models.Enums;
+namespace CopyTrading.Models.Enums.HyperLiquid;
 
 public enum OrderStatus
 {

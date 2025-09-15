@@ -1,5 +1,4 @@
-﻿using CopyTrading.Models;
-using CopyTrading.Providers.Hyperliquid.Providers;
+﻿using CopyTrading.Providers.Hyperliquid.Providers;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CopyTrading.Controllers;

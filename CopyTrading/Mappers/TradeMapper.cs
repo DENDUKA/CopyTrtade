@@ -12,10 +12,9 @@ public static class TradeMapper
         var trade = new OriginalTrade
         {
             IsTaker = tradeDto.Crossed,
-            Direction = tradeDto.Direction,
+            Direction = tradeDto.OrderSide.ToBll(),
             Coin = tradeDto.ExchangeSymbol,
             OrderId = tradeDto.OrderId,
-            Side = tradeDto.OrderSide,
             Price = (double)tradeDto.Price,
             Quantity = (double)tradeDto.Quantity,
             StartPosition = (double)tradeDto.StartPosition,
@@ -40,7 +39,6 @@ public static class TradeMapper
             Price = trade.Price,
             Value = trade.Value,
             Direction = trade.Direction.ToString(),
-            Type = trade.Side.ToString(),
             Time = trade.TimeStamp,
             IsFutures = trade.IsFuture,
         };

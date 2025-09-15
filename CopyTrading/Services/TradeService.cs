@@ -1,4 +1,5 @@
-﻿using CopyTrading.Models.Trade;
+﻿using CopyTrading.Models.Enums;
+using CopyTrading.Models.Trade;
 using CopyTrading.Providers.Hyperliquid.Providers;
 using CopyTrading.Providers.Hyperliquid.Subscribers;
 using CopyTrading.Repository.Influx;
@@ -61,20 +62,20 @@ public class TradeService(
         var bestAsk = (double)orderBook.Levels.Asks.First().Price;
         var bestBid = (double)orderBook.Levels.Bids.First().Price;
 
-        Console.WriteLine($"Trade Time : {trade.TimeStamp} \n" +
+        Console.WriteLine($"Trade Time : {trade.TimeStamp}\n" +
                           $"OB    Time : {orderBook.Timestamp}");
 
-        if (trade.Side == HyperLiquid.Net.Enums.OrderSide.Buy)
+        if (trade.Direction == Direction.Long)
         {
             var spread = (bestAsk - trade.Price) / bestAsk * 100;
 
             if (trade.Price >= bestAsk || spread < spreadDelta)
             {
-                Console.WriteLine($"Цена сделки {trade.TradeId} {trade.Side} {trade.Price} сейчас {bestAsk} актуальна для покупки. {spread:F5} %");
+                Console.WriteLine($"Цена сделки {trade.TradeId} {trade.Direction} {trade.Price} сейчас {bestAsk} актуальна для покупки. {spread:F5} %");
             }
             else
             {
-                Console.WriteLine($"Цена сделки {trade.TradeId} {trade.Side} {trade.Price} сейчас {bestAsk} не актуальна для покупки. {spread:F5} %");
+                Console.WriteLine($"Цена сделки {trade.TradeId} {trade.Direction} {trade.Price} сейчас {bestAsk} не актуальна для покупки. {spread:F5} %");
             }
         }
         else
@@ -83,11 +84,11 @@ public class TradeService(
 
             if (trade.Price <= bestBid || spread < spreadDelta)
             {
-                Console.WriteLine($"Цена сделки {trade.TradeId} {trade.Side} {trade.Price} сейчас {bestBid} актуальна для продажи. {spread:F5} %");
+                Console.WriteLine($"Цена сделки {trade.TradeId} {trade.Direction} {trade.Price} сейчас {bestBid} актуальна для продажи. {spread:F5} %");
             }
             else
             {
-                Console.WriteLine($"Цена сделки {trade.TradeId} {trade.Side} {trade.Price} сейчас {bestBid} не актуальна для продажи. {spread:F5} %");
+                Console.WriteLine($"Цена сделки {trade.TradeId} {trade.Direction} {trade.Price} сейчас {bestBid} не актуальна для продажи. {spread:F5} %");
             }
         }
     }

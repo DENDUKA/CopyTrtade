@@ -1,5 +1,4 @@
 ﻿using CopyTrading.Mappers;
-using CopyTrading.Models;
 using CopyTrading.Models.Orders;
 using CopyTrading.Models.Trade;
 using HyperLiquid.Net.Clients;

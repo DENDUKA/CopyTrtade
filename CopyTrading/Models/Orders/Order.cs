@@ -1,4 +1,5 @@
 ﻿using CopyTrading.Models.Enums;
+using CopyTrading.Models.Enums.Order;
 
 namespace CopyTrading.Models.Orders;
 
@@ -10,7 +11,7 @@ public abstract class Order
     public double Price { get; set; }
     public double Size { get; set; }
     public double Leverage { get; set; }
-    public OrderBuyType OrderType { get; set; }
+    public OrderSubType SubType { get; set; }
     public Direction Direction { get; set; }
     public double Value => Price * Size;
 }

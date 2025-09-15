@@ -35,7 +35,6 @@ public class ExchangeInfoProvider(
     public async Task<SharedFuturesSymbol[]> GetExchangeInfo()
     {
         var response = await _client.FuturesApi.ExchangeData.GetExchangeInfoAsync();
-        var response2 = await _client.FuturesApi.ExchangeData.GetExchangeInfoAndTickersAsync();
 
         var result = response.Data.Select(s => new SharedFuturesSymbol(TradingMode.PerpetualLinear, s.Name, "USDC", s.Name + "/USDC", true)
         {

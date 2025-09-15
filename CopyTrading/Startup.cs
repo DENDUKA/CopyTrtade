@@ -1,6 +1,5 @@
 ﻿using CopyTrading.Providers.Hyperliquid.Providers;
 using CopyTrading.Providers.Hyperliquid.Subscribers;
-using CopyTrading.Providers.Hyperliquid.Subscribers.legacy;
 using CopyTrading.Repository.Influx;
 using CopyTrading.Services;
 
@@ -23,8 +22,6 @@ public class Startup
         services.AddControllers();
         services.AddEndpointsApiExplorer();
         services.AddSwaggerGen();
-
-        services.AddSingleton<OrdersSubscriberMyl>();
 
         //Services
         services.AddSingleton<OrderService>();

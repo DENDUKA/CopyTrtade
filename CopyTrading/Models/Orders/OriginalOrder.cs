@@ -1,4 +1,4 @@
-﻿using CopyTrading.Models.Enums;
+﻿using CopyTrading.Models.Enums.Order;
 
 namespace CopyTrading.Models.Orders;
 
@@ -10,6 +10,6 @@ public class OriginalOrder : Order
 
     public override string ToString()
     {
-        return $"{Wallet} {Id} {Time} {Coin} {Direction} {Price} {Size} {Value} {OrderType} {Status}";
+        return $"{Wallet} {Id} {Time} {Coin} {Direction} {Price} {Size} {Value} {SubType} {Status}";
     }
 }

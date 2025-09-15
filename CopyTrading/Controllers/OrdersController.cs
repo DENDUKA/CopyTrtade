@@ -1,7 +1,6 @@
 ﻿using CopyTrading.Models.Orders;
 using CopyTrading.Providers.Hyperliquid.Providers;
 using CopyTrading.Providers.Hyperliquid.Subscribers;
-using CopyTrading.Providers.Hyperliquid.Subscribers.legacy;
 using CopyTrading.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,14 +9,12 @@ namespace CopyTrading.Controllers;
 [ApiController]
 [Route("[controller]")]
 public class OrdersController(
-    OrdersSubscriberMyl orderProvider,
     OrderService orderService,
     OrdersProvider ordersHyperliquidProvider,
     OrdersTradesSubscriber copiedOrderJKirfProvider,
     WalletInfoProvider walletInfoJKirfProvider,
     ExchangeInfoProvider exchangeInfoProvider) : ControllerBase
 {
-    private readonly OrdersSubscriberMyl _orderProvider = orderProvider;
     private readonly OrderService _orderService = orderService;
     private readonly OrdersProvider _ordersHyperliquidProvider = ordersHyperliquidProvider;
     private readonly OrdersTradesSubscriber _copiedOrderJKirfProvider = copiedOrderJKirfProvider;
@@ -27,8 +24,8 @@ public class OrdersController(
     [HttpGet("GetOrdersHistory")]
     public async Task<ActionResult<OriginalOrder[]>> GetOrdersHistory([FromQuery] string wallet)
     {
-        var result = await _orderProvider.GetHistoricalOrdersForWallet(wallet);
-        return Ok(result);
+        //var result = await _ordersHyperliquidProvider.GetHistoricalOrdersForWallet(wallet);
+        return Ok();
     }
 
     [HttpGet("CollectOrdersHistoryForAllWallets")]

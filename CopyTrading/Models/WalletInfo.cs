@@ -1,5 +1,4 @@
-﻿
-using CopyTrading.Models;
+﻿namespace CopyTrading.Models;
 
 public record WalletInfoModel
 {
