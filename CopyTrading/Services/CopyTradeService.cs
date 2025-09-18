@@ -27,7 +27,7 @@ public class CopyTradeService(
 
         var orderType = GetOrderType(walletInfo.Positions, trade);
 
-        var orderRatio = trade.Value / walletInfo.AccountValue;
+        var orderRatio = trade.Volume / walletInfo.AccountVolume;
         var leverage = OrderOpenedTypes.Contains(orderType) ? walletInfo.Positions[trade.Coin].Leverage : defaultLevel;
         var orderSize = myAccountValue * orderRatio / trade.Price;
 

@@ -11,7 +11,9 @@ public class TradeService(
     OrdersTradesSubscriber _orderProvider,
     OrderBookSubscriber _orderBookProvider,
     WalletInfoProvider _walletInfoProvider,
-    TradeRepository _tradeRepository)
+    TradeRepository _tradeRepository,
+    InformationService _informationService,
+    ILogger<TradeService> _logger)
 {
     public async Task SubscribeToWalletTrades(string wallet)
     {
@@ -20,7 +22,7 @@ public class TradeService(
 
     public async Task SubscribeToTrackedWalletsTrades()
     {
-        foreach (var wallet in WalletSettings.TestFillTrackedWallets)
+        foreach (var wallet in WalletSettings.TrackedWallets)
         {
             await _orderProvider.SubscribeToFilledTrades(wallet, NewTrades);
         }
@@ -38,11 +40,14 @@ public class TradeService(
         if (newTrades.IsSnapshot)
         {
             Console.WriteLine("___SnapShot___");
+            return;
         }
 
         foreach (var trade in newTrades.Trades)
         {
-            Console.WriteLine($"Trade {trade.Coin}");
+            _logger.LogInformation($"Trade {trade.Coin}");
+
+            _informationService.LogMinPerpEuqityForTrade(trade);
 
             if (!newTrades.IsSnapshot)
             {

@@ -17,5 +17,5 @@ public record OriginalTrade
     public double StartPosition { get; set; }
     public bool IsTaker { get; set; }
     public string Wallet { get; set; }
-    public double Value => Quantity * Price;
+    public double Volume => Quantity * Price;
 }

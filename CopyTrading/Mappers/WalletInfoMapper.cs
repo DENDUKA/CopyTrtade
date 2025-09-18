@@ -10,7 +10,7 @@ public static class WalletInfoMapper
         return new WalletInfoModel()
         {
             Wallet = wallet,
-            AccountValue = (double)data.MarginSummary.AccountValue,
+            AccountVolume = (double)data.MarginSummary.AccountValue,
             TotalMarginUsed = data.MarginSummary.TotalMarginUsed,
             Positions = data.Positions
             .Select(x => x.ToBll())

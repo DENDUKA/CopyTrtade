@@ -49,6 +49,7 @@ public class OrdersTradesSubscriber
         else
         {
             Console.WriteLine($"Не удалось подписаться на Trades {wallet}");
+            subscribes.Remove(wallet);
         }
     }
 }

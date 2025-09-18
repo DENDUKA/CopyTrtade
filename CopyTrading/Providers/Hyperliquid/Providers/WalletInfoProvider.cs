@@ -4,6 +4,8 @@ using CopyTrading.Models.Trade;
 using HyperLiquid.Net.Clients;
 using HyperLiquid.Net.Objects.Models;
 using Microsoft.Extensions.Caching.Memory;
+using System.Text;
+using System.Text.Json;
 
 namespace CopyTrading.Providers.Hyperliquid.Providers;
 
@@ -11,7 +13,7 @@ public class WalletInfoProvider(
     ILogger<WalletInfoProvider> _logger,
     IMemoryCache _cache)
 {
-    private readonly TimeSpan _cacheLiveTime = TimeSpan.FromSeconds(5);
+    private readonly TimeSpan _cacheLiveTime = TimeSpan.FromSeconds(10);
 
     private readonly HyperLiquidRestClient _restClient = new();
 
@@ -70,5 +72,31 @@ public class WalletInfoProvider(
 
         _logger.LogError(response.Error!.Message);
         return [];
+    }
+
+    public async Task<string> QueryPortfolio(string wallet)
+    {
+        using var httpClient = new HttpClient();
+        var url = "https://api.hyperliquid.xyz/info";
+
+        var requestBody = new
+        {
+            type = "portfolio",
+            user = wallet
+        };
+
+        var json = JsonSerializer.Serialize(requestBody);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var response = await httpClient.PostAsync(url, content);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogError("Portfolio query failed: {StatusCode} {ReasonPhrase}", response.StatusCode, response.ReasonPhrase);
+            return null;
+        }
+
+        var responseString = await response.Content.ReadAsStringAsync();
+        return responseString;
     }
 }

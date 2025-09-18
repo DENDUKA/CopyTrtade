@@ -19,4 +19,10 @@ public class TradesController(
     {
         _tradeService.CollectHystoricalTrades(wallet);
     }
+
+    [HttpGet("SubscribeToWallet")]
+    public async Task SubscribeToWallet([FromQuery] string wallet)
+    {
+        _tradeService.SubscribeToWalletTrades(wallet);
+    }
 }

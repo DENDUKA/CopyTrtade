@@ -4,7 +4,7 @@ using CopyTrading.Models;
 public record WalletInfoModel
 {
     public string Wallet { get; set; }
-    public double AccountValue { get; set; }
+    public double AccountVolume { get; set; }
     public decimal TotalMarginUsed { get; set; }
     public Dictionary<string, PositionModel> Positions { get; set; }
 
@@ -16,7 +16,7 @@ public record WalletInfoModel
 
         return
             $"Wallet: {Wallet}, " +
-            $"AccountValue: {AccountValue}, " +
+            $"AccountValue: {AccountVolume}, " +
             $"TotalMarginUsed: {TotalMarginUsed}, " +
             $"\nPositions: \n{positionsString}";
     }

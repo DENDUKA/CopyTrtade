@@ -27,6 +27,7 @@ public class Startup
         services.AddSingleton<OrderService>();
         services.AddSingleton<TradeService>();
         services.AddSingleton<CandleService>();
+        services.AddSingleton<InformationService>();
 
         //HyperLiquid Providers
         services.AddSingleton<WalletInfoProvider>();        
@@ -45,6 +46,7 @@ public class Startup
 
         //SQL
         services.AddSingleton<Repository.SQLite.OrderRepository>();
+        services.AddSingleton<Repository.SQLite.TradeRepository>();
     }
 
     public void Configure(IApplicationBuilder app, IHostEnvironment env)

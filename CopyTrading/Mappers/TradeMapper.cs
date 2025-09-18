@@ -37,7 +37,7 @@ public static class TradeMapper
             Coin = trade.Coin,
             Size = trade.Quantity,
             Price = trade.Price,
-            Value = trade.Value,
+            Value = trade.Volume,
             Direction = trade.Direction.ToString(),
             Time = trade.TimeStamp,
             IsFutures = trade.IsFuture,
