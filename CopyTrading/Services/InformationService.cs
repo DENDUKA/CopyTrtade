@@ -1,6 +1,7 @@
 ﻿using CopyTrading.Models.Trade;
 using CopyTrading.Providers.Hyperliquid.Providers;
 using CopyTrading.Repository.SQLite;
+using CopyTrading.Repository.SQLite.Dto;
 
 namespace CopyTrading.Services;
 
@@ -27,13 +28,24 @@ public class InformationService(
         return minPerpE;
     }
 
-    public async Task LogMinPerpEuqityForTrade(OriginalTrade trade)
+    public async Task LogMinPerpEuqityForTrade(OriginalTrade trade, double spread, double deltaTimeS)
     {
         var walletInfo = await _walletInfoProvider.GetInfo(trade.Wallet);
 
         var minPE = CalculateMinPerpEquity(walletInfo.AccountVolume, trade.Volume);
 
-        _tradeRepository.WriteMinPeForTrade(trade.TradeId, trade.Wallet, walletInfo.AccountVolume, trade.Volume, minPE);
+        _tradeRepository.WriteMinPeForTrade(new MinPEForTradeDto
+        {
+            AccountVolume = walletInfo.AccountVolume,
+            DeltaTimeS = deltaTimeS,
+            MinPE = minPE,
+            Spread = spread,
+            Symbol = trade.Coin,
+            Time = trade.TimeStamp,
+            TradeId = trade.TradeId,
+            Volume = trade.Volume,
+            Wallet = trade.Wallet,
+        });
     }
 
     private double CalculateMinPerpEquity(double walletVolume, double tradeVolume)

@@ -9,6 +9,7 @@ public class OrderBookSubscriber
 {
     private readonly Dictionary<string, HyperLiquidOrderBook> _orderBook = [];
     private readonly object _lock = new();
+
     public async Task<HyperLiquidOrderBook> GetOrderBook(string coin)
     {
         if (!_orderBook.ContainsKey(coin))
@@ -17,6 +18,32 @@ public class OrderBookSubscriber
         }
 
         return _orderBook[coin];
+    }
+
+    /// <summary>
+    /// Могут быть расхождения по времени , к примеру трейда и получению OrderBook, для этого вводится dateTime
+    /// Если время получения OrderBook > dateTime то возвращаем ответ
+    /// Иначе ждем пока получим актуальный OrderBook
+    /// </summary>
+    /// <param name="coin"></param>
+    /// <param name="dateTime"></param>
+    /// <returns></returns>
+    public async Task<HyperLiquidOrderBook> GetOrderBook(string coin, DateTime dateTime)
+    {
+        if (!_orderBook.ContainsKey(coin))
+        {
+            await SubscribeToOrderBook(coin);
+        }
+
+        do
+        {
+            if (_orderBook.TryGetValue(coin, out HyperLiquidOrderBook? orderBook) && orderBook is not null && orderBook.Timestamp > dateTime)
+            {
+                return orderBook;
+            }
+
+            await Task.Delay(10);
+        } while (true);
     }
 
     public async Task SubscribeToOrderBook(string coin)

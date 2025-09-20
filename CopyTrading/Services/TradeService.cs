@@ -47,22 +47,24 @@ public class TradeService(
         {
             _logger.LogInformation($"Trade {trade.Coin}");
 
-            _informationService.LogMinPerpEuqityForTrade(trade);
+
 
             if (!newTrades.IsSnapshot)
             {
-                await IsTradePriceActual(trade);
+                var tradeInfo = await IsTradePriceActual(trade);
+
+                _informationService.LogMinPerpEuqityForTrade(trade, tradeInfo.spread, tradeInfo.deltaTimeS);
             }
         }
     }
 
-    private async Task IsTradePriceActual(OriginalTrade trade)
+    private async Task<(double spread, double deltaTimeS)> IsTradePriceActual(OriginalTrade trade)
     {
         var spreadDelta = 0.01;
 
-        var orderBook = await _orderBookProvider.GetOrderBook(trade.Coin);
+        var orderBook = await _orderBookProvider.GetOrderBook(trade.Coin, trade.TimeStamp);
 
-        if (orderBook is null) return;
+        if (orderBook is null) return (0, 0);
 
         var bestAsk = (double)orderBook.Levels.Asks.First().Price;
         var bestBid = (double)orderBook.Levels.Bids.First().Price;
@@ -70,31 +72,36 @@ public class TradeService(
         Console.WriteLine($"Trade Time : {trade.TimeStamp}\n" +
                           $"OB    Time : {orderBook.Timestamp}");
 
+        var deltaTimeS = (orderBook.Timestamp - trade.TimeStamp).Milliseconds / 1000D;
+        double spread;
+
         if (trade.Direction == Direction.Long)
         {
-            var spread = (bestAsk - trade.Price) / bestAsk * 100;
+            spread = (bestAsk - trade.Price) / bestAsk * 100;
 
             if (trade.Price >= bestAsk || spread < spreadDelta)
             {
-                Console.WriteLine($"Цена сделки {trade.TradeId} {trade.Direction} {trade.Price} сейчас {bestAsk} актуальна для покупки. {spread:F5} %");
+                Console.WriteLine($"Цена сделки {trade.TradeId} {trade.Direction} {trade.Price} сейчас {bestAsk} актуальна для покупки. {spread:F5} % d времени Trade и OrderBook {deltaTimeS} Sec");
             }
             else
             {
-                Console.WriteLine($"Цена сделки {trade.TradeId} {trade.Direction} {trade.Price} сейчас {bestAsk} не актуальна для покупки. {spread:F5} %");
+                Console.WriteLine($"Цена сделки {trade.TradeId} {trade.Direction} {trade.Price} сейчас {bestAsk} не актуальна для покупки. {spread:F5} % d времени Trade и OrderBook {deltaTimeS} Sec");
             }
         }
         else
         {
-            var spread = (bestBid - trade.Price) / bestBid * 100;
+            spread = (bestBid - trade.Price) / bestBid * 100;
 
             if (trade.Price <= bestBid || spread < spreadDelta)
             {
-                Console.WriteLine($"Цена сделки {trade.TradeId} {trade.Direction} {trade.Price} сейчас {bestBid} актуальна для продажи. {spread:F5} %");
+                Console.WriteLine($"Цена сделки {trade.TradeId} {trade.Direction} {trade.Price} сейчас {bestBid} актуальна для продажи. {spread:F5} % d времени Trade и OrderBook {deltaTimeS} Sec");
             }
             else
             {
-                Console.WriteLine($"Цена сделки {trade.TradeId} {trade.Direction} {trade.Price} сейчас {bestBid} не актуальна для продажи. {spread:F5} %");
+                Console.WriteLine($"Цена сделки {trade.TradeId} {trade.Direction} {trade.Price} сейчас {bestBid} не актуальна для продажи. {spread:F5} % d времени Trade и OrderBook {deltaTimeS} Sec");
             }
         }
+
+        return (spread, deltaTimeS);
     }
 }
