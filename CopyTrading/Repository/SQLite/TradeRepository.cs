@@ -27,7 +27,7 @@ public class TradeRepository
                     TradeValue = excluded.TradeValue,
                     MinPerpEquityForCopyTrade = excluded.MinPerpEquityForCopyTrade,
                     Spread = excluded.Spread,
-                    DeltaTimeS = excluded.DeltaTimeS;
+                    DeltaTimeS = excluded.DeltaTimeS,
                     Time = excluded.Time,
                     Symbol = excluded.Symbol;
             ";
