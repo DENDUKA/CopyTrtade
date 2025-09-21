@@ -11,4 +11,5 @@ public class MinPEForTradeDto
     public double MinPE { get; set; }
     public double Spread { get; set; }
     public double DeltaTimeS { get; set; }
+    public long OrderId { get; set; }
 }

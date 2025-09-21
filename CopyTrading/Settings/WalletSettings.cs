@@ -15,7 +15,17 @@ public static class WalletSettings
         "0x81a20870c5c7558f117166b2a598abaa8ce91f50",
         "0xfb8194ca853afe29e17062b2cd60aeeaa4cfd907",
         "0xa844d7ac9fa3424c4fd38a25baa23e460ec3e802",
-        "0x6217be04ad78ecaa59a6a165950c17f6f604927d"
+        "0x6217be04ad78ecaa59a6a165950c17f6f604927d",
+        "0xff9152cce6fbd30988b1aef70df6f086c99e2c55",
+        "0xf0f2712ff99ac60d69fc837a62e5d523a01ccf65",
+        "0xbb088e9852e18b1df8890d8d0f48bdcec0ab0964",
+        "0xf709deb9ca069e53a31a408fde397a87d025a352",
+        "0xb48cd87a34e4a756f03bc3d0f78ef470937ec9a6",
+        "0x8f8d2d2565bfb10608a7ce64b48e2aea7875a344",
+        "0xa1b6d8efbcb2fb750a84dbc05649fa4968034f04",
+        "0xe61c2251b2641989f49bb5b73b2a8d0dbc6e40d8",
+        "0x872ebee938a6da791eb0e6675cac6016b04c8155",
+
     ];
 
     public static string[] TestFillTrackedWallets =

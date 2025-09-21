@@ -3,11 +3,12 @@ using Microsoft.Data.Sqlite;
 
 namespace CopyTrading.Repository.SQLite;
 
-public class TradeRepository
+public class TradeRepository(ILogger<TradeRepository> _logger)
 {
     private readonly string _dbPath = Path.Combine(@"D:\Programs\ArbitrageExchangesScanes\CopyTrtade\SQLliteBD", "CopyTraidingDB.db");
 
-    public async Task WriteMinPeForTrade(MinPEForTradeDto dto)
+    public async Task WriteMinPeForTrade(
+        MinPEForTradeDto dto)
     {
         try
         {
@@ -18,9 +19,9 @@ public class TradeRepository
             var command = connection.CreateCommand();
             command.CommandText = @"
                 INSERT INTO MinPerpEquityForTrades
-                    (TradeId, Wallet, WalletPerpEquity, TradeValue, MinPerpEquityForCopyTrade, Spread, DeltaTimeS, Time, Symbol)
+                    (TradeId, Wallet, WalletPerpEquity, TradeValue, MinPerpEquityForCopyTrade, Spread, DeltaTimeS, Time, Symbol, OrderId)
                 VALUES
-                    (@TradeId, @Wallet, @WalletPerpEquity, @TradeValue, @MinPerpEquityForCopyTrade, @Spread, @DeltaTimeS, @Time, @Symbol)
+                    (@TradeId, @Wallet, @WalletPerpEquity, @TradeValue, @MinPerpEquityForCopyTrade, @Spread, @DeltaTimeS, @Time, @Symbol, @OrderId)
                 ON CONFLICT(TradeId) DO UPDATE SET
                     Wallet = excluded.Wallet,
                     WalletPerpEquity = excluded.WalletPerpEquity,
@@ -29,7 +30,8 @@ public class TradeRepository
                     Spread = excluded.Spread,
                     DeltaTimeS = excluded.DeltaTimeS,
                     Time = excluded.Time,
-                    Symbol = excluded.Symbol;
+                    Symbol = excluded.Symbol,
+                    OrderId = excluded.OrderId;
             ";
 
             command.Parameters.AddWithValue("@TradeId", dto.TradeId);
@@ -41,12 +43,14 @@ public class TradeRepository
             command.Parameters.AddWithValue("@DeltaTimeS", dto.DeltaTimeS);
             command.Parameters.AddWithValue("@Time", dto.Time.ToString());
             command.Parameters.AddWithValue("@Symbol", dto.Symbol);
+            command.Parameters.AddWithValue("@OrderId", dto.OrderId);
 
-            await command.ExecuteNonQueryAsync();
+            var res =  await command.ExecuteNonQueryAsync();
+
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error writing MinPerpEquityForTrade: {ex.Message}");
+            _logger.LogError($"Repository WriteMinPeForTrade: {ex.Message}");
         }
     }
 }

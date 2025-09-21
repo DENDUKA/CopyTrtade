@@ -45,6 +45,7 @@ public class InformationService(
             TradeId = trade.TradeId,
             Volume = trade.Volume,
             Wallet = trade.Wallet,
+            OrderId = trade.OrderId,
         });
     }
 
