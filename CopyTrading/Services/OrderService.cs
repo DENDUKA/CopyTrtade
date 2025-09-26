@@ -102,12 +102,12 @@ public class OrderService(
 
     private async Task FilledOrder(OriginalOrder order)
     {
-        _orderSQLLiteProvider.ChangeOrderStatus(order.Id, OrderStatus.Filled);
+        _orderSQLLiteProvider.ChangeOrderStatus(order.OrderId, OrderStatus.Filled);
     }
 
     private async Task CancelOrder(OriginalOrder order)
     {
-        _orderSQLLiteProvider.RemoveOrder(order.Id);
+        _orderSQLLiteProvider.RemoveOrder(order.OrderId);
     }
 
 

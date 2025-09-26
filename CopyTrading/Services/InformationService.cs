@@ -28,7 +28,7 @@ public class InformationService(
         return minPerpE;
     }
 
-    public async Task LogMinPerpEuqityForTrade(OriginalTrade trade, double spread, double deltaTimeS)
+    public async Task LogMinPerpEquityForTrade(TradeModel trade, double spread, double deltaTimeS)
     {
         var walletInfo = await _walletInfoProvider.GetInfo(trade.Wallet);
 
@@ -46,6 +46,8 @@ public class InformationService(
             Volume = trade.Volume,
             Wallet = trade.Wallet,
             OrderId = trade.OrderId,
+            Direction = trade.Direction,
+            SubType = trade.SubType,
         });
     }
 

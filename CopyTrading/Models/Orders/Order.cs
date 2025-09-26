@@ -5,7 +5,7 @@ namespace CopyTrading.Models.Orders;
 
 public abstract class Order
 {
-    public long Id { get; set; }
+    public long OrderId { get; set; }
     public string Wallet { get; set; }
     public string Coin { get; set; }
     public double Price { get; set; }

@@ -12,12 +12,12 @@ public class CopyTradeService(
 {
     private readonly OrderSubType[] OrderOpenedTypes = [OrderSubType.Decrease, OrderSubType.Increase, OrderSubType.Close];
 
-    public async Task CreateMerketTrade(OriginalTrade trade)
+    public async Task CreateMerketTrade(TradeModel trade)
     {
         var copyOrder = await CreateCopyOrder(trade, OrderType.Market);
     }
 
-    private async Task<CopyOrder> CreateCopyOrder(OriginalTrade trade, OrderType marketType)
+    private async Task<CopyOrder> CreateCopyOrder(TradeModel trade, OrderType marketType)
     {
         var defaultLevel = 5;
         var myAccountValue = 1000;
@@ -33,7 +33,7 @@ public class CopyTradeService(
 
         var newCopyOrder = new CopyOrder()
         {
-            Id = trade.TradeId,
+            OrderId = trade.TradeId,
             Coin = trade.Coin,
             Direction = trade.Direction,            
             Leverage = leverage.Value,
@@ -77,7 +77,7 @@ public class CopyTradeService(
         order.Size = Math.Round(order.Size, exchangeInfo.QuantityDecimals!.Value);
     }
 
-    private static OrderSubType GetOrderType(Dictionary<string, PositionModel> positions, OriginalTrade order)
+    private static OrderSubType GetOrderType(Dictionary<string, PositionModel> positions, TradeModel order)
     {
         if (positions.ContainsKey(order.Coin))
         {

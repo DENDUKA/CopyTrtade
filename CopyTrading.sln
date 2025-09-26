@@ -12,6 +12,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SQLliteBD", "SQLliteBD", "{
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Packages", "Packages", "{309A7FC5-EBB5-4564-B312-6DEA206C8385}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HyperLiquid.Net", "SidePackges\HyperLiquid.Net\HyperLiquid.Net\HyperLiquid.Net.csproj", "{52F43446-A9AE-43A2-3A27-F18474E07275}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -22,9 +24,16 @@ Global
 		{EA652498-6387-4967-9BB9-31948106A1E8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EA652498-6387-4967-9BB9-31948106A1E8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{EA652498-6387-4967-9BB9-31948106A1E8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{52F43446-A9AE-43A2-3A27-F18474E07275}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{52F43446-A9AE-43A2-3A27-F18474E07275}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{52F43446-A9AE-43A2-3A27-F18474E07275}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{52F43446-A9AE-43A2-3A27-F18474E07275}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{52F43446-A9AE-43A2-3A27-F18474E07275} = {309A7FC5-EBB5-4564-B312-6DEA206C8385}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {655339C2-CFDE-43E3-BFF9-EFE7ED82E0B4}

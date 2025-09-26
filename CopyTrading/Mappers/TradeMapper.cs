@@ -7,9 +7,9 @@ namespace CopyTrading.Mappers;
 
 public static class TradeMapper
 {
-    public static OriginalTrade ToBll(this HyperLiquidUserTrade tradeDto, string wallet)
+    public static TradeModel ToBll(this HyperLiquidUserTrade tradeDto, string wallet)
     {
-        var trade = new OriginalTrade
+        var trade = new TradeModel
         {
             IsTaker = tradeDto.Crossed,
             Direction = tradeDto.OrderSide.ToBll(),
@@ -27,7 +27,7 @@ public static class TradeMapper
         return trade;
     }
 
-    public static TradeMeasurement ToMeasurement(this OriginalTrade trade)
+    public static TradeMeasurement ToMeasurement(this TradeModel trade)
     {
         return new TradeMeasurement
         {

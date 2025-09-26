@@ -12,6 +12,7 @@ public static class WalletInfoMapper
             Wallet = wallet,
             AccountVolume = (double)data.MarginSummary.AccountValue,
             TotalMarginUsed = data.MarginSummary.TotalMarginUsed,
+            TimeStamp = data.Timestamp,
             Positions = data.Positions
             .Select(x => x.ToBll())
             .ToDictionary(k => k.Symbol, v => v),

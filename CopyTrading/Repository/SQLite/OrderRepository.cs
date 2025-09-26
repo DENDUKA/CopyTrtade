@@ -28,7 +28,7 @@ public class OrderRepository
 
         command.Parameters.AddWithValue("@Wallet", order.Wallet);
         command.Parameters.AddWithValue("@Status", status.ToString());
-        command.Parameters.AddWithValue("@CopiedOrderId", order.Id);
+        command.Parameters.AddWithValue("@CopiedOrderId", order.OrderId);
         command.Parameters.AddWithValue("@MyOrderId", 0);
 
         await command.ExecuteNonQueryAsync();

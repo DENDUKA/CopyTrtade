@@ -61,7 +61,7 @@ public class WalletInfoProvider(
         return Array.Empty<OriginalOrder>();
     }
 
-    public async Task<OriginalTrade[]> GetHistoricalTrades(string wallet)
+    public async Task<TradeModel[]> GetHistoricalTrades(string wallet)
     {
         var response = await _restClient.FuturesApi.Trading.GetUserTradesAsync(wallet);
 

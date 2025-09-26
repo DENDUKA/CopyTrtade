@@ -3,7 +3,7 @@ using CopyTrading.Models.Enums.Order;
 
 namespace CopyTrading.Models.Trade;
 
-public record OriginalTrade
+public record TradeModel
 {
     public long OrderId { get; set; }
     public long TradeId { get; set; }

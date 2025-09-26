@@ -4,6 +4,8 @@ using CopyTrading.Providers.Hyperliquid.Providers;
 using CopyTrading.Providers.Hyperliquid.Subscribers;
 using CopyTrading.Repository.Influx;
 using CopyTrading.Settings;
+using System.Diagnostics;
+using TradeRepositoreySQL = CopyTrading.Repository.SQLite.TradeRepository;
 
 namespace CopyTrading.Services;
 
@@ -11,7 +13,8 @@ public class TradeService(
     OrdersTradesSubscriber _orderProvider,
     OrderBookSubscriber _orderBookProvider,
     WalletInfoProvider _walletInfoProvider,
-    TradeRepository _tradeRepository,
+    TradeRepository _tradeRepositoryInflux,
+    TradeRepositoreySQL _tradeRepositorySQL,
     InformationService _informationService,
     ILogger<TradeService> _logger)
 {
@@ -32,33 +35,30 @@ public class TradeService(
     {
         var trades = await _walletInfoProvider.GetHistoricalTrades(wallet);
 
-        _tradeRepository.WriteTrades(trades);
+        _tradeRepositoryInflux.WriteTrades(trades);
     }
 
-    private async void NewTrades((OriginalTrade[] Trades, bool IsSnapshot) newTrades)
+    private async void NewTrades((TradeModel[] Trades, bool IsSnapshot) newTrades)
     {
-        if (newTrades.IsSnapshot)
-        {
-            Console.WriteLine("___SnapShot___");
-            return;
-        }
+
 
         foreach (var trade in newTrades.Trades)
         {
-            _logger.LogInformation($"Trade {trade.Coin}");
-
-
-
-            if (!newTrades.IsSnapshot)
+            if (newTrades.IsSnapshot)
             {
-                var tradeInfo = await IsTradePriceActual(trade);
-
-                _informationService.LogMinPerpEuqityForTrade(trade, tradeInfo.spread, tradeInfo.deltaTimeS);
+                _tradeRepositorySQL.WriteTrade(trade);
+                continue;
             }
+
+            _logger.LogInformation($"Trade {trade.Coin} {trade.SubType}");
+
+            var (spread, deltaTimeS) = await IsTradePriceActual(trade);
+
+            _informationService.LogMinPerpEquityForTrade(trade, spread, deltaTimeS);
         }
     }
 
-    private async Task<(double spread, double deltaTimeS)> IsTradePriceActual(OriginalTrade trade)
+    private async Task<(double spread, double deltaTimeS)> IsTradePriceActual(TradeModel trade)
     {
         var spreadDelta = 0.01;
 
@@ -72,7 +72,7 @@ public class TradeService(
         Console.WriteLine($"Trade Time : {trade.TimeStamp}\n" +
                           $"OB    Time : {orderBook.Timestamp}");
 
-        var deltaTimeS = (orderBook.Timestamp - trade.TimeStamp).Milliseconds / 1000D;
+        var deltaTimeS = (orderBook.Timestamp - trade.TimeStamp).TotalSeconds;
         double spread;
 
         if (trade.Direction == Direction.Long)

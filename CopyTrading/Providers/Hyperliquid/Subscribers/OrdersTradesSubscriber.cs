@@ -1,6 +1,7 @@
 ﻿using CopyTrading.Mappers;
 using CopyTrading.Models.Orders;
 using CopyTrading.Models.Trade;
+using CryptoExchange.Net.Interfaces;
 using CryptoExchange.Net.Objects;
 using HyperLiquid.Net.Clients;
 
@@ -31,7 +32,7 @@ public class OrdersTradesSubscriber
         }
     }
 
-    public async Task SubscribeToFilledTrades(string wallet, Action<(OriginalTrade[] Trades, bool IsSnapshot)> newTradeAction)
+    public async Task SubscribeToFilledTrades(string wallet, Action<(TradeModel[] Trades, bool IsSnapshot)> newTradeAction)
     {
         if (subscribes.Contains(wallet))
             return;

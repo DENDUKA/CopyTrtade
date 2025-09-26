@@ -10,6 +10,6 @@ public class OriginalOrder : Order
 
     public override string ToString()
     {
-        return $"{Wallet} {Id} {Time} {Coin} {Direction} {Price} {Size} {Value} {SubType} {Status}";
+        return $"{Wallet} {OrderId} {Time} {Coin} {Direction} {Price} {Size} {Value} {SubType} {Status}";
     }
 }

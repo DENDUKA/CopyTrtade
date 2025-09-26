@@ -7,6 +7,7 @@ public record WalletInfoModel
     public double AccountVolume { get; set; }
     public decimal TotalMarginUsed { get; set; }
     public Dictionary<string, PositionModel> Positions { get; set; }
+    public DateTime TimeStamp { get; set; }
 
     public override string ToString()
     {

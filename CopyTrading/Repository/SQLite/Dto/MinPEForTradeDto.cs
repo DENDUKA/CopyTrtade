@@ -1,4 +1,7 @@
-﻿namespace CopyTrading.Repository.SQLite.Dto;
+﻿using CopyTrading.Models.Enums;
+using CopyTrading.Models.Enums.Order;
+
+namespace CopyTrading.Repository.SQLite.Dto;
 
 public class MinPEForTradeDto
 {
@@ -12,4 +15,6 @@ public class MinPEForTradeDto
     public double Spread { get; set; }
     public double DeltaTimeS { get; set; }
     public long OrderId { get; set; }
+    public Direction Direction { get; set; }
+    public OrderSubType SubType { get; set; }
 }

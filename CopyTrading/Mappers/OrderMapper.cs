@@ -13,7 +13,7 @@ public static class OrderMapper
     {
         return new OriginalOrder()
         {
-            Id = data.Order.OrderId,
+            OrderId = data.Order.OrderId,
             Coin = data.Order.Symbol,
             Direction = data.Order.OrderSide == HyperLiquid.Net.Enums.OrderSide.Buy ? Direction.Long : Direction.Short,
             Price = (double)data.Order.Price,
@@ -28,7 +28,7 @@ public static class OrderMapper
     {
         return new CopiedOrderMeasurement
         {
-            Id = order.Id,
+            Id = order.OrderId,
             Wallet = order.Wallet,
             Coin = order.Coin,
             Size = order.Size,

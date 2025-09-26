@@ -57,7 +57,7 @@ public class OrderProvider : IOrdersProvider
 
     private void AddPlaceOrder(CopyOrder order)
     {
-        PlacedOrders.TryAdd(order.Id, order);
+        PlacedOrders.TryAdd(order.OrderId, order);
         _ballance -= order.Price * order.Size;
     }
 }

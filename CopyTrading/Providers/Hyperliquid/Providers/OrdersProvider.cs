@@ -1,5 +1,6 @@
 ﻿using HyperLiquid.Net.Clients;
 using HyperLiquid.Net.Enums;
+using HyperLiquid.Net.Interfaces.Clients;
 using HyperLiquid.Net.Objects.Options;
 
 namespace CopyTrading.Providers.Hyperliquid.Providers;
@@ -9,8 +10,8 @@ public class OrdersProvider
     private readonly HyperLiquidRestClient _hyperLiquidRestClient;
 
     //Key Secret вынести в secret.json
-    private readonly string key = "";
-    private readonly string secret = "";
+    private readonly string key = "1";
+    private readonly string secret = "1";
 
     public OrdersProvider()
     {

@@ -37,7 +37,13 @@ public class OrderBookSubscriber
 
         do
         {
-            if (_orderBook.TryGetValue(coin, out HyperLiquidOrderBook? orderBook) && orderBook is not null && orderBook.Timestamp > dateTime)
+            if (_orderBook.TryGetValue(
+                coin, 
+                out HyperLiquidOrderBook? orderBook) && 
+                orderBook is not null && 
+                orderBook.Levels.Asks.Length > 0 && 
+                orderBook.Levels.Bids.Length > 0 && 
+                orderBook.Timestamp > dateTime)
             {
                 return orderBook;
             }

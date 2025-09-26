@@ -2,6 +2,7 @@
 
 public enum OrderSubType
 {
+    None = 0,
     Increase,
     Decrease,
     Open,
