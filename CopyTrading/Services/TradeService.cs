@@ -1,79 +1,115 @@
-﻿using CopyTrading.Models.Enums;
+﻿using CopyTrading.Mappers;
+using CopyTrading.Models.Enums;
 using CopyTrading.Models.Trade;
-using CopyTrading.Providers.Hyperliquid.Providers;
 using CopyTrading.Providers.Hyperliquid.Subscribers;
-using CopyTrading.Repository.Influx;
+using CopyTrading.Repository.SQLite;
+using CopyTrading.Repository.SQLite.Dto;
+using CopyTrading.Services.Interfaces;
 using CopyTrading.Settings;
-using System.Diagnostics;
+using CopyTrading.Values;
 using TradeRepositoreySQL = CopyTrading.Repository.SQLite.TradeRepository;
+using TradeRepositoryInflux = CopyTrading.Repository.Influx.TradeRepository;
 
 namespace CopyTrading.Services;
 
 public class TradeService(
     OrdersTradesSubscriber _orderProvider,
     OrderBookSubscriber _orderBookProvider,
-    WalletInfoProvider _walletInfoProvider,
-    TradeRepository _tradeRepositoryInflux,
+    IWalletInfoProvider _walletInfoProvider,
+    TradeRepositoryInflux _tradeRepositoryInflux,
     TradeRepositoreySQL _tradeRepositorySQL,
+    WalletInfoRepository _walletInfoRepository,
     InformationService _informationService,
+    CurrentWalletPositionService _currentWalletPositionService,
     ILogger<TradeService> _logger)
 {
-    public async Task SubscribeToWalletTrades(string wallet)
+    public async Task SubscribeToWalletTrades(Wallet wallet)
     {
-        await _orderProvider.SubscribeToFilledTrades(wallet, NewTrades);
+        await SubscribeToWallet(wallet);
     }
 
     public async Task SubscribeToTrackedWalletsTrades()
     {
         foreach (var wallet in WalletSettings.TrackedWallets)
         {
-            await _orderProvider.SubscribeToFilledTrades(wallet, NewTrades);
+            await SubscribeToWallet(wallet);
         }
     }
 
-    public async Task CollectHystoricalTrades(string wallet)
+    public async Task CollectHystoricalTrades(Wallet wallet)
     {
         var trades = await _walletInfoProvider.GetHistoricalTrades(wallet);
 
         _tradeRepositoryInflux.WriteTrades(trades);
     }
 
-    private async void NewTrades((TradeModel[] Trades, bool IsSnapshot) newTrades)
+    private async Task SubscribeToWallet(Wallet wallet)
     {
+        var walletInfo = await _walletInfoProvider.GetInfo(wallet, false);
+        var walletSnapshot = walletInfo.ToWalletSnapshot();
 
+        _currentWalletPositionService.InitializeWalletSnapshot(walletSnapshot);
 
+        _walletInfoRepository.WriteCurrentPositions(new WalletSnapshotPositionsDto(walletSnapshot));
+
+        await _orderProvider.SubscribeToFilledTrades(wallet, OnNewTrades);
+    }
+
+    private void OnNewTrades((Trade[] Trades, bool IsSnapshot) newTrades)
+    {
         foreach (var trade in newTrades.Trades)
         {
+            if (!trade.IsFuture) continue;
+
+            _tradeRepositorySQL.WriteTrade(trade);
+
             if (newTrades.IsSnapshot)
-            {
-                _tradeRepositorySQL.WriteTrade(trade);
+            {                
                 continue;
             }
 
-            _logger.LogInformation($"Trade {trade.Coin} {trade.SubType}");
-
-            var (spread, deltaTimeS) = await IsTradePriceActual(trade);
-
-            _informationService.LogMinPerpEquityForTrade(trade, spread, deltaTimeS);
+            CalculateWriteMinPerpEquityForTrade(trade);
         }
     }
 
-    private async Task<(double spread, double deltaTimeS)> IsTradePriceActual(TradeModel trade)
+    private async Task CalculateWriteMinPerpEquityForTrade(Trade trade)
     {
-        var spreadDelta = 0.01;
+        var (spread, deltaTimeS) = await ActualSpreadAndDeltaTime(trade);
 
-        var orderBook = await _orderBookProvider.GetOrderBook(trade.Coin, trade.TimeStamp);
+        var walletInfo = await _walletInfoProvider.GetInfo(trade.Wallet);
+
+        var minPE = _informationService.CalculateMinPerpEquity(walletInfo.AccountVolume, trade.VolumeUsd);
+        var subType = await _currentWalletPositionService.AddTrade(trade);
+
+        //_logger.LogWarning($"subType {subType.ToString()}");
+
+        _tradeRepositorySQL.WriteMinPeForTrade(new MinPEForTrade
+        {
+            TradeId = trade.TradeId,
+            AccountVolume = walletInfo.AccountVolume,
+            DeltaTimeS = deltaTimeS,
+            MinPE = minPE,
+            Spread = spread,
+            SubType = subType,
+        });
+    }
+
+    private async Task<(decimal spread, decimal deltaTimeS)> ActualSpreadAndDeltaTime(Trade trade)
+    {
+        var spreadDelta = 0.01M;
+
+        var orderBook = await _orderBookProvider.GetOrderBook(trade.Symbol, trade.TimeStamp);
 
         if (orderBook is null) return (0, 0);
 
-        var bestAsk = (double)orderBook.Levels.Asks.First().Price;
-        var bestBid = (double)orderBook.Levels.Bids.First().Price;
+        var bestAsk = orderBook.Levels.Asks.First().Price;
+        var bestBid = orderBook.Levels.Bids.First().Price;
 
         Console.WriteLine($"Trade Time : {trade.TimeStamp}\n" +
                           $"OB    Time : {orderBook.Timestamp}");
 
-        var deltaTimeS = (orderBook.Timestamp - trade.TimeStamp).TotalSeconds;
-        double spread;
+        var deltaTimeS = (decimal)(orderBook.Timestamp - trade.TimeStamp).TotalSeconds;
+        decimal spread;
 
         if (trade.Direction == Direction.Long)
         {

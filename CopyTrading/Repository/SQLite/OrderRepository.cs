@@ -1,66 +1,45 @@
-﻿
-using CopyTrading.Models.Enums.Order;
+﻿using CopyTrading.Extensions;
 using CopyTrading.Models.Orders;
 using Microsoft.Data.Sqlite;
 
 namespace CopyTrading.Repository.SQLite;
 
-public class OrderRepository
+public class OrderRepository(ILogger<OrderRepository> _logger)
 {
-    // Относительный путь к базе данных относительно корня проекта
-    private readonly string _databasePath = @"C:\Users\DENDUKA\source\repos\CopyTrading\SQLliteBD\CopyTraidingDB.db";
+    private readonly string _databasePath = @"D:\Programs\ArbitrageExchangesScanes\CopyTrtade\SQLliteBD\CopyTraidingDB.db";
 
-    public OrderRepository()
+    public async Task WriteOrder(
+        OriginalOrder order)
     {
+        try
+        {
+            using var connection = new SqliteConnection($"Data Source={_databasePath}");
+            await connection.OpenAsync();
 
-    }
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+            INSERT INTO Orders (
+                OrderId, Wallet, Time, Symbol, Direction, Price, Size, Value, Status
+            ) VALUES (
+                @OrderId, @Wallet, @Time, @Symbol, @Direction, @Price, @Size, @Value, @Status
+            )
+            ON CONFLICT(OrderId) DO UPDATE SET Status = excluded.Status;";
 
-    public async Task AddOrder(CopyOrder order, OrderStatus status)
-    {
-        using var connection = new SqliteConnection($"Data Source={_databasePath};");
-        await connection.OpenAsync();
+            command.Parameters.AddWithValue("@OrderId", order.OrderId);
+            command.Parameters.AddWithValue("@Wallet", order.Wallet?.ToString() ?? string.Empty);
+            command.Parameters.AddWithValue("@Time", order.Time.ToStringMs());
+            command.Parameters.AddWithValue("@Symbol", order.Symbol);
+            command.Parameters.AddWithValue("@Direction", order.Direction.ToString());
+            command.Parameters.AddWithValue("@Price", order.Price);
+            command.Parameters.AddWithValue("@Size", order.Size);
+            command.Parameters.AddWithValue("@Value", order.Value);
+            command.Parameters.AddWithValue("@Status", order.Status.ToString());
 
-        using var command = new SqliteCommand(@"
-            INSERT INTO [Order]
-            (CopiedOrderId, Wallet, Status, MyOrderId) 
-            VALUES
-            (@CopiedOrderId, @Wallet, @Status, @MyOrderId);", connection);
-
-        command.Parameters.AddWithValue("@Wallet", order.Wallet);
-        command.Parameters.AddWithValue("@Status", status.ToString());
-        command.Parameters.AddWithValue("@CopiedOrderId", order.OrderId);
-        command.Parameters.AddWithValue("@MyOrderId", 0);
-
-        await command.ExecuteNonQueryAsync();
-    }
-
-    public async Task RemoveOrder(long id)
-    {
-        using var connection = new SqliteConnection($"Data Source={_databasePath};");
-        await connection.OpenAsync();
-
-        using var command = new SqliteCommand(@"
-            DELETE FROM [Order]
-            WHERE CopiedOrderId = @CopiedOrderId;", connection);
-
-        command.Parameters.AddWithValue("@CopiedOrderId", id);
-
-        await command.ExecuteNonQueryAsync();
-    }
-
-    public async Task ChangeOrderStatus(long id, OrderStatus status)
-    {
-        using var connection = new SqliteConnection($"Data Source={_databasePath};");
-        await connection.OpenAsync();
-
-        using var command = new SqliteCommand(@"
-            UPDATE [Order]
-            SET Status = @Status
-            WHERE CopiedOrderId = @CopiedOrderId;", connection);
-
-        command.Parameters.AddWithValue("@Status", status.ToString());
-        command.Parameters.AddWithValue("@CopiedOrderId", id);
-
-        await command.ExecuteNonQueryAsync();
+            await command.ExecuteNonQueryAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Repository WriteMinPeForTrade: {ex.Message}");
+        }
     }
 }

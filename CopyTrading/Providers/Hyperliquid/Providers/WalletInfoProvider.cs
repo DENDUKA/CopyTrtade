@@ -1,6 +1,8 @@
 ﻿using CopyTrading.Mappers;
 using CopyTrading.Models.Orders;
 using CopyTrading.Models.Trade;
+using CopyTrading.Services.Interfaces;
+using CopyTrading.Values;
 using HyperLiquid.Net.Clients;
 using HyperLiquid.Net.Objects.Models;
 using Microsoft.Extensions.Caching.Memory;
@@ -11,22 +13,22 @@ namespace CopyTrading.Providers.Hyperliquid.Providers;
 
 public class WalletInfoProvider(
     ILogger<WalletInfoProvider> _logger,
-    IMemoryCache _cache)
+    IMemoryCache _cache) : IWalletInfoProvider
 {
     private readonly TimeSpan _cacheLiveTime = TimeSpan.FromSeconds(10);
 
     private readonly HyperLiquidRestClient _restClient = new();
 
-    public async Task<WalletInfoModel?> GetInfo(string wallet)
+    public async Task<WalletInfoModel?> GetInfo(Wallet wallet, bool useCache = true)
     {
-        if (_cache.TryGetValue(wallet, out WalletInfoModel? cached))
+        if (useCache && _cache.TryGetValue(wallet, out WalletInfoModel? cached))
             return cached;
 
         HyperLiquidFuturesAccount data = null;
 
         try
         {
-            var response = await _restClient.FuturesApi.Account.GetAccountInfoAsync(wallet);
+            var response = await _restClient.FuturesApi.Account.GetAccountInfoAsync(wallet.Value);
 
             if (response.Success)
             {
@@ -49,9 +51,9 @@ public class WalletInfoProvider(
         return result;
     }
 
-    public async Task<OriginalOrder[]> GetHistoricalOrders(string wallet)
+    public async Task<OriginalOrder[]> GetHistoricalOrders(Wallet wallet)
     {
-        var response = await _restClient.FuturesApi.Trading.GetOrderHistoryAsync(wallet);
+        var response = await _restClient.FuturesApi.Trading.GetOrderHistoryAsync(wallet.Value);
         if (response.Success)
         {
             return response.Data.Select(x => x.ToBll(wallet)).ToArray();
@@ -61,9 +63,9 @@ public class WalletInfoProvider(
         return Array.Empty<OriginalOrder>();
     }
 
-    public async Task<TradeModel[]> GetHistoricalTrades(string wallet)
+    public async Task<Trade[]> GetHistoricalTrades(Wallet wallet)
     {
-        var response = await _restClient.FuturesApi.Trading.GetUserTradesAsync(wallet);
+        var response = await _restClient.FuturesApi.Trading.GetUserTradesAsync(wallet.Value);
 
         if (response.Success)
         {
@@ -74,7 +76,7 @@ public class WalletInfoProvider(
         return [];
     }
 
-    public async Task<string> QueryPortfolio(string wallet)
+    public async Task<string> QueryPortfolio(Wallet wallet)
     {
         using var httpClient = new HttpClient();
         var url = "https://api.hyperliquid.xyz/info";

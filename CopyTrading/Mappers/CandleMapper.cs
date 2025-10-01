@@ -10,12 +10,12 @@ public static class CandleMapper
     {
         return new Candle()
         {
-            Open = (double)hlKline.OpenPrice,
-            High = (double)hlKline.HighPrice,
-            Low = (double)hlKline.LowPrice,
-            Close = (double)hlKline.ClosePrice,
+            Open = (decimal)hlKline.OpenPrice,
+            High = (decimal)hlKline.HighPrice,
+            Low = (decimal)hlKline.LowPrice,
+            Close = (decimal)hlKline.ClosePrice,
             Symbol = hlKline.Symbol,
-            Volume = (double)hlKline.Volume,
+            Volume = (decimal)hlKline.Volume,
             Time = hlKline.OpenTime,
             Interval = (int)hlKline.Interval / 60,
         };

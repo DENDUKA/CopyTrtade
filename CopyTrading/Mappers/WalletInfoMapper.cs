@@ -1,16 +1,17 @@
 ﻿using CopyTrading.Models;
+using CopyTrading.Values;
 using HyperLiquid.Net.Objects.Models;
 
 namespace CopyTrading.Mappers;
 
 public static class WalletInfoMapper
 {
-    public static WalletInfoModel ToBll(this HyperLiquidFuturesAccount data, string wallet)
+    public static WalletInfoModel ToBll(this HyperLiquidFuturesAccount data, Wallet wallet)
     {
         return new WalletInfoModel()
         {
             Wallet = wallet,
-            AccountVolume = (double)data.MarginSummary.AccountValue,
+            AccountVolume = data.MarginSummary.AccountValue,
             TotalMarginUsed = data.MarginSummary.TotalMarginUsed,
             TimeStamp = data.Timestamp,
             Positions = data.Positions
@@ -19,17 +20,27 @@ public static class WalletInfoMapper
         };
     }
 
-    public static PositionModel ToBll(this HyperLiquidPosition data)
+    public static Position ToBll(this HyperLiquidPosition data)
     {
-        return new PositionModel()
+        return new Position()
         {
             Symbol = data.Position.Symbol,
-            AverageEntryPrice = (double?)data.Position.AverageEntryPrice,
-            Leverage = data.Position.Leverage?.Value,
-            LiquidationPrice = (double?)data.Position.LiquidationPrice,
-            MarginUsage = (double?)data.Position.MarginUsed,
-            Quantity = (double?)data.Position.PositionQuantity,
-            ValueUsd = (double?)data.Position.PositionValue,
+            AverageEntryPrice = data.Position.AverageEntryPrice.Value,
+            Leverage = data.Position.Leverage.Value,
+            LiquidationPrice = data.Position.LiquidationPrice,
+            MarginUsage = data.Position.MarginUsed.Value,
+            Quantity = data.Position.PositionQuantity.Value,
+            VolumeUsd = data.Position.PositionValue.Value,
+        };
+    }
+
+    public static WalletPositionsSnapshot ToWalletSnapshot(this WalletInfoModel info)
+    {
+        return new WalletPositionsSnapshot()
+        {
+            Wallet = info.Wallet,
+            TimeStamp = info.TimeStamp,
+            Positions = info.Positions.Values.ToList(),
         };
     }
 }

@@ -4,23 +4,25 @@ using CopyTrading.Models.Orders;
 using CopyTrading.Providers.Hyperliquid.Providers;
 using CopyTrading.Providers.Hyperliquid.Subscribers;
 using CopyTrading.Repository.Influx;
+using CopyTrading.Services.Interfaces;
 using CopyTrading.Settings;
-
+using CopyTrading.Values;
 using SQLLiteOrderRepository = CopyTrading.Repository.SQLite.OrderRepository;
 
 namespace CopyTrading.Services;
 
 public class OrderService(
         OrdersTradesSubscriber _orderProvider,
-        WalletInfoProvider _walletInfo,
+        IWalletInfoProvider _walletInfo,
         OrderRepository _orderDBProvider,
         ExchangeInfoProvider _exchangeInfoProvider,
         SQLLiteOrderRepository _orderSQLLiteProvider,
+        
         ILogger<OrderService> _logger)
 {
     private readonly OrderSubType[] OrderOpenedTypes = [OrderSubType.Decrease, OrderSubType.Increase, OrderSubType.Close];
 
-    public async Task SubscribeToWalletOrders(string wallet)
+    public async Task SubscribeToWalletOrders(Wallet wallet)
     {
         await _orderProvider.SubscribeToNewOrders(wallet, NewOrders);
     }
@@ -47,28 +49,29 @@ public class OrderService(
 
     #region Orders
 
-    private void NewOrders(OriginalOrder[] obj)
+    private void NewOrders(OriginalOrder[] orders)
     {
         //_orderDBProvider.WriteOrder(obj);
 
-        foreach (var order in obj)
+        foreach (var order in orders)
         {
-            Console.WriteLine(order);
+            _logger.LogInformation($"Получен новый ордер: {order}");
 
+            _orderSQLLiteProvider.WriteOrder(order);
 
             switch (order.Status)
             {
                 case OrderStatus.Canceled:
-                    CancelOrder(order);
+
                     break;
                 case OrderStatus.Open:
                     OpenOrder(order);
                     break;
                 case OrderStatus.Filled:
-                    FilledOrder(order);
+
                     break;
                 default:
-                    Console.WriteLine($"Не известный статус размещаемого ордера {order.Status}");
+                    _logger.LogError($"Не известный статус размещаемого ордера {order.Status}");
                     break;
             }
         }
@@ -78,38 +81,13 @@ public class OrderService(
     {
         try
         {
-            //var copyOrder = await CreateCopyOrder(order);
 
-            //var validateResult = await ValidatePLacedOrderAsync(copyOrder);
-
-            //copyOrder.OriginalOrder = order;
-
-            //if (validateResult)
-            //{
-            //    _logger.LogInformation($"Размещаем ордер : {copyOrder}");
-            //    await _orderSQLLiteProvider.AddOrder(copyOrder, OrderStatus.Open);
-            //}
-            //else
-            //{
-            //    _logger.LogWarning($"Не удалось разместить ордер для {order.Wallet}: {order.Id}");
-            //}
         }
         catch (Exception ex)
         {
             Console.WriteLine(ex.Message);
         }
     }
-
-    private async Task FilledOrder(OriginalOrder order)
-    {
-        _orderSQLLiteProvider.ChangeOrderStatus(order.OrderId, OrderStatus.Filled);
-    }
-
-    private async Task CancelOrder(OriginalOrder order)
-    {
-        _orderSQLLiteProvider.RemoveOrder(order.OrderId);
-    }
-
 
 
     /// <summary>
@@ -118,16 +96,16 @@ public class OrderService(
     /// </summary>
     private async Task CorrectPlacedOrder(CopyOrder order)
     {
-        var exchangeInfo = await _exchangeInfoProvider.GetExchangeInfo(order.Coin);
+        var exchangeInfo = await _exchangeInfoProvider.GetExchangeInfo(order.Symbol);
 
         order.Size = Math.Round(order.Size, exchangeInfo.QuantityDecimals!.Value);
     }
 
-    private static OrderSubType GetOrderType(Dictionary<string, PositionModel> positions, OriginalOrder order)
+    private static OrderSubType GetOrderType(Dictionary<string, Position> positions, OriginalOrder order)
     {
-        if (positions.ContainsKey(order.Coin))
+        if (positions.ContainsKey(order.Symbol))
         {
-            if (positions[order.Coin].Direction == order.Direction)
+            if (positions[order.Symbol].Direction == order.Direction)
             {
                 return OrderSubType.Increase;
             }

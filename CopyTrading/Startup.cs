@@ -3,6 +3,7 @@ using CopyTrading.Providers.Hyperliquid.Subscribers;
 using CopyTrading.QuartzJobs;
 using CopyTrading.Repository.Influx;
 using CopyTrading.Services;
+using CopyTrading.Services.Interfaces;
 using Quartz;
 
 namespace CopyTrading;
@@ -30,9 +31,10 @@ public class Startup
         services.AddSingleton<TradeService>();
         services.AddSingleton<CandleService>();
         services.AddSingleton<InformationService>();
+        services.AddSingleton<CurrentWalletPositionService>();
 
         //HyperLiquid Providers
-        services.AddSingleton<WalletInfoProvider>();        
+        services.AddSingleton<IWalletInfoProvider, WalletInfoProvider>();        
         services.AddSingleton<OrdersProvider>(); 
         services.AddSingleton<ExchangeInfoProvider>();
         services.AddSingleton<CandlesProvider>();
@@ -49,6 +51,7 @@ public class Startup
         //SQL
         services.AddSingleton<Repository.SQLite.OrderRepository>();
         services.AddSingleton<Repository.SQLite.TradeRepository>();
+        services.AddSingleton<Repository.SQLite.WalletInfoRepository>();
 
         // Quartz
         services.AddQuartz(q =>

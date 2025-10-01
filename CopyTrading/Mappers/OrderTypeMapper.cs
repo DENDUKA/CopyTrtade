@@ -1,6 +1,4 @@
-﻿using CopyTrading.Models.Enums;
-
-namespace CopyTrading.Mappers;
+﻿namespace CopyTrading.Mappers;
 
 public static class OrderTypeMapper
 {

@@ -3,21 +3,22 @@ using CopyTrading.Models.Enums.Order;
 using CopyTrading.Models.Orders;
 using CopyTrading.Models.Trade;
 using CopyTrading.Providers.Hyperliquid.Providers;
+using CopyTrading.Services.Interfaces;
 
 namespace CopyTrading.Services;
 
 public class CopyTradeService(
-            WalletInfoProvider _walletInfo,
+            IWalletInfoProvider _walletInfo,
             ExchangeInfoProvider _exchangeInfoProvider)
 {
     private readonly OrderSubType[] OrderOpenedTypes = [OrderSubType.Decrease, OrderSubType.Increase, OrderSubType.Close];
 
-    public async Task CreateMerketTrade(TradeModel trade)
+    public async Task CreateMerketTrade(Trade trade)
     {
         var copyOrder = await CreateCopyOrder(trade, OrderType.Market);
     }
 
-    private async Task<CopyOrder> CreateCopyOrder(TradeModel trade, OrderType marketType)
+    private async Task<CopyOrder> CreateCopyOrder(Trade trade, OrderType marketType)
     {
         var defaultLevel = 5;
         var myAccountValue = 1000;
@@ -27,21 +28,21 @@ public class CopyTradeService(
 
         var orderType = GetOrderType(walletInfo.Positions, trade);
 
-        var orderRatio = trade.Volume / walletInfo.AccountVolume;
-        var leverage = OrderOpenedTypes.Contains(orderType) ? walletInfo.Positions[trade.Coin].Leverage : defaultLevel;
+        var orderRatio = trade.VolumeUsd / walletInfo.AccountVolume;
+        var leverage = OrderOpenedTypes.Contains(orderType) ? walletInfo.Positions[trade.Symbol].Leverage : defaultLevel;
         var orderSize = myAccountValue * orderRatio / trade.Price;
 
         var newCopyOrder = new CopyOrder()
         {
             OrderId = trade.TradeId,
-            Coin = trade.Coin,
+            Symbol = trade.Symbol,
             Direction = trade.Direction,            
-            Leverage = leverage.Value,
+            Leverage = leverage,
             SubType = trade.SubType,
             Price = trade.Price,
             Size = orderSize,
             Wallet = trade.Wallet,
-            OrderRatio = orderRatio * 100,
+            OrderRatio = orderRatio * 100M,
         };
 
         await CorrectPlacedOrder(newCopyOrder);
@@ -51,14 +52,14 @@ public class CopyTradeService(
 
     private async Task<bool> ValidatePLacedOrderAsync(CopyOrder copyOrder)
     {
-        var exchangeInfo = await _exchangeInfoProvider.GetExchangeInfo(copyOrder.Coin);
+        var exchangeInfo = await _exchangeInfoProvider.GetExchangeInfo(copyOrder.Symbol);
 
-        if (copyOrder.Value < (double)exchangeInfo.MinNotionalValue.Value)
+        if (copyOrder.Value < exchangeInfo.MinNotionalValue.Value)
         {
             return false;
         }
 
-        if (copyOrder.Size < (double)exchangeInfo.MinTradeQuantity.Value)
+        if (copyOrder.Size < exchangeInfo.MinTradeQuantity.Value)
         {
             return false;
         }
@@ -72,16 +73,16 @@ public class CopyTradeService(
     /// </summary>
     private async Task CorrectPlacedOrder(CopyOrder order)
     {
-        var exchangeInfo = await _exchangeInfoProvider.GetExchangeInfo(order.Coin);
+        var exchangeInfo = await _exchangeInfoProvider.GetExchangeInfo(order.Symbol);
 
         order.Size = Math.Round(order.Size, exchangeInfo.QuantityDecimals!.Value);
     }
 
-    private static OrderSubType GetOrderType(Dictionary<string, PositionModel> positions, TradeModel order)
+    private static OrderSubType GetOrderType(Dictionary<string, Position> positions, Trade order)
     {
-        if (positions.ContainsKey(order.Coin))
+        if (positions.ContainsKey(order.Symbol))
         {
-            if (positions[order.Coin].Direction == order.Direction)
+            if (positions[order.Symbol].Direction == order.Direction)
             {
                 return OrderSubType.Increase;
             }

@@ -1,4 +1,5 @@
 ﻿using CopyTrading.Services;
+using CopyTrading.Values;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CopyTrading.Controllers;
@@ -17,12 +18,12 @@ public class TradesController(
     [HttpGet("CollectWalletHistoryTrades")]
     public async Task CollectWalletHistoryTrades([FromQuery] string wallet)
     {
-        _tradeService.CollectHystoricalTrades(wallet);
+        _tradeService.CollectHystoricalTrades(new Wallet(wallet));
     }
 
     [HttpGet("SubscribeToWallet")]
     public async Task SubscribeToWallet([FromQuery] string wallet)
     {
-        _tradeService.SubscribeToWalletTrades(wallet);
+        _tradeService.SubscribeToWalletTrades(new Wallet(wallet));
     }
 }

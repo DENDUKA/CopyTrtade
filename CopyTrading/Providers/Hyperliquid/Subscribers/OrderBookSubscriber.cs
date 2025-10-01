@@ -10,14 +10,14 @@ public class OrderBookSubscriber
     private readonly Dictionary<string, HyperLiquidOrderBook> _orderBook = [];
     private readonly object _lock = new();
 
-    public async Task<HyperLiquidOrderBook> GetOrderBook(string coin)
+    public async Task<HyperLiquidOrderBook> GetOrderBook(string symbol)
     {
-        if (!_orderBook.ContainsKey(coin))
+        if (!_orderBook.ContainsKey(symbol))
         {
-            await SubscribeToOrderBook(coin);
+            await SubscribeToOrderBook(symbol);
         }
 
-        return _orderBook[coin];
+        return _orderBook[symbol];
     }
 
     /// <summary>
@@ -25,20 +25,20 @@ public class OrderBookSubscriber
     /// Если время получения OrderBook > dateTime то возвращаем ответ
     /// Иначе ждем пока получим актуальный OrderBook
     /// </summary>
-    /// <param name="coin"></param>
+    /// <param name="symbol"></param>
     /// <param name="dateTime"></param>
     /// <returns></returns>
-    public async Task<HyperLiquidOrderBook> GetOrderBook(string coin, DateTime dateTime)
+    public async Task<HyperLiquidOrderBook> GetOrderBook(string symbol, DateTime dateTime)
     {
-        if (!_orderBook.ContainsKey(coin))
+        if (!_orderBook.ContainsKey(symbol))
         {
-            await SubscribeToOrderBook(coin);
+            await SubscribeToOrderBook(symbol);
         }
 
         do
         {
             if (_orderBook.TryGetValue(
-                coin, 
+                symbol, 
                 out HyperLiquidOrderBook? orderBook) && 
                 orderBook is not null && 
                 orderBook.Levels.Asks.Length > 0 && 
@@ -52,20 +52,20 @@ public class OrderBookSubscriber
         } while (true);
     }
 
-    public async Task SubscribeToOrderBook(string coin)
+    public async Task SubscribeToOrderBook(string symbol)
     {
         HyperLiquidSocketClient _socketClient = new();
 
-        if (!_orderBook.ContainsKey(coin))
+        if (!_orderBook.ContainsKey(symbol))
         {
             Task<CallResult<UpdateSubscription>> task = null;
             lock (_lock)
             {
-                if (!_orderBook.ContainsKey(coin))
+                if (!_orderBook.ContainsKey(symbol))
                 {
-                    _orderBook.Add(coin, null);
+                    _orderBook.Add(symbol, null);
 
-                    task = _socketClient.FuturesApi.SubscribeToOrderBookUpdatesAsync(coin,
+                    task = _socketClient.FuturesApi.SubscribeToOrderBookUpdatesAsync(symbol,
                         (orderBook) => OrderBookUpdate(orderBook));
                 }
             }
@@ -75,12 +75,12 @@ public class OrderBookSubscriber
                 var response = await task;
                 if (response.Success)
                 {
-                    Console.WriteLine($"Успешно подписались на OrderBook {coin}");
+                    Console.WriteLine($"Успешно подписались на OrderBook {symbol}");
                 }
                 else
                 {
-                    Console.WriteLine($"!!! Не успешно подписались на OrderBook {coin}");
-                    _orderBook.Remove(coin);
+                    Console.WriteLine($"!!! Не успешно подписались на OrderBook {symbol}");
+                    _orderBook.Remove(symbol);
                 }
             }
         }

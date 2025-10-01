@@ -1,12 +1,13 @@
 ﻿
 using CopyTrading.Models;
+using CopyTrading.Values;
 
 public record WalletInfoModel
 {
-    public string Wallet { get; set; }
-    public double AccountVolume { get; set; }
+    public Wallet Wallet { get; set; }
+    public decimal AccountVolume { get; set; }
     public decimal TotalMarginUsed { get; set; }
-    public Dictionary<string, PositionModel> Positions { get; set; }
+    public Dictionary<string, Position> Positions { get; set; }
     public DateTime TimeStamp { get; set; }
 
     public override string ToString()

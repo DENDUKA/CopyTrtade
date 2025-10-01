@@ -1,7 +1,5 @@
-using CopyTrading.Models.Enums.Order;
-using CopyTrading.Providers.Hyperliquid.Providers;
 using CopyTrading.Repository.SQLite;
-using CopyTrading.Repository.SQLite.Dto;
+using CopyTrading.Services.Interfaces;
 using Quartz;
 
 namespace CopyTrading.QuartzJobs;
@@ -9,11 +7,11 @@ namespace CopyTrading.QuartzJobs;
 public class CollectTradeInfoJob : IJob
 {
     private readonly TradeRepository _tradeRepository;
-    private readonly WalletInfoProvider _walletInfoProvider;
+    private readonly IWalletInfoProvider _walletInfoProvider;
     private readonly ILogger<CollectTradeInfoJob> _logger;
     public CollectTradeInfoJob(
         TradeRepository tradeRepository,
-        WalletInfoProvider walletInfoProvider,
+        IWalletInfoProvider walletInfoProvider,
         ILogger<CollectTradeInfoJob> logger)
     {
         _tradeRepository = tradeRepository;

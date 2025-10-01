@@ -21,7 +21,7 @@ public class TradeRepository
         _client = new InfluxDBClient(@"http://localhost:8086", InfluxSettings.token);
     }
 
-    public void WriteTrades(TradeModel[] trades)
+    public void WriteTrades(Trade[] trades)
     {
         var measure = trades.Select(trade => trade.ToMeasurement()).ToList();
 

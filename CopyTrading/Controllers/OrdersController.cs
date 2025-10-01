@@ -2,6 +2,8 @@
 using CopyTrading.Providers.Hyperliquid.Providers;
 using CopyTrading.Providers.Hyperliquid.Subscribers;
 using CopyTrading.Services;
+using CopyTrading.Services.Interfaces;
+using CopyTrading.Values;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CopyTrading.Controllers;
@@ -12,13 +14,13 @@ public class OrdersController(
     OrderService orderService,
     OrdersProvider ordersHyperliquidProvider,
     OrdersTradesSubscriber copiedOrderJKirfProvider,
-    WalletInfoProvider walletInfoJKirfProvider,
+    IWalletInfoProvider walletInfoJKirfProvider,
     ExchangeInfoProvider exchangeInfoProvider) : ControllerBase
 {
     private readonly OrderService _orderService = orderService;
     private readonly OrdersProvider _ordersHyperliquidProvider = ordersHyperliquidProvider;
     private readonly OrdersTradesSubscriber _copiedOrderJKirfProvider = copiedOrderJKirfProvider;
-    private readonly WalletInfoProvider _walletInfoJKirfProvider = walletInfoJKirfProvider;
+    private readonly IWalletInfoProvider _walletInfoJKirfProvider = walletInfoJKirfProvider;
     private readonly ExchangeInfoProvider _exchangeInfoProvider = exchangeInfoProvider;
 
     [HttpGet("GetOrdersHistory")]
@@ -38,7 +40,7 @@ public class OrdersController(
     [HttpGet("SubscribeToNewOrders")]
     public async Task<IActionResult> SubscribeToNewOrders([FromQuery] string wallet)
     {
-        _orderService.SubscribeToWalletOrders(wallet);
+        _orderService.SubscribeToWalletOrders(new Wallet(wallet));
         return Ok();
     }
 
@@ -59,7 +61,7 @@ public class OrdersController(
     public async Task GetWalletInfo([FromQuery] string wallet)
     {
 
-        var info =  await _walletInfoJKirfProvider.GetInfo(wallet);
+        var info =  await _walletInfoJKirfProvider.GetInfo(new Wallet(wallet));
 
         Console.WriteLine(info.ToString());
     }
@@ -73,9 +75,9 @@ public class OrdersController(
     }
 
     [HttpGet("TestExchangeInfo")]
-    public async Task TestExchangeInfo([FromQuery] string coin)
+    public async Task TestExchangeInfo([FromQuery] string symbol)
     {
-        var res =  await _exchangeInfoProvider.GetExchangeInfo(coin);
+        var res =  await _exchangeInfoProvider.GetExchangeInfo(symbol);
 
         // Console.WriteLine(info.ToString());
     }

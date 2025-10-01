@@ -1,11 +1,13 @@
-﻿namespace CopyTrading.Models;
+﻿using CopyTrading.Values;
+
+namespace CopyTrading.Models;
 
 public record WalletInfoModel
 {
-    public string Wallet { get; set; }
-    public double AccountValue { get; set; }
+    public Wallet Wallet { get; set; }
+    public decimal AccountValue { get; set; }
     public decimal TotalMarginUsed { get; set; }
-    public Dictionary<string, PositionModel> Positions { get; set; }
+    public Dictionary<string, Position> Positions { get; set; }
 
     public override string ToString()
     {

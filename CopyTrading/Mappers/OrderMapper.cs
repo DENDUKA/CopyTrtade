@@ -1,23 +1,22 @@
-﻿using CopyTrading.Mappers;
-using CopyTrading.Models.Enums;
-using CopyTrading.Models.Enums.Order;
+﻿using CopyTrading.Models.Enums;
 using CopyTrading.Models.Orders;
 using CopyTrading.ProviderModels.InfluxDB;
+using CopyTrading.Values;
 using HyperLiquid.Net.Objects.Models;
 
 namespace CopyTrading.Mappers;
 
 public static class OrderMapper
 {
-    public static OriginalOrder ToBll(this HyperLiquidOrderStatus data, string wallet)
+    public static OriginalOrder ToBll(this HyperLiquidOrderStatus data, Wallet wallet)
     {
         return new OriginalOrder()
         {
             OrderId = data.Order.OrderId,
-            Coin = data.Order.Symbol,
+            Symbol = data.Order.Symbol,
             Direction = data.Order.OrderSide == HyperLiquid.Net.Enums.OrderSide.Buy ? Direction.Long : Direction.Short,
-            Price = (double)data.Order.Price,
-            Size = (double)data.Order.Quantity,
+            Price = data.Order.Price,
+            Size = data.Order.Quantity,
             Time = data.Order.Timestamp,
             Status = data.Status.ToBll(),
             Wallet = wallet
@@ -29,8 +28,8 @@ public static class OrderMapper
         return new CopiedOrderMeasurement
         {
             Id = order.OrderId,
-            Wallet = order.Wallet,
-            Coin = order.Coin,
+            Wallet = order.Wallet.Value,
+            Symbol = order.Symbol,
             Size = order.Size,
             Price = order.Price,
             Value = order.Value,

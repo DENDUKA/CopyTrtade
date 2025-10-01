@@ -1,6 +1,5 @@
 ﻿using HyperLiquid.Net.Clients;
 using HyperLiquid.Net.Enums;
-using HyperLiquid.Net.Interfaces.Clients;
 using HyperLiquid.Net.Objects.Options;
 
 namespace CopyTrading.Providers.Hyperliquid.Providers;

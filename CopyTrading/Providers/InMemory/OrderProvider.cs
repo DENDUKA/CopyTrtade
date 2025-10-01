@@ -7,7 +7,7 @@ namespace CopyTrading.Providers.InMemory;
 
 public class OrderProvider : IOrdersProvider
 {
-    private double _ballance = 1000;
+    private decimal _ballance = 1000;
 
     private readonly ConcurrentDictionary<long, CopyOrder> PlacedOrders = new();
     private readonly ConcurrentDictionary<long, CopyOrder> FilledOrders = new();
