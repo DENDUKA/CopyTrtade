@@ -4,6 +4,7 @@ using CopyTrading.QuartzJobs;
 using CopyTrading.Repository.Influx;
 using CopyTrading.Services;
 using CopyTrading.Services.Interfaces;
+using Microsoft.Extensions.DependencyInjection;
 using Quartz;
 
 namespace CopyTrading;
@@ -29,6 +30,7 @@ public class Startup
         //Services
         services.AddSingleton<OrderService>();
         services.AddSingleton<TradeService>();
+        services.AddSingleton<FillsOrderService>();
         services.AddSingleton<CandleService>();
         services.AddSingleton<InformationService>();
         services.AddSingleton<CurrentWalletPositionService>();
@@ -77,7 +79,7 @@ public class Startup
         services.AddQuartzHostedService(q => q.WaitForJobsToComplete = false);
     }
 
-    public void Configure(IApplicationBuilder app, IHostEnvironment env)
+    public void Configure(IApplicationBuilder app, IHostEnvironment env, IServiceProvider serviceProvider)
     {
         app.UseRouting();
 
@@ -96,5 +98,7 @@ public class Startup
         app.UseHsts();
 
         app.UseStaticFiles();
+
+        serviceProvider.GetService<FillsOrderService>();
     }
 }

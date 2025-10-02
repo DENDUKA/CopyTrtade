@@ -14,7 +14,7 @@ public class OrderProvider : IOrdersProvider
 
     public async Task<OrderPlaceResult> Place(CopyOrder order)
     {
-        var value = order.Price * order.Size;
+        var value = order.Price * order.Quantity;
 
         if (value < 10) return OrderPlaceResult.Minimum10Dollrs;
 
@@ -30,7 +30,7 @@ public class OrderProvider : IOrdersProvider
         if (PlacedOrders.TryGetValue(orderId, out var order))
         {
             PlacedOrders.Remove(orderId, out var _);
-            _ballance += order.Price * order.Size;
+            _ballance += order.Price * order.Quantity;
         }
         else
         {
@@ -58,6 +58,6 @@ public class OrderProvider : IOrdersProvider
     private void AddPlaceOrder(CopyOrder order)
     {
         PlacedOrders.TryAdd(order.OrderId, order);
-        _ballance -= order.Price * order.Size;
+        _ballance -= order.Price * order.Quantity;
     }
 }

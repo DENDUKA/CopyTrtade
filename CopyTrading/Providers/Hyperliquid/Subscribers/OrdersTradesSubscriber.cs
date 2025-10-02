@@ -33,7 +33,7 @@ public class OrdersTradesSubscriber
         }
     }
 
-    public async Task SubscribeToFilledTrades(Wallet wallet, Action<(Trade[] Trades, bool IsSnapshot)> newTradeAction)
+    public async Task SubscribeToFilledTrades(Wallet wallet, Action<(OriginalTrade[] Trades, bool IsSnapshot)> newTradeAction)
     {
         if (_tradeSubscribes.Contains(wallet))
             return;

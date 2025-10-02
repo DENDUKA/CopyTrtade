@@ -1,4 +1,5 @@
-﻿using CopyTrading.Mappers;
+﻿using CopyTrading.DataEvents;
+using CopyTrading.Mappers;
 using CopyTrading.Models.Enums;
 using CopyTrading.Models.Trade;
 using CopyTrading.Providers.Hyperliquid.Subscribers;
@@ -12,17 +13,42 @@ using TradeRepositoryInflux = CopyTrading.Repository.Influx.TradeRepository;
 
 namespace CopyTrading.Services;
 
-public class TradeService(
-    OrdersTradesSubscriber _orderProvider,
-    OrderBookSubscriber _orderBookProvider,
-    IWalletInfoProvider _walletInfoProvider,
-    TradeRepositoryInflux _tradeRepositoryInflux,
-    TradeRepositoreySQL _tradeRepositorySQL,
-    WalletInfoRepository _walletInfoRepository,
-    InformationService _informationService,
-    CurrentWalletPositionService _currentWalletPositionService,
-    ILogger<TradeService> _logger)
+public class TradeService
 {
+    private readonly OrdersTradesSubscriber _orderProvider;
+    private readonly OrderBookSubscriber _orderBookProvider;
+    private readonly IWalletInfoProvider _walletInfoProvider;
+    private readonly TradeRepositoryInflux _tradeRepositoryInflux;
+    private readonly TradeRepositoreySQL _tradeRepositorySQL;
+    private readonly WalletInfoRepository _walletInfoRepository;
+    private readonly InformationService _informationService;
+    private readonly CurrentWalletPositionService _currentWalletPositionService;
+    private readonly ILogger<TradeService> _logger;
+
+    public TradeService(
+        OrdersTradesSubscriber _orderProvider,
+        OrderBookSubscriber _orderBookProvider,
+        IWalletInfoProvider _walletInfoProvider,
+        TradeRepositoryInflux _tradeRepositoryInflux,
+        TradeRepositoreySQL _tradeRepositorySQL,
+        WalletInfoRepository _walletInfoRepository,
+        InformationService _informationService,
+        CurrentWalletPositionService _currentWalletPositionService,
+        ILogger<TradeService> _logger)
+    {
+        this._orderProvider = _orderProvider;
+        this._orderBookProvider = _orderBookProvider;
+        this._walletInfoProvider = _walletInfoProvider;
+        this._tradeRepositoryInflux = _tradeRepositoryInflux;
+        this._tradeRepositorySQL = _tradeRepositorySQL;
+        this._walletInfoRepository = _walletInfoRepository;
+        this._informationService = _informationService;
+        this._currentWalletPositionService = _currentWalletPositionService;
+        this._logger = _logger;
+
+        DataBusEvents.NewTrades += OnNewTrades;
+    }
+
     public async Task SubscribeToWalletTrades(Wallet wallet)
     {
         await SubscribeToWallet(wallet);
@@ -52,10 +78,10 @@ public class TradeService(
 
         _walletInfoRepository.WriteCurrentPositions(new WalletSnapshotPositionsDto(walletSnapshot));
 
-        await _orderProvider.SubscribeToFilledTrades(wallet, OnNewTrades);
+        await _orderProvider.SubscribeToFilledTrades(wallet, DataBusEvents.NewTrades);
     }
 
-    private void OnNewTrades((Trade[] Trades, bool IsSnapshot) newTrades)
+    private void OnNewTrades((OriginalTrade[] Trades, bool IsSnapshot) newTrades)
     {
         foreach (var trade in newTrades.Trades)
         {
@@ -64,7 +90,7 @@ public class TradeService(
             _tradeRepositorySQL.WriteTrade(trade);
 
             if (newTrades.IsSnapshot)
-            {                
+            {
                 continue;
             }
 
@@ -72,7 +98,7 @@ public class TradeService(
         }
     }
 
-    private async Task CalculateWriteMinPerpEquityForTrade(Trade trade)
+    private async Task CalculateWriteMinPerpEquityForTrade(OriginalTrade trade)
     {
         var (spread, deltaTimeS) = await ActualSpreadAndDeltaTime(trade);
 
@@ -80,8 +106,6 @@ public class TradeService(
 
         var minPE = _informationService.CalculateMinPerpEquity(walletInfo.AccountVolume, trade.VolumeUsd);
         var subType = await _currentWalletPositionService.AddTrade(trade);
-
-        //_logger.LogWarning($"subType {subType.ToString()}");
 
         _tradeRepositorySQL.WriteMinPeForTrade(new MinPEForTrade
         {
@@ -94,7 +118,7 @@ public class TradeService(
         });
     }
 
-    private async Task<(decimal spread, decimal deltaTimeS)> ActualSpreadAndDeltaTime(Trade trade)
+    private async Task<(decimal spread, decimal deltaTimeS)> ActualSpreadAndDeltaTime(OriginalTrade trade)
     {
         var spreadDelta = 0.01M;
 

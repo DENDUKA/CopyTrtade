@@ -10,9 +10,9 @@ public abstract class Order
     public Wallet Wallet { get; set; }
     public string Symbol { get; set; }
     public decimal Price { get; set; }
-    public decimal Size { get; set; }
+    public decimal Quantity { get; set; }
     public decimal Leverage { get; set; }
     public OrderSubType SubType { get; set; }
     public Direction Direction { get; set; }
-    public decimal Value => Price * Size;
+    public decimal Value => Price * Quantity;
 }

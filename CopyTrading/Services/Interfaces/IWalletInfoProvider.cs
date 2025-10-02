@@ -7,7 +7,7 @@ namespace CopyTrading.Services.Interfaces;
 public interface IWalletInfoProvider
 {
     Task<OriginalOrder[]> GetHistoricalOrders(Wallet wallet);
-    Task<Trade[]> GetHistoricalTrades(Wallet wallet);
+    Task<OriginalTrade[]> GetHistoricalTrades(Wallet wallet);
     Task<WalletInfoModel?> GetInfo(Wallet wallet, bool useCache = true);
     Task<string> QueryPortfolio(Wallet wallet);
 }

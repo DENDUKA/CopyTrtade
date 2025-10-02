@@ -28,7 +28,7 @@ public class InformationService(
         return minPerpE;
     }
 
-    public async Task LogMinPerpEquityForTrade(Trade trade, decimal spread, decimal deltaTimeS)
+    public async Task LogMinPerpEquityForTrade(OriginalTrade trade, decimal spread, decimal deltaTimeS)
     {
         var walletInfo = await _walletInfoProvider.GetInfo(trade.Wallet);
 

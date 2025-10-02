@@ -10,7 +10,7 @@ public class TradeRepository(ILogger<TradeRepository> _logger)
 {
     private readonly string _dbPath = Path.Combine(@"D:\Programs\ArbitrageExchangesScanes\CopyTrtade\SQLliteBD", "CopyTraidingDB.db");
 
-    public async Task WriteTrade(Trade trade)
+    public async Task WriteTrade(OriginalTrade trade)
     {
         try
         {

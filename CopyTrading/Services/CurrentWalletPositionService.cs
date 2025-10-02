@@ -25,7 +25,7 @@ public class CurrentWalletPositionService(
         }
     }
 
-    public async Task<OrderSubType> AddTrade(Trade trade)
+    public async Task<OrderSubType> AddTrade(OriginalTrade trade)
     {
         if (!_walletPositionSnapshot.ContainsKey(trade.Wallet))
         {

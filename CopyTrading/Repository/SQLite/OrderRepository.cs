@@ -31,7 +31,7 @@ public class OrderRepository(ILogger<OrderRepository> _logger)
             command.Parameters.AddWithValue("@Symbol", order.Symbol);
             command.Parameters.AddWithValue("@Direction", order.Direction.ToString());
             command.Parameters.AddWithValue("@Price", order.Price);
-            command.Parameters.AddWithValue("@Size", order.Size);
+            command.Parameters.AddWithValue("@Size", order.Quantity);
             command.Parameters.AddWithValue("@Value", order.Value);
             command.Parameters.AddWithValue("@Status", order.Status.ToString());
 

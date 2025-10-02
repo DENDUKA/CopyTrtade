@@ -4,7 +4,7 @@ using CopyTrading.Values;
 
 namespace CopyTrading.Models.Trade;
 
-public record Trade
+public record class OriginalTrade
 {
     public long OrderId { get; set; }
     public long TradeId { get; set; }

@@ -16,7 +16,7 @@ public static class OrderMapper
             Symbol = data.Order.Symbol,
             Direction = data.Order.OrderSide == HyperLiquid.Net.Enums.OrderSide.Buy ? Direction.Long : Direction.Short,
             Price = data.Order.Price,
-            Size = data.Order.Quantity,
+            Quantity = data.Order.Quantity,
             Time = data.Order.Timestamp,
             Status = data.Status.ToBll(),
             Wallet = wallet
@@ -30,7 +30,7 @@ public static class OrderMapper
             Id = order.OrderId,
             Wallet = order.Wallet.Value,
             Symbol = order.Symbol,
-            Size = order.Size,
+            Size = order.Quantity,
             Price = order.Price,
             Value = order.Value,
             Status = order.Status.ToString(),

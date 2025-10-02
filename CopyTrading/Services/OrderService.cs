@@ -1,4 +1,5 @@
-﻿using CopyTrading.Models;
+﻿using CopyTrading.DataEvents;
+using CopyTrading.Models;
 using CopyTrading.Models.Enums.Order;
 using CopyTrading.Models.Orders;
 using CopyTrading.Providers.Hyperliquid.Providers;
@@ -11,27 +12,43 @@ using SQLLiteOrderRepository = CopyTrading.Repository.SQLite.OrderRepository;
 
 namespace CopyTrading.Services;
 
-public class OrderService(
-        OrdersTradesSubscriber _orderProvider,
-        IWalletInfoProvider _walletInfo,
-        OrderRepository _orderDBProvider,
-        ExchangeInfoProvider _exchangeInfoProvider,
-        SQLLiteOrderRepository _orderSQLLiteProvider,
-        
-        ILogger<OrderService> _logger)
+public class OrderService
 {
-    private readonly OrderSubType[] OrderOpenedTypes = [OrderSubType.Decrease, OrderSubType.Increase, OrderSubType.Close];
+    private readonly OrdersTradesSubscriber _orderProvider;
+    private readonly IWalletInfoProvider _walletInfo;
+    private readonly OrderRepository _orderDBProvider;
+    private readonly ExchangeInfoProvider _exchangeInfoProvider;
+    private readonly SQLLiteOrderRepository _orderSQLLiteProvider;
+    private readonly ILogger<OrderService> _logger;
+
+    public OrderService(
+        OrdersTradesSubscriber orderProvider,
+        IWalletInfoProvider walletInfo,
+        OrderRepository orderDBProvider,
+        ExchangeInfoProvider exchangeInfoProvider,
+        SQLLiteOrderRepository orderSQLLiteProvider,
+        ILogger<OrderService> logger)
+    {
+        _orderProvider = orderProvider;
+        _walletInfo = walletInfo;
+        _orderDBProvider = orderDBProvider;
+        _exchangeInfoProvider = exchangeInfoProvider;
+        _orderSQLLiteProvider = orderSQLLiteProvider;
+        _logger = logger;
+
+        DataBusEvents.NewOrders += OnNewOrders;
+    }
 
     public async Task SubscribeToWalletOrders(Wallet wallet)
     {
-        await _orderProvider.SubscribeToNewOrders(wallet, NewOrders);
+        await _orderProvider.SubscribeToNewOrders(wallet, DataBusEvents.NewOrders);
     }
 
     public async Task SubscribeToTrackedWalletsOrders()
     {
         foreach (var wallet in WalletSettings.TrackedWallets)
         {
-            await _orderProvider.SubscribeToNewOrders(wallet, NewOrders);
+            await _orderProvider.SubscribeToNewOrders(wallet, DataBusEvents.NewOrders);
         }
     }
 
@@ -47,9 +64,7 @@ public class OrderService(
         }
     }
 
-    #region Orders
-
-    private void NewOrders(OriginalOrder[] orders)
+    private void OnNewOrders(OriginalOrder[] orders)
     {
         //_orderDBProvider.WriteOrder(obj);
 
@@ -58,22 +73,6 @@ public class OrderService(
             _logger.LogInformation($"Получен новый ордер: {order}");
 
             _orderSQLLiteProvider.WriteOrder(order);
-
-            switch (order.Status)
-            {
-                case OrderStatus.Canceled:
-
-                    break;
-                case OrderStatus.Open:
-                    OpenOrder(order);
-                    break;
-                case OrderStatus.Filled:
-
-                    break;
-                default:
-                    _logger.LogError($"Не известный статус размещаемого ордера {order.Status}");
-                    break;
-            }
         }
     }
 
@@ -98,7 +97,7 @@ public class OrderService(
     {
         var exchangeInfo = await _exchangeInfoProvider.GetExchangeInfo(order.Symbol);
 
-        order.Size = Math.Round(order.Size, exchangeInfo.QuantityDecimals!.Value);
+        order.Quantity = Math.Round(order.Quantity, exchangeInfo.QuantityDecimals!.Value);
     }
 
     private static OrderSubType GetOrderType(Dictionary<string, Position> positions, OriginalOrder order)
@@ -119,6 +118,4 @@ public class OrderService(
             return OrderSubType.Open;
         }
     }
-
-    #endregion
 }
