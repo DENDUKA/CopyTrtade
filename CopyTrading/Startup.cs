@@ -4,8 +4,8 @@ using CopyTrading.QuartzJobs;
 using CopyTrading.Repository.Influx;
 using CopyTrading.Services;
 using CopyTrading.Services.Interfaces;
-using Microsoft.Extensions.DependencyInjection;
 using Quartz;
+using Serilog;
 
 namespace CopyTrading;
 
@@ -17,10 +17,20 @@ public class Startup
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
 
+        Log.Logger = new LoggerConfiguration()
+            .ReadFrom.Configuration(configuration)
+            .WriteTo.Console()
+            .WriteTo.File("logs/copytrading-.log", 
+                rollingInterval: RollingInterval.Day,
+                outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
+            .CreateLogger();
     }
 
     public void ConfigureServices(IServiceCollection services)
     {
+        services.AddLogging(loggingBuilder =>
+            loggingBuilder.AddSerilog(dispose: true));
+
         services.AddMemoryCache();
 
         services.AddControllers();

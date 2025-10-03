@@ -129,7 +129,7 @@ public class TradeService
         var bestAsk = orderBook.Levels.Asks.First().Price;
         var bestBid = orderBook.Levels.Bids.First().Price;
 
-        Console.WriteLine($"Trade Time : {trade.TimeStamp}\n" +
+        _logger.LogInformation($"Trade Time : {trade.TimeStamp}\n" +
                           $"OB    Time : {orderBook.Timestamp}");
 
         var deltaTimeS = (decimal)(orderBook.Timestamp - trade.TimeStamp).TotalSeconds;
@@ -141,11 +141,11 @@ public class TradeService
 
             if (trade.Price >= bestAsk || spread < spreadDelta)
             {
-                Console.WriteLine($"Цена сделки {trade.TradeId} {trade.Direction} {trade.Price} сейчас {bestAsk} актуальна для покупки. {spread:F5} % d времени Trade и OrderBook {deltaTimeS} Sec");
+                _logger.LogInformation($"Цена сделки {trade.TradeId} {trade.Direction} {trade.Price} сейчас {bestAsk} актуальна для покупки. {spread:F5} % d времени Trade и OrderBook {deltaTimeS} Sec");
             }
             else
             {
-                Console.WriteLine($"Цена сделки {trade.TradeId} {trade.Direction} {trade.Price} сейчас {bestAsk} не актуальна для покупки. {spread:F5} % d времени Trade и OrderBook {deltaTimeS} Sec");
+                _logger.LogInformation($"Цена сделки {trade.TradeId} {trade.Direction} {trade.Price} сейчас {bestAsk} не актуальна для покупки. {spread:F5} % d времени Trade и OrderBook {deltaTimeS} Sec");
             }
         }
         else
@@ -154,11 +154,11 @@ public class TradeService
 
             if (trade.Price <= bestBid || spread < spreadDelta)
             {
-                Console.WriteLine($"Цена сделки {trade.TradeId} {trade.Direction} {trade.Price} сейчас {bestBid} актуальна для продажи. {spread:F5} % d времени Trade и OrderBook {deltaTimeS} Sec");
+                _logger.LogInformation($"Цена сделки {trade.TradeId} {trade.Direction} {trade.Price} сейчас {bestBid} актуальна для продажи. {spread:F5} % d времени Trade и OrderBook {deltaTimeS} Sec");
             }
             else
             {
-                Console.WriteLine($"Цена сделки {trade.TradeId} {trade.Direction} {trade.Price} сейчас {bestBid} не актуальна для продажи. {spread:F5} % d времени Trade и OrderBook {deltaTimeS} Sec");
+                _logger.LogInformation($"Цена сделки {trade.TradeId} {trade.Direction} {trade.Price} сейчас {bestBid} не актуальна для продажи. {spread:F5} % d времени Trade и OrderBook {deltaTimeS} Sec");
             }
         }
 

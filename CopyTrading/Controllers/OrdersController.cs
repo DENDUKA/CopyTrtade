@@ -60,25 +60,18 @@ public class OrdersController(
     [HttpGet("GetWalletInfo")]
     public async Task GetWalletInfo([FromQuery] string wallet)
     {
-
         var info =  await _walletInfoJKirfProvider.GetInfo(new Wallet(wallet));
-
-        Console.WriteLine(info.ToString());
     }
 
     [HttpGet("ExchangeInfoProvider")]
     public async Task ExchangeInfoProvider()
     {
         await _exchangeInfoProvider.GetExchangeInfo();
-
-       // Console.WriteLine(info.ToString());
     }
 
     [HttpGet("TestExchangeInfo")]
     public async Task TestExchangeInfo([FromQuery] string symbol)
     {
         var res =  await _exchangeInfoProvider.GetExchangeInfo(symbol);
-
-        // Console.WriteLine(info.ToString());
     }
 }

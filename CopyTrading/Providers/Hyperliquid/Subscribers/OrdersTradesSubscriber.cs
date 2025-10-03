@@ -7,7 +7,7 @@ using HyperLiquid.Net.Clients;
 
 namespace CopyTrading.Providers.Hyperliquid.Subscribers;
 
-public class OrdersTradesSubscriber
+public class OrdersTradesSubscriber(ILogger<OrdersTradesSubscriber> _logger)
 {
     private static readonly HashSet<Wallet> _orderSubscribes = [];
     private static readonly HashSet<Wallet> _tradeSubscribes = [];
@@ -25,11 +25,11 @@ public class OrdersTradesSubscriber
         if (response.Success)
         {
             _orderSubscribes.Add(wallet);
-            Console.WriteLine($"SubscribeToNewOrders Успешно подписались на {wallet}");
+            _logger.LogInformation($"SubscribeToNewOrders Успешно подписались на {wallet}");
         }
         else
         {
-            Console.WriteLine($"SubscribeToNewOrders Не удалось подписаться на {wallet}");
+            _logger.LogWarning($"SubscribeToNewOrders Не удалось подписаться на {wallet} {response.Error}");
         }
     }
 
@@ -49,11 +49,11 @@ public class OrdersTradesSubscriber
         if (response.Success)
         {
             _tradeSubscribes.Add(wallet);
-            Console.WriteLine($"Успешно подписались на Trades {wallet}");
+            _logger.LogInformation($"Успешно подписались на Trades {wallet}");
         }
         else
         {
-            Console.WriteLine($"Не удалось подписаться на Trades {wallet}");
+            _logger.LogWarning($"Не удалось подписаться на Trades {wallet} {response.Error}");
             _tradeSubscribes.Remove(wallet);
         }
     }

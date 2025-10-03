@@ -7,17 +7,19 @@ namespace CopyTrading.Providers.Hyperliquid.Providers;
 public class OrdersProvider 
 {
     private readonly HyperLiquidRestClient _hyperLiquidRestClient;
+    private readonly ILogger<OrdersProvider> _logger;
 
     //Key Secret вынести в secret.json
     private readonly string key = "1";
     private readonly string secret = "1";
 
-    public OrdersProvider()
+    public OrdersProvider(ILogger<OrdersProvider> logger)
     {
         _hyperLiquidRestClient = new HyperLiquidRestClient(new Action<HyperLiquidRestOptions>(options =>
         {
             options.ApiCredentials = new CryptoExchange.Net.Authentication.ApiCredentials(key, secret);
         }));
+        _logger = logger;
     }
 
     public async Task<long?> PlaceOrder()
@@ -32,12 +34,12 @@ public class OrdersProvider
             }
             else
             {
-                Console.WriteLine($"NewOrder Error {response.Error}");
+                _logger.LogError($"NewOrder Error {response.Error}");
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"NewOrder Exception {ex.Message}");
+            _logger.LogError($"NewOrder Exception {ex.Message}");
         }
 
         return null;
@@ -56,12 +58,12 @@ public class OrdersProvider
             }
             else
             {
-                Console.WriteLine($"NewOrder Error {response.Error}");
+                _logger.LogError($"NewOrder Error {response.Error}");
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"NewOrder Exception {ex.Message}");
+            _logger.LogError($"NewOrder Exception {ex.Message}");
         }
 
         return false;

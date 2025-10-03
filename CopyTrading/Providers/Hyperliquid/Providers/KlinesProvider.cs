@@ -5,11 +5,12 @@ using HyperLiquid.Net.Enums;
 
 namespace CopyTrading.Providers.Hyperliquid.Providers;
 
-public class CandlesProvider
+public class CandlesProvider(ILogger<CandlesProvider> _logger)
 {
     private readonly HyperLiquidRestClient _restClient = new();
 
-    public async Task<Candle[]> GetHystoryFuturesCandles(string symbol)
+    public async Task<Candle[]> GetHystoryFuturesCandles(
+        string symbol)
     {
         var endTime = DateTime.Now;
         var startTime = endTime.AddDays(-30);
@@ -25,7 +26,7 @@ public class CandlesProvider
             return [.. klines.Data.Select(k => k.ToBll())];
         }
 
-        Console.WriteLine($"Не удалось получить данные по японским свечам");
+        _logger.LogWarning($"Не удалось получить данные по японским свечам {symbol}");
 
         return [];
     }

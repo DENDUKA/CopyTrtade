@@ -60,7 +60,7 @@ public class OrderService
 
             _orderDBProvider.WriteOrder(orders);
 
-            Console.WriteLine($"Исторические ордера для кошелька {wallet} собраны. {orders.Length}");
+            _logger.LogInformation($"Исторические ордера для кошелька {wallet} собраны. {orders.Length}");
         }
     }
 
@@ -75,19 +75,6 @@ public class OrderService
             _orderSQLLiteProvider.WriteOrder(order);
         }
     }
-
-    private async Task OpenOrder(OriginalOrder order)
-    {
-        try
-        {
-
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine(ex.Message);
-        }
-    }
-
 
     /// <summary>
     /// Корректируем размещаемый ордер 

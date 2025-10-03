@@ -14,6 +14,10 @@ namespace CopyTrading
                 {
                     // config.AddJsonFile("Settings/secrets.json", optional: false, reloadOnChange: false);
                 })
+                .ConfigureLogging(logging =>
+                {
+                    logging.ClearProviders();
+                })
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
                     webBuilder.UseStartup<Startup>();

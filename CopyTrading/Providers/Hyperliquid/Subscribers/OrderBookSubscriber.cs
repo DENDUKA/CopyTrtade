@@ -5,7 +5,7 @@ using HyperLiquid.Net.Objects.Models;
 
 namespace CopyTrading.Providers.Hyperliquid.Subscribers;
 
-public class OrderBookSubscriber
+public class OrderBookSubscriber(ILogger<OrderBookSubscriber> _logger)
 {
     private readonly Dictionary<string, HyperLiquidOrderBook> _orderBook = [];
     private readonly object _lock = new();
@@ -75,11 +75,11 @@ public class OrderBookSubscriber
                 var response = await task;
                 if (response.Success)
                 {
-                    Console.WriteLine($"Успешно подписались на OrderBook {symbol}");
+                    _logger.LogInformation($"Успешно подписались на OrderBook {symbol}");
                 }
                 else
                 {
-                    Console.WriteLine($"!!! Не успешно подписались на OrderBook {symbol}");
+                    _logger.LogWarning($"Не смогли подписаться на OrderBook {symbol}");
                     _orderBook.Remove(symbol);
                 }
             }
