@@ -54,7 +54,7 @@ public class CopyTradeService(
     {
         var exchangeInfo = await _exchangeInfoProvider.GetExchangeInfo(copyOrder.Symbol);
 
-        if (copyOrder.Value < exchangeInfo.MinNotionalValue.Value)
+        if (copyOrder.VolumeUsd < exchangeInfo.MinNotionalValue.Value)
         {
             return false;
         }

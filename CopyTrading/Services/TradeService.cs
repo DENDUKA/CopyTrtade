@@ -8,6 +8,7 @@ using CopyTrading.Repository.SQLite.Dto;
 using CopyTrading.Services.Interfaces;
 using CopyTrading.Settings;
 using CopyTrading.Values;
+using System.Threading.Tasks;
 using TradeRepositoreySQL = CopyTrading.Repository.SQLite.TradeRepository;
 using TradeRepositoryInflux = CopyTrading.Repository.Influx.TradeRepository;
 
@@ -51,15 +52,12 @@ public class TradeService
 
     public async Task SubscribeToWalletTrades(Wallet wallet)
     {
-        await SubscribeToWallet(wallet);
+        await SubscribeToWallet([wallet]);
     }
 
     public async Task SubscribeToTrackedWalletsTrades()
     {
-        foreach (var wallet in WalletSettings.TrackedWallets)
-        {
-            await SubscribeToWallet(wallet);
-        }
+        await SubscribeToWallet(WalletSettings.TrackedWallets);
     }
 
     public async Task CollectHystoricalTrades(Wallet wallet)
@@ -69,19 +67,22 @@ public class TradeService
         _tradeRepositoryInflux.WriteTrades(trades);
     }
 
-    private async Task SubscribeToWallet(Wallet wallet)
+    private async Task SubscribeToWallet(Wallet[] wallets)
     {
-        var walletInfo = await _walletInfoProvider.GetInfo(wallet, false);
-        var walletSnapshot = walletInfo.ToWalletSnapshot();
+        foreach (var wallet in wallets)
+        {
+            var walletInfo = await _walletInfoProvider.GetInfo(wallet, false);
+            var walletSnapshot = walletInfo.ToWalletSnapshot();
 
-        _currentWalletPositionService.InitializeWalletSnapshot(walletSnapshot);
+            _currentWalletPositionService.InitializeWalletSnapshot(walletSnapshot);
 
-        _walletInfoRepository.WriteCurrentPositions(new WalletSnapshotPositionsDto(walletSnapshot));
+            _walletInfoRepository.WriteCurrentPositions(new WalletSnapshotPositionsDto(walletSnapshot));
+        }
 
-        await _orderProvider.SubscribeToFilledTrades(wallet, DataBusEvents.NewTrades);
+        await _orderProvider.SubscribeToTrades(wallets);
     }
 
-    private void OnNewTrades((OriginalTrade[] Trades, bool IsSnapshot) newTrades)
+    private async void OnNewTrades((OriginalTrade[] Trades, bool IsSnapshot) newTrades)
     {
         foreach (var trade in newTrades.Trades)
         {
@@ -94,29 +95,10 @@ public class TradeService
                 continue;
             }
 
-            CalculateWriteMinPerpEquityForTrade(trade);
+            await _currentWalletPositionService.AddTrade(trade);
         }
     }
 
-    private async Task CalculateWriteMinPerpEquityForTrade(OriginalTrade trade)
-    {
-        var (spread, deltaTimeS) = await ActualSpreadAndDeltaTime(trade);
-
-        var walletInfo = await _walletInfoProvider.GetInfo(trade.Wallet);
-
-        var minPE = _informationService.CalculateMinPerpEquity(walletInfo.AccountVolume, trade.VolumeUsd);
-        var subType = await _currentWalletPositionService.AddTrade(trade);
-
-        _tradeRepositorySQL.WriteMinPeForTrade(new MinPEForTrade
-        {
-            TradeId = trade.TradeId,
-            AccountVolume = walletInfo.AccountVolume,
-            DeltaTimeS = deltaTimeS,
-            MinPE = minPE,
-            Spread = spread,
-            SubType = subType,
-        });
-    }
 
     private async Task<(decimal spread, decimal deltaTimeS)> ActualSpreadAndDeltaTime(OriginalTrade trade)
     {

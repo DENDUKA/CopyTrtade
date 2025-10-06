@@ -32,7 +32,7 @@ public static class OrderMapper
             Symbol = order.Symbol,
             Size = order.Quantity,
             Price = order.Price,
-            Value = order.Value,
+            Value = order.VolumeUsd,
             Status = order.Status.ToString(),
             Direction = order.Direction.ToString(),
             OrderType = order.SubType.ToString(),

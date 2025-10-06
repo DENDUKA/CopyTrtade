@@ -6,7 +6,7 @@ namespace CopyTrading.Repository.SQLite;
 
 public class WalletInfoRepository(ILogger<WalletInfoRepository> _logger)
 {
-    private readonly string _dbPath = Path.Combine(@"D:\Programs\ArbitrageExchangesScanes\CopyTrtade\SQLliteBD", "CopyTraidingDB.db");
+    private readonly string _databasePath = @"C:\Program\CopyTrtade\SQLliteBD\CopyTraidingDB.db";
 
     public async Task WriteCurrentPositions(WalletSnapshotPositionsDto dto)
     {
@@ -15,7 +15,7 @@ public class WalletInfoRepository(ILogger<WalletInfoRepository> _logger)
 
         try
         {
-            await using var connection = new SqliteConnection($"Data Source={_dbPath}");
+            await using var connection = new SqliteConnection($"Data Source={_databasePath}");
             await connection.OpenAsync();
 
             await using var command = new SqliteCommand(query, connection);

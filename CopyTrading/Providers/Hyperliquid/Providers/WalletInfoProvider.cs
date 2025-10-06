@@ -37,13 +37,13 @@ public class WalletInfoProvider(
             else
             {
                 _logger.LogError(response.Error!.Message);
-                return null;
+                return await GetInfo(wallet, useCache);
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Get Wallet Info Error");
-            return null;
+            return await GetInfo(wallet, useCache);
         }
 
         var result = data.ToBll(wallet);

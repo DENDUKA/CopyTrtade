@@ -24,10 +24,15 @@ public static class WalletSettings
         new Wallet("0xf709deb9ca069e53a31a408fde397a87d025a352"),
         new Wallet("0xb48cd87a34e4a756f03bc3d0f78ef470937ec9a6"),
         new Wallet("0x8f8d2d2565bfb10608a7ce64b48e2aea7875a344"),
-        new Wallet("0xa1b6d8efbcb2fb750a84dbc05649fa4968034f04"),
         new Wallet("0xe61c2251b2641989f49bb5b73b2a8d0dbc6e40d8"),
-        new Wallet("0x872ebee938a6da791eb0e6675cac6016b04c8155"),
+        new Wallet("0x685feceec46dd4e5c9b5b726f5d7550fd0eda526"),
+        new Wallet("0x33c3b8bcd758f511b350374a63e1f880f40e0282"),
+        new Wallet("0x8aa077f5998d234ac8641d73d6bc4976e2a210fc"),
+        new Wallet("0xee62db4851c3c6c5bf8010e839f2ae15fb4764bb"),
+        new Wallet("0x987163b6b482c30c2f5f3aa2760109668eb0091d"),
     ];
+
+    //https://trysuper.co/copytrade
 
     public static string[] TestFillTrackedWallets =
     [

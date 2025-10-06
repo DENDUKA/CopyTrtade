@@ -11,8 +11,9 @@ public abstract class Order
     public string Symbol { get; set; }
     public decimal Price { get; set; }
     public decimal Quantity { get; set; }
+    public decimal RealQuantity => Direction == Direction.Long ? Quantity : -Quantity;
     public decimal Leverage { get; set; }
     public OrderSubType SubType { get; set; }
     public Direction Direction { get; set; }
-    public decimal Value => Price * Quantity;
+    public decimal VolumeUsd => Price * Quantity;
 }

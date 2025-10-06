@@ -1,10 +1,12 @@
 ﻿using CopyTrading.Mappers;
 using CopyTrading.Models;
 using CopyTrading.Models.Enums.Order;
+using CopyTrading.Models.Orders;
 using CopyTrading.Models.Trade;
 using CopyTrading.Services.Interfaces;
 using CopyTrading.Values;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 
 namespace CopyTrading.Services;
 
@@ -40,7 +42,7 @@ public class CurrentWalletPositionService(
 
             if (openPos.Length == 0)
             {
-                var walletInfo = await walletInfoProvider.GetInfo(trade.Wallet);
+                var walletInfo = await walletInfoProvider.GetInfo(trade.Wallet, false);
 
                 if (!walletInfo.Positions.TryGetValue(trade.Symbol, out var position))
                 {
@@ -106,5 +108,50 @@ public class CurrentWalletPositionService(
 
         InitializeWalletSnapshot(walletSnapshot);
         return walletSnapshot;
+    }
+
+    public async Task<OrderSubType> GetOrderSubType(OriginalOrder order)
+    {
+        if (!_walletPositionSnapshot.TryGetValue(order.Wallet, out var snapshot))
+        {
+            _logger.LogError($"GetOrderSubType walletPositionSnapshot для {order.Wallet} не инициализирован");
+        }
+
+        var openPos = _walletPositionSnapshot[order.Wallet].Positions.Where(p => p.Symbol == order.Symbol).ToArray();
+
+        if(openPos.Length == 0)
+        {
+            return OrderSubType.Open;
+        }
+        if (openPos.Length == 1)
+        {
+            if (openPos[0].Direction == order.Direction)
+            {
+                return OrderSubType.Increase;
+            }
+            else
+            {
+                if (openPos[0].Quantity + order.RealQuantity == 0)
+                {
+                    return OrderSubType.Close;
+                }
+
+                if (Math.Abs(openPos[0].Quantity) > Math.Abs(order.Quantity))
+                {
+                    return OrderSubType.Decrease;
+                }
+                //else это закрытие текущей позиции и сразу открытие позиции в противоположную сторону (Long > Short) (Short > Long)
+                
+                _logger.LogError($"CurrentWalletPositionService GetOrderSubType не удалось уменьшить позицию {order.Symbol} у кошелька {order.Wallet} TradeVolume больше чем открытая позиция");
+                return OrderSubType.None;
+            }
+        }
+        if (openPos.Length > 1)
+        {
+            _logger.LogError($"CurrentWalletPositionService GetOrderSubType обнаружено две открытые позиции (разнонаправленные) для {order.Symbol} у кошелька {order.Wallet}");
+            return OrderSubType.None;
+        }
+
+        return OrderSubType.None;
     }
 }

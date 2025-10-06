@@ -1,5 +1,6 @@
 ﻿using CopyTrading.Extensions;
 using CopyTrading.Models.Enums.Order;
+using CopyTrading.Models.Orders;
 using CopyTrading.Models.Trade;
 using CopyTrading.Repository.SQLite.Dto;
 using Microsoft.Data.Sqlite;
@@ -8,13 +9,13 @@ namespace CopyTrading.Repository.SQLite;
 
 public class TradeRepository(ILogger<TradeRepository> _logger)
 {
-    private readonly string _dbPath = Path.Combine(@"D:\Programs\ArbitrageExchangesScanes\CopyTrtade\SQLliteBD", "CopyTraidingDB.db");
+    private readonly string _databasePath = @"C:\Program\CopyTrtade\SQLliteBD\CopyTraidingDB.db";
 
     public async Task WriteTrade(OriginalTrade trade)
     {
         try
         {
-            var connectionString = $"Data Source={_dbPath}";
+            var connectionString = $"Data Source={_databasePath}";
             using var connection = new SqliteConnection(connectionString);
             await connection.OpenAsync();
 
@@ -49,7 +50,7 @@ public class TradeRepository(ILogger<TradeRepository> _logger)
     {
         try
         {
-            var connectionString = $"Data Source={_dbPath}";
+            var connectionString = $"Data Source={_databasePath}";
             using var connection = new SqliteConnection(connectionString);
             await connection.OpenAsync();
 
@@ -83,7 +84,7 @@ public class TradeRepository(ILogger<TradeRepository> _logger)
     {
         try
         {
-            var connectionString = $"Data Source={_dbPath}";
+            var connectionString = $"Data Source={_databasePath}";
             using var connection = new SqliteConnection(connectionString);
             await connection.OpenAsync();
 
@@ -124,7 +125,7 @@ public class TradeRepository(ILogger<TradeRepository> _logger)
     {
         try
         {
-            var connectionString = $"Data Source={_dbPath}";
+            var connectionString = $"Data Source={_databasePath}";
             using var connection = new SqliteConnection(connectionString);
             await connection.OpenAsync();
 
@@ -164,5 +165,36 @@ public class TradeRepository(ILogger<TradeRepository> _logger)
         }
 
         return [];
+    }
+
+    public async Task WriteMinPeForOrder(MinPEForOrder minPeForOrder)
+    {
+        try
+        {
+            var connectionString = $"Data Source={_databasePath}";
+            using var connection = new SqliteConnection(connectionString);
+            await connection.OpenAsync();
+
+            var command = connection.CreateCommand();
+            command.CommandText = @"
+                INSERT INTO MinPerpEquityForOrders
+                    (OrderId, AccountVolume, MinPE, SubType)
+                VALUES
+                    (@OrderId, @AccountVolume, @MinPE, @SubType)
+                ON CONFLICT(OrderId) DO UPDATE SET
+                    SubType = excluded.SubType;
+        ";
+
+            command.Parameters.AddWithValue("@OrderId", minPeForOrder.OrderId);
+            command.Parameters.AddWithValue("@AccountVolume", minPeForOrder.AccountVolume);
+            command.Parameters.AddWithValue("@MinPE", minPeForOrder.MinPE);
+            command.Parameters.AddWithValue("@SubType", minPeForOrder.SubType.ToString());
+
+            await command.ExecuteNonQueryAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Repository WriteMinPeForOrder: {ex.Message}");
+        }
     }
 }

@@ -95,8 +95,8 @@ public class FillsOrderService
             changes += $"SubType: {oldOrder.SubType} -> {newOrder.SubType};\n";
         if (newOrder.Direction != oldOrder.Direction)
             changes += $"Direction: {oldOrder.Direction} -> {newOrder.Direction};\n";
-        if (newOrder.Value != oldOrder.Value)
-            changes += $"Value: {oldOrder.Value} -> {newOrder.Value};\n";
+        if (newOrder.VolumeUsd != oldOrder.VolumeUsd)
+            changes += $"Value: {oldOrder.VolumeUsd} -> {newOrder.VolumeUsd};\n";
         if (newOrder.Status != oldOrder.Status)
             changes += $"Status: {oldOrder.Status} -> {newOrder.Status};\n";
 

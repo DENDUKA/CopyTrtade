@@ -9,6 +9,7 @@ using CopyTrading.Services.Interfaces;
 using CopyTrading.Settings;
 using CopyTrading.Values;
 using SQLLiteOrderRepository = CopyTrading.Repository.SQLite.OrderRepository;
+using TradeRepositorySQL = CopyTrading.Repository.SQLite.TradeRepository;
 
 namespace CopyTrading.Services;
 
@@ -18,7 +19,10 @@ public class OrderService
     private readonly IWalletInfoProvider _walletInfo;
     private readonly OrderRepository _orderDBProvider;
     private readonly ExchangeInfoProvider _exchangeInfoProvider;
-    private readonly SQLLiteOrderRepository _orderSQLLiteProvider;
+    private readonly SQLLiteOrderRepository _orderSQLLiteRepository;
+    private readonly TradeRepositorySQL _tradeRepositorySQL;
+    private readonly InformationService _informationService;
+    private readonly CurrentWalletPositionService _currentWalletPositionService;
     private readonly ILogger<OrderService> _logger;
 
     public OrderService(
@@ -27,13 +31,19 @@ public class OrderService
         OrderRepository orderDBProvider,
         ExchangeInfoProvider exchangeInfoProvider,
         SQLLiteOrderRepository orderSQLLiteProvider,
+        TradeRepositorySQL tradeRepositorySQL,
+        InformationService informationService,
+        CurrentWalletPositionService currentWalletPositionService,
         ILogger<OrderService> logger)
     {
         _orderProvider = orderProvider;
         _walletInfo = walletInfo;
         _orderDBProvider = orderDBProvider;
         _exchangeInfoProvider = exchangeInfoProvider;
-        _orderSQLLiteProvider = orderSQLLiteProvider;
+        _orderSQLLiteRepository = orderSQLLiteProvider;
+        _informationService = informationService;
+        _currentWalletPositionService = currentWalletPositionService;
+        _tradeRepositorySQL = tradeRepositorySQL;
         _logger = logger;
 
         DataBusEvents.NewOrders += OnNewOrders;
@@ -41,15 +51,12 @@ public class OrderService
 
     public async Task SubscribeToWalletOrders(Wallet wallet)
     {
-        await _orderProvider.SubscribeToNewOrders(wallet, DataBusEvents.NewOrders);
+        await _orderProvider.SubscribeToNewOrders([wallet]);
     }
 
     public async Task SubscribeToTrackedWalletsOrders()
     {
-        foreach (var wallet in WalletSettings.TrackedWallets)
-        {
-            await _orderProvider.SubscribeToNewOrders(wallet, DataBusEvents.NewOrders);
-        }
+        await _orderProvider.SubscribeToNewOrders(WalletSettings.TrackedWallets);
     }
 
     public async Task CollectHistoryOrders()
@@ -72,8 +79,26 @@ public class OrderService
         {
             _logger.LogInformation($"Получен новый ордер: {order}");
 
-            _orderSQLLiteProvider.WriteOrder(order);
+            _orderSQLLiteRepository.WriteOrder(order);
+
+            CalculateWriteMinPerpEquityForOrder(order);
         }
+    }
+
+    private async Task CalculateWriteMinPerpEquityForOrder(OriginalOrder order)
+    {
+        var walletInfo = await _walletInfo.GetInfo(order.Wallet);
+
+        var minPE = _informationService.CalculateMinPerpEquity(walletInfo.AccountVolume, order.VolumeUsd);
+        var subType = await _currentWalletPositionService.GetOrderSubType(order);
+
+        _tradeRepositorySQL.WriteMinPeForOrder(new MinPEForOrder
+        {
+            OrderId = order.OrderId,
+            AccountVolume = walletInfo.AccountVolume,
+            MinPE = minPE,
+            SubType = subType,
+        });
     }
 
     /// <summary>

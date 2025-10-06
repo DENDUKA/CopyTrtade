@@ -6,7 +6,7 @@ namespace CopyTrading.Repository.SQLite;
 
 public class OrderRepository(ILogger<OrderRepository> _logger)
 {
-    private readonly string _databasePath = @"D:\Programs\ArbitrageExchangesScanes\CopyTrtade\SQLliteBD\CopyTraidingDB.db";
+    private readonly string _databasePath = @"C:\Program\CopyTrtade\SQLliteBD\CopyTraidingDB.db";
 
     public async Task WriteOrder(
         OriginalOrder order)
@@ -32,7 +32,7 @@ public class OrderRepository(ILogger<OrderRepository> _logger)
             command.Parameters.AddWithValue("@Direction", order.Direction.ToString());
             command.Parameters.AddWithValue("@Price", order.Price);
             command.Parameters.AddWithValue("@Size", order.Quantity);
-            command.Parameters.AddWithValue("@Value", order.Value);
+            command.Parameters.AddWithValue("@Value", order.VolumeUsd);
             command.Parameters.AddWithValue("@Status", order.Status.ToString());
 
             await command.ExecuteNonQueryAsync();
