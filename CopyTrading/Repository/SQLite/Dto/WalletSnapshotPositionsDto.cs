@@ -1,4 +1,4 @@
-﻿using CopyTrading.Models;
+﻿using CopyTrading.Models.Models;
 using CopyTrading.Models.Values;
 using Newtonsoft.Json;
 

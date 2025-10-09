@@ -9,10 +9,13 @@ namespace CopyTrading.Providers.Hyperliquid.Subscribers;
 public class OrdersTradesSubscriber(ILogger<OrdersTradesSubscriber> _logger)
 {
     private static readonly HashSet<Wallet> _orderSubscribes = [];
-    private static readonly HashSet<string> _pendingOrderSubscribes = [];
+    private static readonly HashSet<Wallet> _pendingOrderSubscribes = [];
 
     private static readonly HashSet<Wallet> _tradeSubscribes = [];
-    private static readonly HashSet<string> _pendingTradeSubscribes = [];
+    private static readonly HashSet<Wallet> _pendingTradeSubscribes = [];
+
+    public (Wallet, bool)[] OrdersSubscriptionStatus => _orderSubscribes.Select(x => (x, true)).Concat(_pendingOrderSubscribes.Select(x => (x, false))).ToArray();
+    public (Wallet, bool)[] TradesSubscriptionStatus => _tradeSubscribes.Select(x => (x, true)).Concat(_pendingTradeSubscribes.Select(x => (x, false))).ToArray();
 
     public async Task SubscribeToNewOrders(Wallet[] wallets)
     {
@@ -20,10 +23,10 @@ public class OrdersTradesSubscriber(ILogger<OrdersTradesSubscriber> _logger)
 
         foreach (var wallet in wallets)
         {
-            if (_orderSubscribes.Contains(wallet) || _pendingOrderSubscribes.Contains(wallet.Value))
+            if (_orderSubscribes.Contains(wallet) || _pendingOrderSubscribes.Contains(wallet))
                 continue;
 
-            _pendingOrderSubscribes.Add(wallet.Value);
+            _pendingOrderSubscribes.Add(wallet);
             walletsForSubscribe.Add(wallet);
         }
 
@@ -53,7 +56,7 @@ public class OrdersTradesSubscriber(ILogger<OrdersTradesSubscriber> _logger)
         var response = await _socketClient.FuturesApi.SubscribeToOrderUpdatesAsync(wallet.Value,
             (newOrders) => DataBusEvents.NewOrders.Invoke(newOrders.Data.Select(x => x.ToBll(wallet)).ToArray()));
 
-        _pendingOrderSubscribes.Remove(wallet.Value);
+        _pendingOrderSubscribes.Remove(wallet);
 
         if (response.Success)
         {
@@ -74,10 +77,10 @@ public class OrdersTradesSubscriber(ILogger<OrdersTradesSubscriber> _logger)
 
         foreach (var wallet in wallets)
         {
-            if (_tradeSubscribes.Contains(wallet) || _pendingTradeSubscribes.Contains(wallet.Value))
+            if (_tradeSubscribes.Contains(wallet) || _pendingTradeSubscribes.Contains(wallet))
                 continue;
 
-            _pendingTradeSubscribes.Add(wallet.Value);
+            _pendingTradeSubscribes.Add(wallet);
             walletsForSubscribe.Add(wallet);
         }
 
@@ -110,7 +113,7 @@ public class OrdersTradesSubscriber(ILogger<OrdersTradesSubscriber> _logger)
                     x => x.ToBll(wallet)).ToArray(),
                     newTrades.UpdateType == SocketUpdateType.Snapshot)));
 
-        _pendingTradeSubscribes.Remove(wallet.Value);
+        _pendingTradeSubscribes.Remove(wallet);
 
         if (response.Success)
         {

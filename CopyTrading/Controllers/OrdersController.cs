@@ -1,7 +1,6 @@
-﻿using CopyTrading.Models.Orders;
+﻿using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Values;
 using CopyTrading.Providers.Hyperliquid.Providers;
-using CopyTrading.Providers.Hyperliquid.Subscribers;
 using CopyTrading.Services;
 using CopyTrading.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
@@ -13,13 +12,11 @@ namespace CopyTrading.Controllers;
 public class OrdersController(
     OrderService orderService,
     OrdersProvider ordersHyperliquidProvider,
-    OrdersTradesSubscriber copiedOrderJKirfProvider,
     IWalletInfoProvider walletInfoJKirfProvider,
     ExchangeInfoProvider exchangeInfoProvider) : ControllerBase
 {
     private readonly OrderService _orderService = orderService;
     private readonly OrdersProvider _ordersHyperliquidProvider = ordersHyperliquidProvider;
-    private readonly OrdersTradesSubscriber _copiedOrderJKirfProvider = copiedOrderJKirfProvider;
     private readonly IWalletInfoProvider _walletInfoJKirfProvider = walletInfoJKirfProvider;
     private readonly ExchangeInfoProvider _exchangeInfoProvider = exchangeInfoProvider;
 

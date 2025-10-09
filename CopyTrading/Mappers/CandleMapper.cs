@@ -1,4 +1,4 @@
-﻿using CopyTrading.Models;
+﻿using CopyTrading.Models.Models;
 using CopyTrading.ProviderModels.InfluxDB;
 using HyperLiquid.Net.Objects.Models;
 
@@ -10,12 +10,12 @@ public static class CandleMapper
     {
         return new Candle()
         {
-            Open = (decimal)hlKline.OpenPrice,
-            High = (decimal)hlKline.HighPrice,
-            Low = (decimal)hlKline.LowPrice,
-            Close = (decimal)hlKline.ClosePrice,
+            Open = hlKline.OpenPrice,
+            High = hlKline.HighPrice,
+            Low = hlKline.LowPrice,
+            Close = hlKline.ClosePrice,
             Symbol = hlKline.Symbol,
-            Volume = (decimal)hlKline.Volume,
+            Volume = hlKline.Volume,
             Time = hlKline.OpenTime,
             Interval = (int)hlKline.Interval / 60,
         };

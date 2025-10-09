@@ -23,4 +23,12 @@ public record OrderFills
             return OrderFillsStatus.PartiallyFilled;
         }
     }
+
+    public void UpdateOrder(OriginalOrder order)
+    {
+        if (OriginalOrder.OrderId == order.OrderId)
+        {
+            OriginalOrder.Status = order.Status;
+        }
+    }
 }

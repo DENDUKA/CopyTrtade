@@ -1,7 +1,7 @@
-﻿using CopyTrading.Models;
-using CopyTrading.Models.Enums.Order;
-using CopyTrading.Models.Orders;
-using CopyTrading.Models.Trade;
+﻿using CopyTrading.Models.Models;
+using CopyTrading.Models.Models.Enums.Order;
+using CopyTrading.Models.Models.Orders;
+using CopyTrading.Models.Models.Trade;
 using CopyTrading.Providers.Hyperliquid.Providers;
 using CopyTrading.Services.Interfaces;
 

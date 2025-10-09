@@ -1,7 +1,7 @@
 ﻿using CopyTrading.DataEvents;
-using CopyTrading.Models;
-using CopyTrading.Models.Enums.Order;
-using CopyTrading.Models.Orders;
+using CopyTrading.Models.Models;
+using CopyTrading.Models.Models.Enums.Order;
+using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Values;
 using CopyTrading.Providers.Hyperliquid.Providers;
 using CopyTrading.Providers.Hyperliquid.Subscribers;

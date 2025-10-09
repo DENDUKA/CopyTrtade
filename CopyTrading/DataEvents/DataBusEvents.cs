@@ -1,6 +1,6 @@
-﻿using CopyTrading.Models.Enums.Order;
-using CopyTrading.Models.Orders;
-using CopyTrading.Models.Trade;
+﻿using CopyTrading.Models.Models.Enums.Order;
+using CopyTrading.Models.Models.Orders;
+using CopyTrading.Models.Models.Trade;
 
 namespace CopyTrading.DataEvents;
 

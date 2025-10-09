@@ -1,8 +1,8 @@
 ﻿using CopyTrading.DataEvents;
-using CopyTrading.Models.Enums;
-using CopyTrading.Models.Enums.Order;
-using CopyTrading.Models.Orders;
-using CopyTrading.Models.Trade;
+using CopyTrading.Models.Models.Enums;
+using CopyTrading.Models.Models.Enums.Order;
+using CopyTrading.Models.Models.Orders;
+using CopyTrading.Models.Models.Trade;
 using System.Collections.Concurrent;
 
 namespace CopyTrading.Services;
@@ -12,7 +12,7 @@ public class FillsOrderService
     private readonly ConcurrentDictionary<long, OrderFills> _orders = [];
     private readonly ConcurrentDictionary<long, OriginalTrade> _pendingTrades = [];
 
-    private readonly ConcurrentDictionary<long, string> _ordersWithError = [];
+    internal readonly ConcurrentDictionary<long, string> _ordersWithError = [];
 
     private readonly ILogger<FillsOrderService> _logger;
 
@@ -30,6 +30,7 @@ public class FillsOrderService
             if (_orders.TryGetValue(newOrder.OrderId, out var orderFills))
             {
                 var orderChanges = GetChangesInOrder(newOrder, orderFills.OriginalOrder);
+                orderFills.UpdateOrder(newOrder);
             }
             else
             {
@@ -75,6 +76,8 @@ public class FillsOrderService
 
     private void OnOrderFinished(OriginalOrder order)
     {
+        _logger.LogInformation($"OnOrderFinished {order.OrderId} status: {order.Status}");
+
         if (!_orderFinalStatuses.Contains(order.Status)) return;
 
         if (order.Status == OrderStatus.Filled)
@@ -115,7 +118,7 @@ public class FillsOrderService
             return;
         }
 
-        _logger.LogWarning($"Не известная ошибка OrderId: {order.OrderId}");
+        _logger.LogWarning($"Неизвестная ошибка OrderId: {order.OrderId}");
         _ordersWithError.TryAdd(order.OrderId, $"Неизвестная ошибка OrderId: {order.OrderId}");
     }
 

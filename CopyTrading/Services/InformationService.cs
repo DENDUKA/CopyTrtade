@@ -1,4 +1,4 @@
-﻿using CopyTrading.Models.Trade;
+﻿using CopyTrading.Models.Models.Trade;
 using CopyTrading.Models.Values;
 using CopyTrading.Repository.SQLite;
 using CopyTrading.Services.Interfaces;

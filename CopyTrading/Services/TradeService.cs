@@ -1,7 +1,7 @@
 ﻿using CopyTrading.DataEvents;
 using CopyTrading.Mappers;
-using CopyTrading.Models.Enums;
-using CopyTrading.Models.Trade;
+using CopyTrading.Models.Models.Enums;
+using CopyTrading.Models.Models.Trade;
 using CopyTrading.Models.Values;
 using CopyTrading.Providers.Hyperliquid.Subscribers;
 using CopyTrading.Repository.SQLite;

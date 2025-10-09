@@ -1,4 +1,4 @@
-﻿using CopyTrading.Models.Enums.Order;
+﻿using CopyTrading.Models.Models.Enums.Order;
 
 namespace CopyTrading.Repository.SQLite.Dto;
 

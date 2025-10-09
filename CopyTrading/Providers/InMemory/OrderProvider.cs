@@ -1,5 +1,5 @@
-﻿using CopyTrading.Models.Enums;
-using CopyTrading.Models.Orders;
+﻿using CopyTrading.Models.Models.Enums.Order;
+using CopyTrading.Models.Models.Orders;
 using CopyTrading.Providers.Hyperliquid.Interfaces;
 using System.Collections.Concurrent;
 

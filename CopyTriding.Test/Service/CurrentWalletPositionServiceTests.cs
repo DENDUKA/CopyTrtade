@@ -1,10 +1,5 @@
-using CopyTrading.Models;
-using CopyTrading.Models.Enums;
-using CopyTrading.Models.Enums.Order;
-using CopyTrading.Models.Trade;
 using CopyTrading.Services;
 using CopyTrading.Services.Interfaces;
-using CopyTrading.Values;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;

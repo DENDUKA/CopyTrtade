@@ -5,8 +5,8 @@ namespace CopyTrading.Models.Models.Orders;
 public class OriginalOrder : Order
 {
 
-    public DateTime Time { get; init; }
-    public OrderStatus Status { get; init; }
+    public DateTime Time { get; set; }
+    public OrderStatus Status { get; set; }
 
     public override string ToString()
     {

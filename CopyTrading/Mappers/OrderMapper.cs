@@ -1,5 +1,5 @@
-﻿using CopyTrading.Models.Enums;
-using CopyTrading.Models.Orders;
+﻿using CopyTrading.Models.Models.Enums;
+using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Values;
 using CopyTrading.ProviderModels.InfluxDB;
 using HyperLiquid.Net.Objects.Models;

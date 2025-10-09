@@ -1,5 +1,5 @@
-﻿using CopyTrading.Models.Orders;
-using CopyTrading.Models.Trade;
+﻿using CopyTrading.Models.Models.Orders;
+using CopyTrading.Models.Models.Trade;
 using CopyTrading.Models.Values;
 
 namespace CopyTrading.Services.Interfaces;

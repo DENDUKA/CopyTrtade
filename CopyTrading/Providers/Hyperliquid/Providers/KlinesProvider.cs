@@ -1,5 +1,5 @@
 ﻿using CopyTrading.Mappers;
-using CopyTrading.Models;
+using CopyTrading.Models.Models;
 using HyperLiquid.Net.Clients;
 using HyperLiquid.Net.Enums;
 

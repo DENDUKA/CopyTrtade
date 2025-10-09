@@ -1,7 +1,7 @@
 ﻿using CopyTrading.Extensions;
-using CopyTrading.Models.Enums.Order;
-using CopyTrading.Models.Orders;
-using CopyTrading.Models.Trade;
+using CopyTrading.Models.Models.Enums.Order;
+using CopyTrading.Models.Models.Orders;
+using CopyTrading.Models.Models.Trade;
 using CopyTrading.Repository.SQLite.Dto;
 using CopyTrading.Settings;
 using Microsoft.Data.Sqlite;

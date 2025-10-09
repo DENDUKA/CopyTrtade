@@ -1,5 +1,5 @@
 ﻿using CopyTrading.Extensions;
-using CopyTrading.Models.Orders;
+using CopyTrading.Models.Models.Orders;
 using CopyTrading.Settings;
 using Microsoft.Data.Sqlite;
 

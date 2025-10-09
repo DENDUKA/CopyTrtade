@@ -1,5 +1,5 @@
 ﻿using CopyTrading.Mappers;
-using CopyTrading.Models;
+using CopyTrading.Models.Models;
 using CopyTrading.Settings;
 using InfluxDB.Client;
 using InfluxDB.Client.Api.Domain;
