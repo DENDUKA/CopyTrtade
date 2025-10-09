@@ -3,13 +3,14 @@ using CopyTrading.Models.Enums.Order;
 using CopyTrading.Models.Orders;
 using CopyTrading.Models.Trade;
 using CopyTrading.Repository.SQLite.Dto;
+using CopyTrading.Settings;
 using Microsoft.Data.Sqlite;
 
 namespace CopyTrading.Repository.SQLite;
 
 public class TradeRepository(ILogger<TradeRepository> _logger)
 {
-    private readonly string _databasePath = @"C:\Program\CopyTrtade\SQLliteBD\CopyTraidingDB.db";
+    private readonly string _databasePath = SQLLiteSettings.Path;
 
     public async Task WriteTrade(OriginalTrade trade)
     {

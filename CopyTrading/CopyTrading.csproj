@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="HyperLiquid.Net" Version="2.13.0" />
+    <PackageReference Include="HyperLiquid.Net" Version="2.13.1" />
     <PackageReference Include="InfluxDB.Client" Version="4.18.0" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.9" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
@@ -18,8 +18,13 @@
     <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
     <PackageReference Include="Serilog.Extensions.Hosting" Version="9.0.0" />
     <PackageReference Include="Serilog.Extensions.Logging" Version="9.0.2" />
+    <PackageReference Include="Serilog.Extensions.Logging.File" Version="3.0.0" />
     <PackageReference Include="Serilog.Settings.Configuration" Version="9.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+    <PackageReference Include="Serilog.Sinks.SQLite" Version="6.0.0" />
+    <PackageReference Include="Serilog.UI" Version="3.2.0" />
+    <PackageReference Include="Serilog.UI.SqliteProvider" Version="1.1.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.8.0" />    
 	<PackageReference Include="WatsonWebsocket" Version="4.1.6" />
 

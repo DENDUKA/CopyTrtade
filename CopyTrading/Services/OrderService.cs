@@ -23,6 +23,7 @@ public class OrderService
     private readonly TradeRepositorySQL _tradeRepositorySQL;
     private readonly InformationService _informationService;
     private readonly CurrentWalletPositionService _currentWalletPositionService;
+    private readonly FillsOrderService _fillsOrderService;
     private readonly ILogger<OrderService> _logger;
 
     public OrderService(
@@ -34,6 +35,7 @@ public class OrderService
         TradeRepositorySQL tradeRepositorySQL,
         InformationService informationService,
         CurrentWalletPositionService currentWalletPositionService,
+        FillsOrderService fillsOrderService,
         ILogger<OrderService> logger)
     {
         _orderProvider = orderProvider;
@@ -44,6 +46,7 @@ public class OrderService
         _informationService = informationService;
         _currentWalletPositionService = currentWalletPositionService;
         _tradeRepositorySQL = tradeRepositorySQL;
+        _fillsOrderService = fillsOrderService;
         _logger = logger;
 
         DataBusEvents.NewOrders += OnNewOrders;
@@ -73,8 +76,6 @@ public class OrderService
 
     private void OnNewOrders(OriginalOrder[] orders)
     {
-        //_orderDBProvider.WriteOrder(obj);
-
         foreach (var order in orders)
         {
             _logger.LogInformation($"Получен новый ордер: {order}");
@@ -83,6 +84,8 @@ public class OrderService
 
             CalculateWriteMinPerpEquityForOrder(order);
         }
+
+        _fillsOrderService.OnNewOrders(orders);
     }
 
     private async Task CalculateWriteMinPerpEquityForOrder(OriginalOrder order)

@@ -1,5 +1,6 @@
 ﻿using CopyTrading.Models.Orders;
 using CopyTrading.Models.Trade;
+using System.Collections.Concurrent;
 
 namespace CopyTrading.Models.Enums.Order;
 
@@ -11,7 +12,7 @@ public record OrderFills
     }
 
     public OriginalOrder OriginalOrder { get; init; }
-    public List<OriginalTrade> Trades { get; init; } = [];
+    public ConcurrentBag<OriginalTrade> Trades { get; init; } = [];
     public decimal FilledQuantity => Trades.Sum(x => x.Quantity);
     public OrderFillsStatus FillStatus
     {

@@ -1,13 +1,12 @@
 ﻿using CopyTrading.Extensions;
 using CopyTrading.Repository.SQLite.Dto;
+using CopyTrading.Settings;
 using Microsoft.Data.Sqlite;
 
 namespace CopyTrading.Repository.SQLite;
 
 public class WalletInfoRepository(ILogger<WalletInfoRepository> _logger)
 {
-    private readonly string _databasePath = @"C:\Program\CopyTrtade\SQLliteBD\CopyTraidingDB.db";
-
     public async Task WriteCurrentPositions(WalletSnapshotPositionsDto dto)
     {
         var query = @"INSERT INTO WalletSnapshotPositions (Wallet, DateTime, Positions) 
@@ -15,7 +14,7 @@ public class WalletInfoRepository(ILogger<WalletInfoRepository> _logger)
 
         try
         {
-            await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+            await using var connection = new SqliteConnection($"Data Source={SQLLiteSettings.Path}");
             await connection.OpenAsync();
 
             await using var command = new SqliteCommand(query, connection);

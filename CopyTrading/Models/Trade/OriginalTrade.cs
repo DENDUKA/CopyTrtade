@@ -20,4 +20,9 @@ public record class OriginalTrade
     public bool IsTaker { get; set; }
     public Wallet Wallet { get; set; }
     public decimal VolumeUsd => Quantity * Price;
+
+    public override string ToString()
+    {
+        return $"Trade[{TradeId}] Order:{OrderId} Wallet:{Wallet} {Direction} {Symbol} {Price:F4} Q:{Quantity} USD:{VolumeUsd:F2} Type:{SubType} Time:{TimeStamp:yyyy-MM-dd HH:mm:ss} ";
+    }
 }

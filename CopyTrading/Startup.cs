@@ -4,8 +4,12 @@ using CopyTrading.QuartzJobs;
 using CopyTrading.Repository.Influx;
 using CopyTrading.Services;
 using CopyTrading.Services.Interfaces;
+using CopyTrading.Settings;
 using Quartz;
 using Serilog;
+using Serilog.Ui.Core.Extensions;
+using Serilog.Ui.SqliteDataProvider.Extensions;
+using Serilog.Ui.Web.Extensions;
 
 namespace CopyTrading;
 
@@ -19,6 +23,7 @@ public class Startup
 
         Log.Logger = new LoggerConfiguration()
             .ReadFrom.Configuration(configuration)
+            .WriteTo.SQLite(SQLLiteSettings.Path, maxDatabaseSize:0)
             .WriteTo.Console()
             .WriteTo.File("logs/copytrading-.log", 
                 rollingInterval: RollingInterval.Day,
@@ -87,27 +92,40 @@ public class Startup
         });
 
         services.AddQuartzHostedService(q => q.WaitForJobsToComplete = false);
+
+        services.AddSerilogUi(options =>
+        {
+            options.UseSqliteServer(sqlLiteOptions =>
+            {
+                sqlLiteOptions
+                .WithConnectionString($"Data Source={SQLLiteSettings.Path}")
+                .WithTable("Logs");
+            });
+        });
     }
 
     public void Configure(IApplicationBuilder app, IHostEnvironment env, IServiceProvider serviceProvider)
     {
+        // Перемещаем UseStaticFiles() перед Serilog UI
+        app.UseStaticFiles();
+        
         app.UseRouting();
-
-        app.UseSwagger();
-        app.UseSwaggerUI();
-
-        app.UseHttpsRedirection();
 
         app.UseEndpoints(endpoints =>
         {
             endpoints.MapControllers();
         });
 
+        app.UseSerilogUi(option=> option.WithHomeUrl(@"/serilog-ui"));
+
+        app.UseSwagger();
+        app.UseSwaggerUI();
+
+        app.UseHttpsRedirection();
+
         app.UseExceptionHandler("/Error");
 
         app.UseHsts();
-
-        app.UseStaticFiles();
 
         serviceProvider.GetService<FillsOrderService>();
     }

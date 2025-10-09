@@ -1,9 +1,9 @@
 ﻿using CopyTrading.DataEvents;
+using CopyTrading.Models.Enums;
 using CopyTrading.Models.Enums.Order;
 using CopyTrading.Models.Orders;
 using CopyTrading.Models.Trade;
 using System.Collections.Concurrent;
-using System.Diagnostics;
 
 namespace CopyTrading.Services;
 
@@ -11,103 +11,157 @@ public class FillsOrderService
 {
     private readonly ConcurrentDictionary<long, OrderFills> _orders = [];
     private readonly ConcurrentDictionary<long, OriginalTrade> _pendingTrades = [];
-    private readonly ConcurrentDictionary<long, object> _orderLocks = new();
 
-    private readonly ILogger<FillsOrderService> _logger;    
+    private readonly ConcurrentDictionary<long, string> _ordersWithError = [];
+
+    private readonly ILogger<FillsOrderService> _logger;
+
+    private readonly OrderStatus[] _orderFinalStatuses = [OrderStatus.Canceled, OrderStatus.Filled, OrderStatus.Rejected];
 
     public FillsOrderService(ILogger<FillsOrderService> logger)
     {
         _logger = logger;
-
-        DataBusEvents.NewTrades += OnNewTrades;
-        DataBusEvents.NewOrders += OnNewOrders;
     }
 
-    private void OnNewOrders(OriginalOrder[] orders)
+    public void OnNewOrders(OriginalOrder[] orders)
     {
         foreach (var newOrder in orders)
         {
-            var lockObj = _orderLocks.GetOrAdd(newOrder.OrderId, _ => new object());
-            lock (lockObj)
+            if (_orders.TryGetValue(newOrder.OrderId, out var orderFills))
             {
-                if (_orders.TryGetValue(newOrder.OrderId, out var orderFills))
-                {
-                    ChangeInOrder(newOrder, orderFills.OriginalOrder);
-                }
-                else
-                {
-                    var newOrderFills = new OrderFills(newOrder);
-                    AddTradesFromPending(newOrderFills);
-
-                    if (!_orders.TryAdd(newOrder.OrderId, newOrderFills))
-                    {
-                        _logger.LogError($"FillsOrderService OnNewOrders: не удалось добавить ордер {newOrder.OrderId}");
-                    }
-                }
+                var orderChanges = GetChangesInOrder(newOrder, orderFills.OriginalOrder);
             }
+            else
+            {
+                var newOrderFills = new OrderFills(newOrder);                
+
+                if (!_orders.TryAdd(newOrder.OrderId, newOrderFills))
+                {
+                    _logger.LogError($"FillsOrderService OnNewOrders: не удалось добавить ордер {newOrder.OrderId}");
+                }
+
+                AddTradesFromPending(newOrderFills);
+            }
+
+            OnOrderFinished(newOrder);
         }
     }
 
-    private void OnNewTrades((OriginalTrade[] Trades, bool IsSnapshot) trades)
+    public void OnNewTrades((OriginalTrade[] Trades, bool IsSnapshot) trades)
     {
         if (trades.IsSnapshot) return;
 
         foreach (var trade in trades.Trades)
         {
-            var lockObj = _orderLocks.GetOrAdd(trade.OrderId, _ => new object());
-            lock (lockObj)
+            _logger.LogInformation($"FillsOrderService OnNewTrades: Новый trade {trade.ToString()}");
+
+            if (_orders.TryGetValue(trade.OrderId, out var orderFills))
             {
-                if (_orders.TryGetValue(trade.OrderId, out var orderFills))
-                {
-                    if (orderFills.Trades.FirstOrDefault(x => x.TradeId == trade.TradeId) is not null) continue;
+                if (orderFills.Trades.FirstOrDefault(x => x.TradeId == trade.TradeId) is not null) continue;
 
-                    orderFills.Trades.Add(trade);
+                orderFills.Trades.Add(trade);
 
-                    _logger.LogInformation($"FillsOrderService OnNewTrades: ордер {trade.OrderId} fillStatus : {orderFills.FillStatus.ToString()}");
-                }
-                else
-                {
-                    _pendingTrades.TryAdd(trade.TradeId, trade);
-                    _logger.LogError($"FillsOrderService OnNewTrades: не удалось найти ордер {trade.OrderId}");
-                }
+                _logger.LogInformation($"FillsOrderService OnNewTrades: ордер {trade.OrderId} fillStatus : {orderFills.FillStatus.ToString()}");
+
+                OnOrderFinished(orderFills.OriginalOrder);
+            }
+            else
+            {
+                _pendingTrades.TryAdd(trade.TradeId, trade);
+                _logger.LogWarning($"FillsOrderService OnNewTrades: не удалось найти ордер {trade.OrderId}");
             }
         }
     }
 
-    private void ChangeInOrder(OriginalOrder newOrder, OriginalOrder oldOrder)
+    private void OnOrderFinished(OriginalOrder order)
     {
-        string changes = string.Empty;
+        if (!_orderFinalStatuses.Contains(order.Status)) return;
+
+        if (order.Status == OrderStatus.Filled)
+        {
+            _orders.TryGetValue(order.OrderId, out var orderFills);
+
+            if (orderFills.FilledQuantity == order.Quantity)//Успех. весь Order заполнен/выполнен. соответствует статусу
+            {
+                DataBusEvents.OrderFinished?.Invoke(orderFills);
+                _logger.LogInformation($"OnOrderFinished Filled {order.OrderId} Success");
+                _ordersWithError.Remove(order.OrderId, out var _);
+            }
+            else
+            {
+                string error = $"OnOrderFinished Filled {order.OrderId} не сходится сумма всех trades и order.Quantity";
+                _logger.LogError(error);
+                _ordersWithError.TryAdd(order.OrderId, error);
+            }
+            return;
+        }
+
+        if (order.Status == OrderStatus.Canceled)
+        {
+            _orders.TryGetValue(order.OrderId, out var orderFills);
+
+            if (orderFills.FilledQuantity == 0)//Закрытие Order. В Order не был выполнен 
+            {
+                DataBusEvents.OrderFinished?.Invoke(orderFills);
+                _logger.LogInformation($"OnOrderFinished Canceled {order.OrderId} Success");
+                _ordersWithError.Remove(order.OrderId, out var _);
+            }
+            else //Закрытие Order. В Order был выполнен частично
+            {
+                DataBusEvents.OrderFinished?.Invoke(orderFills);
+                _logger.LogWarning($"OnOrderFinished Canceled {order.OrderId} Order был выполнен частично");
+                _ordersWithError.Remove(order.OrderId, out var _);
+            }
+            return;
+        }
+
+        _logger.LogWarning($"Не известная ошибка OrderId: {order.OrderId}");
+        _ordersWithError.TryAdd(order.OrderId, $"Неизвестная ошибка OrderId: {order.OrderId}");
+    }
+
+    private OrderChanges GetChangesInOrder(OriginalOrder newOrder, OriginalOrder oldOrder)
+    {
+        var changes = OrderChanges.None;
+        string changesString = string.Empty;
 
         // Сравнение всех свойств Order
         if (newOrder.OrderId != oldOrder.OrderId)
-            changes += $"OrderId: {oldOrder.OrderId} -> {newOrder.OrderId};\n";
+            changesString += $"OrderId: {oldOrder.OrderId} -> {newOrder.OrderId};\n";
         if (newOrder.Wallet?.Value != oldOrder.Wallet?.Value)
-            changes += $"Wallet: {oldOrder.Wallet?.Value} -> {newOrder.Wallet?.Value};\n";
+            changesString += $"Wallet: {oldOrder.Wallet?.Value} -> {newOrder.Wallet?.Value};\n";
         if (newOrder.Symbol != oldOrder.Symbol)
-            changes += $"Symbol: {oldOrder.Symbol} -> {newOrder.Symbol};\n";
+            changesString += $"Symbol: {oldOrder.Symbol} -> {newOrder.Symbol};\n";
         if (newOrder.Price != oldOrder.Price)
-            changes += $"Price: {oldOrder.Price} -> {newOrder.Price};\n";
+            changesString += $"Price: {oldOrder.Price} -> {newOrder.Price};\n";
         if (newOrder.Quantity != oldOrder.Quantity)
-            changes += $"Size: {oldOrder.Quantity} -> {newOrder.Quantity};\n";
+            changesString += $"Size: {oldOrder.Quantity} -> {newOrder.Quantity};\n";
         if (newOrder.Leverage != oldOrder.Leverage)
-            changes += $"Leverage: {oldOrder.Leverage} -> {newOrder.Leverage};\n";
+            changesString += $"Leverage: {oldOrder.Leverage} -> {newOrder.Leverage};\n";
         if (newOrder.SubType != oldOrder.SubType)
-            changes += $"SubType: {oldOrder.SubType} -> {newOrder.SubType};\n";
+            changesString += $"SubType: {oldOrder.SubType} -> {newOrder.SubType};\n";
         if (newOrder.Direction != oldOrder.Direction)
-            changes += $"Direction: {oldOrder.Direction} -> {newOrder.Direction};\n";
+        {
+            changesString += $"Direction: {oldOrder.Direction} -> {newOrder.Direction};\n";
+            changes |= OrderChanges.Direction;
+        }
         if (newOrder.VolumeUsd != oldOrder.VolumeUsd)
-            changes += $"Value: {oldOrder.VolumeUsd} -> {newOrder.VolumeUsd};\n";
+            changesString += $"Value: {oldOrder.VolumeUsd} -> {newOrder.VolumeUsd};\n";
         if (newOrder.Status != oldOrder.Status)
-            changes += $"Status: {oldOrder.Status} -> {newOrder.Status};\n";
+        {
+            changesString += $"Status: {oldOrder.Status} -> {newOrder.Status};\n";
+            changes |= OrderChanges.Status;
+        }
 
-        if (string.IsNullOrEmpty(changes))
+            if (string.IsNullOrEmpty(changesString))
         {
             _logger.LogInformation($"Изменения в ордере {newOrder.OrderId}: нет");
         }
         else
         {
-            _logger.LogInformation($"Изменения в ордере {newOrder.OrderId}:\n{changes}");
+            _logger.LogInformation($"Изменения в ордере {newOrder.OrderId}:\n{changesString}");
         }
+
+        return changes;
     }
 
     private void AddTradesFromPending(OrderFills newOrderFills)

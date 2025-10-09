@@ -8,7 +8,6 @@ using CopyTrading.Repository.SQLite.Dto;
 using CopyTrading.Services.Interfaces;
 using CopyTrading.Settings;
 using CopyTrading.Values;
-using System.Threading.Tasks;
 using TradeRepositoreySQL = CopyTrading.Repository.SQLite.TradeRepository;
 using TradeRepositoryInflux = CopyTrading.Repository.Influx.TradeRepository;
 
@@ -24,28 +23,31 @@ public class TradeService
     private readonly WalletInfoRepository _walletInfoRepository;
     private readonly InformationService _informationService;
     private readonly CurrentWalletPositionService _currentWalletPositionService;
+    private readonly FillsOrderService _fillsOrderService;
     private readonly ILogger<TradeService> _logger;
 
     public TradeService(
-        OrdersTradesSubscriber _orderProvider,
-        OrderBookSubscriber _orderBookProvider,
-        IWalletInfoProvider _walletInfoProvider,
-        TradeRepositoryInflux _tradeRepositoryInflux,
-        TradeRepositoreySQL _tradeRepositorySQL,
-        WalletInfoRepository _walletInfoRepository,
-        InformationService _informationService,
-        CurrentWalletPositionService _currentWalletPositionService,
-        ILogger<TradeService> _logger)
+        OrdersTradesSubscriber orderProvider,
+        OrderBookSubscriber orderBookProvider,
+        IWalletInfoProvider walletInfoProvider,
+        TradeRepositoryInflux tradeRepositoryInflux,
+        TradeRepositoreySQL tradeRepositorySQL,
+        WalletInfoRepository walletInfoRepository,
+        InformationService informationService,
+        CurrentWalletPositionService currentWalletPositionService,
+        FillsOrderService fillsOrderService,
+        ILogger<TradeService> logger)
     {
-        this._orderProvider = _orderProvider;
-        this._orderBookProvider = _orderBookProvider;
-        this._walletInfoProvider = _walletInfoProvider;
-        this._tradeRepositoryInflux = _tradeRepositoryInflux;
-        this._tradeRepositorySQL = _tradeRepositorySQL;
-        this._walletInfoRepository = _walletInfoRepository;
-        this._informationService = _informationService;
-        this._currentWalletPositionService = _currentWalletPositionService;
-        this._logger = _logger;
+        _orderProvider = orderProvider;
+        _orderBookProvider = orderBookProvider;
+        _walletInfoProvider = walletInfoProvider;
+        _tradeRepositoryInflux = tradeRepositoryInflux;
+        _tradeRepositorySQL = tradeRepositorySQL;
+        _walletInfoRepository = walletInfoRepository;
+        _informationService = informationService;
+        _currentWalletPositionService = currentWalletPositionService;
+        _fillsOrderService = fillsOrderService;
+        _logger = logger;
 
         DataBusEvents.NewTrades += OnNewTrades;
     }
@@ -95,8 +97,12 @@ public class TradeService
                 continue;
             }
 
+            _logger.LogInformation($"Новый trade : {trade.ToString()}");
+
             await _currentWalletPositionService.AddTrade(trade);
         }
+
+        _fillsOrderService.OnNewTrades(newTrades);
     }
 
 

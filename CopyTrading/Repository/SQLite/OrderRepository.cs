@@ -1,19 +1,18 @@
 ﻿using CopyTrading.Extensions;
 using CopyTrading.Models.Orders;
+using CopyTrading.Settings;
 using Microsoft.Data.Sqlite;
 
 namespace CopyTrading.Repository.SQLite;
 
 public class OrderRepository(ILogger<OrderRepository> _logger)
 {
-    private readonly string _databasePath = @"C:\Program\CopyTrtade\SQLliteBD\CopyTraidingDB.db";
-
     public async Task WriteOrder(
         OriginalOrder order)
     {
         try
         {
-            using var connection = new SqliteConnection($"Data Source={_databasePath}");
+            using var connection = new SqliteConnection($"Data Source={SQLLiteSettings.Path}");
             await connection.OpenAsync();
 
             using var command = connection.CreateCommand();
