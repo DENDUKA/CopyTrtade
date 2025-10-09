@@ -1,7 +1,7 @@
 ﻿using CopyTrading.Models.Enums;
 using CopyTrading.Models.Orders;
+using CopyTrading.Models.Values;
 using CopyTrading.ProviderModels.InfluxDB;
-using CopyTrading.Values;
 using HyperLiquid.Net.Objects.Models;
 
 namespace CopyTrading.Mappers;

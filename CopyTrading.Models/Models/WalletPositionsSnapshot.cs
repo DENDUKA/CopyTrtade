@@ -1,6 +1,6 @@
 ﻿using CopyTrading.Models.Values;
 
-namespace CopyTrading.Models;
+namespace CopyTrading.Models.Models;
 
 public record WalletPositionsSnapshot
 {

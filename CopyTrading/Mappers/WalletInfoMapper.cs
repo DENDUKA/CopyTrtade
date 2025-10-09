@@ -1,5 +1,5 @@
 ﻿using CopyTrading.Models;
-using CopyTrading.Values;
+using CopyTrading.Models.Values;
 using HyperLiquid.Net.Objects.Models;
 
 namespace CopyTrading.Mappers;

@@ -1,14 +1,13 @@
-﻿
-using CopyTrading.Models;
-using CopyTrading.Models.Values;
+﻿using CopyTrading.Models.Values;
+
+namespace CopyTrading.Models.Models;
 
 public record WalletInfoModel
 {
     public Wallet Wallet { get; set; }
-    public decimal AccountVolume { get; set; }
+    public decimal AccountValue { get; set; }
     public decimal TotalMarginUsed { get; set; }
     public Dictionary<string, Position> Positions { get; set; }
-    public DateTime TimeStamp { get; set; }
 
     public override string ToString()
     {
@@ -18,7 +17,7 @@ public record WalletInfoModel
 
         return
             $"Wallet: {Wallet}, " +
-            $"AccountValue: {AccountVolume}, " +
+            $"AccountValue: {AccountValue}, " +
             $"TotalMarginUsed: {TotalMarginUsed}, " +
             $"\nPositions: \n{positionsString}";
     }

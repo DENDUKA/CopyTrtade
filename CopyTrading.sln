@@ -19,6 +19,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CopyTriding.Test", "CopyTri
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CopyTrading.Blazor", "CopyTrading.Blazor\CopyTrading.Blazor.csproj", "{39370112-1752-43D5-8976-8558CECE17C6}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CopyTrading.Models", "CopyTrading.Models\CopyTrading.Models.csproj", "{CF39D989-5648-431F-BB4C-111F911F0380}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -37,6 +39,10 @@ Global
 		{39370112-1752-43D5-8976-8558CECE17C6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{39370112-1752-43D5-8976-8558CECE17C6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{39370112-1752-43D5-8976-8558CECE17C6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CF39D989-5648-431F-BB4C-111F911F0380}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CF39D989-5648-431F-BB4C-111F911F0380}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CF39D989-5648-431F-BB4C-111F911F0380}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CF39D989-5648-431F-BB4C-111F911F0380}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

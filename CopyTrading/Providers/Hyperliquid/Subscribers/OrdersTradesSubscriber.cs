@@ -1,6 +1,6 @@
 ﻿using CopyTrading.DataEvents;
 using CopyTrading.Mappers;
-using CopyTrading.Values;
+using CopyTrading.Models.Values;
 using CryptoExchange.Net.Objects;
 using HyperLiquid.Net.Clients;
 

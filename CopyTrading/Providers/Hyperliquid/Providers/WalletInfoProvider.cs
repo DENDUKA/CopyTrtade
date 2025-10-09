@@ -1,8 +1,8 @@
 ﻿using CopyTrading.Mappers;
 using CopyTrading.Models.Orders;
 using CopyTrading.Models.Trade;
+using CopyTrading.Models.Values;
 using CopyTrading.Services.Interfaces;
-using CopyTrading.Values;
 using HyperLiquid.Net.Clients;
 using HyperLiquid.Net.Objects.Models;
 using Microsoft.Extensions.Caching.Memory;

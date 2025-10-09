@@ -1,8 +1,8 @@
-﻿using CopyTrading.Models.Enums;
-using CopyTrading.Models.Enums.Order;
-using CopyTrading.Models.Values;
+﻿using CopyTrading.Models.Values;
+using CopyTrading.Models.Models.Enums;
+using CopyTrading.Models.Models.Enums.Order;
 
-namespace CopyTrading.Models.Trade;
+namespace CopyTrading.Models.Models.Trade;
 
 public record class OriginalTrade
 {

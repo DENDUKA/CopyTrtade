@@ -1,6 +1,6 @@
 ﻿using CopyTrading.Models.Trade;
+using CopyTrading.Models.Values;
 using CopyTrading.ProviderModels.InfluxDB;
-using CopyTrading.Values;
 using HyperLiquid.Net.Enums;
 using HyperLiquid.Net.Objects.Models;
 

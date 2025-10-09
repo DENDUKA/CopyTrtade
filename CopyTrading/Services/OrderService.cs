@@ -2,12 +2,12 @@
 using CopyTrading.Models;
 using CopyTrading.Models.Enums.Order;
 using CopyTrading.Models.Orders;
+using CopyTrading.Models.Values;
 using CopyTrading.Providers.Hyperliquid.Providers;
 using CopyTrading.Providers.Hyperliquid.Subscribers;
 using CopyTrading.Repository.Influx;
 using CopyTrading.Services.Interfaces;
 using CopyTrading.Settings;
-using CopyTrading.Values;
 using SQLLiteOrderRepository = CopyTrading.Repository.SQLite.OrderRepository;
 using TradeRepositorySQL = CopyTrading.Repository.SQLite.TradeRepository;
 

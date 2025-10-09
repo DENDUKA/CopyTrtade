@@ -1,8 +1,8 @@
-﻿using CopyTrading.Models.Enums;
-using CopyTrading.Models.Enums.Order;
+﻿using CopyTrading.Models.Models.Enums;
+using CopyTrading.Models.Models.Enums.Order;
 using CopyTrading.Models.Values;
 
-namespace CopyTrading.Models.Orders;
+namespace CopyTrading.Models.Models.Orders;
 
 public abstract class Order
 {

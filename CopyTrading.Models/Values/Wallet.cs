@@ -1,4 +1,4 @@
-﻿namespace CopyTrading.Values;
+﻿namespace CopyTrading.Models.Values;
 
 public record Wallet
 {

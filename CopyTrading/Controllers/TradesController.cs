@@ -1,5 +1,5 @@
-﻿using CopyTrading.Services;
-using CopyTrading.Values;
+﻿using CopyTrading.Models.Values;
+using CopyTrading.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CopyTrading.Controllers;

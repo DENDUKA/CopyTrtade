@@ -1,5 +1,5 @@
 ﻿using CopyTrading.Models;
-using CopyTrading.Values;
+using CopyTrading.Models.Values;
 using Newtonsoft.Json;
 
 namespace CopyTrading.Repository.SQLite.Dto;

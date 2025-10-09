@@ -1,7 +1,7 @@
 ﻿using CopyTrading.Models.Trade;
+using CopyTrading.Models.Values;
 using CopyTrading.Repository.SQLite;
 using CopyTrading.Services.Interfaces;
-using CopyTrading.Values;
 
 namespace CopyTrading.Services;
 

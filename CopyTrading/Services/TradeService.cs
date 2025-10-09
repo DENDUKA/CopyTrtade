@@ -2,12 +2,12 @@
 using CopyTrading.Mappers;
 using CopyTrading.Models.Enums;
 using CopyTrading.Models.Trade;
+using CopyTrading.Models.Values;
 using CopyTrading.Providers.Hyperliquid.Subscribers;
 using CopyTrading.Repository.SQLite;
 using CopyTrading.Repository.SQLite.Dto;
 using CopyTrading.Services.Interfaces;
 using CopyTrading.Settings;
-using CopyTrading.Values;
 using TradeRepositoreySQL = CopyTrading.Repository.SQLite.TradeRepository;
 using TradeRepositoryInflux = CopyTrading.Repository.Influx.TradeRepository;
 

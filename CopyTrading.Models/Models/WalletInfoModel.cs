@@ -1,6 +1,5 @@
-﻿
-using CopyTrading.Models;
-using CopyTrading.Models.Values;
+﻿using CopyTrading.Models.Values;
+using CopyTrading.Models.Models;
 
 public record WalletInfoModel
 {

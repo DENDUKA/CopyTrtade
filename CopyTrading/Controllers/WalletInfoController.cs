@@ -1,6 +1,6 @@
-﻿using CopyTrading.Services;
+﻿using CopyTrading.Models.Values;
+using CopyTrading.Services;
 using CopyTrading.Services.Interfaces;
-using CopyTrading.Values;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CopyTrading.Controllers;

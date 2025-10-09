@@ -47,3 +47,8 @@
 /CopyTrading/obj
 /CopyTriding.Test/obj
 /CopyTrading/logs
+/CopyTrading.Models/obj
+/CopyTrading.Models/bin
+/CopyTrading.Blazor/obj
+/CopyTriding.Test/bin
+/CopyTriding.Test/bin/Debug

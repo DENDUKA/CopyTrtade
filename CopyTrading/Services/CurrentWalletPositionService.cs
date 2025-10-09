@@ -3,8 +3,8 @@ using CopyTrading.Models;
 using CopyTrading.Models.Enums.Order;
 using CopyTrading.Models.Orders;
 using CopyTrading.Models.Trade;
+using CopyTrading.Models.Values;
 using CopyTrading.Services.Interfaces;
-using CopyTrading.Values;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 

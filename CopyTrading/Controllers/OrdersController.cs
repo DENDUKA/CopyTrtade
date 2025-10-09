@@ -1,9 +1,9 @@
 ﻿using CopyTrading.Models.Orders;
+using CopyTrading.Models.Values;
 using CopyTrading.Providers.Hyperliquid.Providers;
 using CopyTrading.Providers.Hyperliquid.Subscribers;
 using CopyTrading.Services;
 using CopyTrading.Services.Interfaces;
-using CopyTrading.Values;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CopyTrading.Controllers;

@@ -1,4 +1,4 @@
-﻿using CopyTrading.Values;
+﻿using CopyTrading.Models.Values;
 
 namespace CopyTrading.Settings;
 
