@@ -1,3 +1,8 @@
+using CopyTrading.Models.Models;
+using CopyTrading.Models.Models.Enums;
+using CopyTrading.Models.Models.Enums.Order;
+using CopyTrading.Models.Models.Trade;
+using CopyTrading.Models.Values;
 using CopyTrading.Services;
 using CopyTrading.Services.Interfaces;
 using FluentAssertions;
@@ -38,7 +43,7 @@ public class CurrentWalletPositionServiceTests
             }
         };
 
-        var shortTrade = new Trade()
+        var shortTrade = new OriginalTrade()
         {
             Wallet = snapshot.Wallet,
             Symbol = "BTC",
@@ -46,7 +51,7 @@ public class CurrentWalletPositionServiceTests
             Quantity = 0.1M,
         };
 
-        var longTrade = new Trade()
+        var longTrade = new OriginalTrade()
         {
             Wallet = snapshot.Wallet,
             Symbol = "BTC",
@@ -113,7 +118,7 @@ public class CurrentWalletPositionServiceTests
             }
         };
 
-        var shortTrade = new Trade()
+        var shortTrade = new OriginalTrade()
         {
             Wallet = snapshot.Wallet,
             Symbol = "BTC",
@@ -121,7 +126,7 @@ public class CurrentWalletPositionServiceTests
             Quantity = 0.1M,
         };
 
-        var longTrade = new Trade()
+        var longTrade = new OriginalTrade()
         {
             Wallet = snapshot.Wallet,
             Symbol = "BTC",

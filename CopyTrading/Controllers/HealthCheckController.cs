@@ -1,5 +1,4 @@
-﻿using CopyTrading.Models.Values;
-using CopyTrading.Providers.Hyperliquid.Subscribers;
+﻿using CopyTrading.Providers.Hyperliquid.Subscribers;
 using CopyTrading.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -18,8 +17,12 @@ public class HealthCheckController(
     }
 
     [HttpGet("SubscribersStatus")]
-    public (Wallet, bool)[] SubscribersStatus()
+    public async Task<string[]> SubscribersStatus()
     {
-        return _subscribers.OrdersSubscriptionStatus.Concat(_subscribers.TradesSubscriptionStatus).ToArray();
+        return _subscribers.OrdersSubscriptionStatus
+                .Select(x => $"order {x.Item1} {x.Item2}")
+            .Concat(_subscribers.TradesSubscriptionStatus
+                .Select(x => $"task {x.Item1} {x.Item2}"))
+            .ToArray();
     }
 }

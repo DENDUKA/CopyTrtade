@@ -32,6 +32,7 @@ public static class WalletSettings
         new Wallet("0x987163b6b482c30c2f5f3aa2760109668eb0091d"),
         new Wallet("0xf770f371cc66499a89ae56aa84f9506e083f99ea"),
         new Wallet("0x6e4d47dad1e97833f4ecb0ef56347ba8e6fd1c0e"),
+        new Wallet("0x491251909171d4b9b39c5bc5d70515292e21eaf0"),
     ];
 
     //https://trysuper.co/copytrade
@@ -41,5 +42,5 @@ public static class WalletSettings
         "0x744cf47e88d9d0847544f0ac2fa7575cf5925f79"
     ];
 
-    public static string MyWallet = "";
+    public static Wallet MyWallet = new("0x6e4d47dad1e97833f4ecb0ef56347ba8e6fd1c0e");
 }

@@ -45,6 +45,7 @@ public class Startup
         //Services
         services.AddSingleton<OrderService>();
         services.AddSingleton<TradeService>();
+        services.AddSingleton<CopyOrderService>();
         services.AddSingleton<FillsOrderService>();
         services.AddSingleton<CandleService>();
         services.AddSingleton<InformationService>();
@@ -128,5 +129,6 @@ public class Startup
         app.UseHsts();
 
         serviceProvider.GetService<FillsOrderService>();
+        serviceProvider.GetService<CopyOrderService>();
     }
 }

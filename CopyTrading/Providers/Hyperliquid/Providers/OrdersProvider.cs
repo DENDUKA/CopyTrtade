@@ -1,4 +1,5 @@
-﻿using HyperLiquid.Net.Clients;
+﻿using CopyTrading.Models.Models.Orders;
+using HyperLiquid.Net.Clients;
 using HyperLiquid.Net.Enums;
 using HyperLiquid.Net.Objects.Options;
 
@@ -9,7 +10,7 @@ public class OrdersProvider
     private readonly HyperLiquidRestClient _hyperLiquidRestClient;
     private readonly ILogger<OrdersProvider> _logger;
 
-    //Key Secret вынести в secret.json
+    //TODO Key Secret вынести в secret.json
     private readonly string key = "1";
     private readonly string secret = "1";
 
@@ -20,6 +21,24 @@ public class OrdersProvider
             options.ApiCredentials = new CryptoExchange.Net.Authentication.ApiCredentials(key, secret);
         }));
         _logger = logger;
+    }
+
+    public async Task<long?> UpdateLeverage(NewLeverageModel newLeverage)
+    {
+        try
+        {
+            //var response = await _hyperLiquidRestClient.FuturesApi.Trading.SetLeverageAsync(,);
+            //TODO
+            //https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/exchange-endpoint#update-leverage
+            //нужен api c заданием vaultAddress (странно что нет у JKorf)
+
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"OrdersProvider Exception {ex.Message}");
+        }
+
+        return null;
     }
 
     public async Task<long?> PlaceOrder()

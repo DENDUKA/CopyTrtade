@@ -57,6 +57,7 @@ public class CurrentWalletPositionService(
             {
                 if (openPos[0].Direction == trade.Direction)
                 {
+                    //TODO тут может быть деление на 0 пока хз как , openPos[0].Quantity может быть отрецительным если short , trade.Q - всегда положительный
                     openPos[0].AverageEntryPrice = (openPos[0].VolumeUsd + trade.VolumeUsd) / (openPos[0].Quantity + trade.Quantity);
                     openPos[0].Quantity += trade.RealQuantity;
                     return OrderSubType.Increase;
@@ -95,6 +96,11 @@ public class CurrentWalletPositionService(
         return OrderSubType.None;
     }
 
+    /// <summary>
+    /// Пытаемся получить snapshot по кошельку из MemoryCache , если нет, то запрашиваем у провайдера
+    /// </summary>
+    /// <param name="wallet"></param>
+    /// <returns></returns>
     public async Task<WalletPositionsSnapshot> GetSnapshot(Wallet wallet)
     {
         if (_walletPositionSnapshot.TryGetValue(wallet, out WalletPositionsSnapshot snapshot))
@@ -118,7 +124,7 @@ public class CurrentWalletPositionService(
 
         var openPos = _walletPositionSnapshot[order.Wallet].Positions.Where(p => p.Symbol == order.Symbol).ToArray();
 
-        if(openPos.Length == 0)
+        if (openPos.Length == 0)
         {
             return OrderSubType.Open;
         }
@@ -140,7 +146,7 @@ public class CurrentWalletPositionService(
                     return OrderSubType.Decrease;
                 }
                 //else это закрытие текущей позиции и сразу открытие позиции в противоположную сторону (Long > Short) (Short > Long)
-                
+
                 _logger.LogError($"CurrentWalletPositionService GetOrderSubType не удалось уменьшить позицию {order.Symbol} у кошелька {order.Wallet} TradeVolume больше чем открытая позиция");
                 return OrderSubType.None;
             }
@@ -152,5 +158,18 @@ public class CurrentWalletPositionService(
         }
 
         return OrderSubType.None;
+    }
+
+    /// <summary>
+    /// Получаем из snapshot текущее значение плеча для кошелька и символа
+    /// </summary>
+    public async Task<int?> TryGetLeverage(Wallet wallet, string symbol)
+    {
+        var snapshot = await GetSnapshot(wallet);
+        var position = snapshot.Positions.FirstOrDefault(p => p.Symbol == symbol);
+
+        if(position is null) return null;
+
+        return position.Leverage;
     }
 }

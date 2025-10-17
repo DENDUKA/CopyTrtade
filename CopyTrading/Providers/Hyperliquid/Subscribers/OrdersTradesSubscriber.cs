@@ -17,6 +17,15 @@ public class OrdersTradesSubscriber(ILogger<OrdersTradesSubscriber> _logger)
     public (Wallet, bool)[] OrdersSubscriptionStatus => _orderSubscribes.Select(x => (x, true)).Concat(_pendingOrderSubscribes.Select(x => (x, false))).ToArray();
     public (Wallet, bool)[] TradesSubscriptionStatus => _tradeSubscribes.Select(x => (x, true)).Concat(_pendingTradeSubscribes.Select(x => (x, false))).ToArray();
 
+    public void GetSubscribeStatus(Wallet wallet, out bool ordersSubscribed, out bool tradesSubscribed)
+    {
+        ordersSubscribed = _orderSubscribes.Contains(wallet);
+        tradesSubscribed = _tradeSubscribes.Contains(wallet);
+    }
+
+    //TODO Переделать метод из рекурсии в while
+    //Возможно стоит подумать о подписке параллельной
+    //Подумать над onDisconnect Event
     public async Task SubscribeToNewOrders(Wallet[] wallets)
     {
         var walletsForSubscribe = new List<Wallet>();      
@@ -71,6 +80,7 @@ public class OrdersTradesSubscriber(ILogger<OrdersTradesSubscriber> _logger)
         }
     }
 
+    //TODO Переделать метод из рекурсии в while
     public async Task SubscribeToTrades(Wallet[] wallets)
     {
         var walletsForSubscribe = new List<Wallet>();

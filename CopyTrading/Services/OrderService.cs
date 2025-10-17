@@ -74,7 +74,7 @@ public class OrderService
         }
     }
 
-    private void OnNewOrders(OriginalOrder[] orders)
+    private async void OnNewOrders(OriginalOrder[] orders)
     {
         foreach (var order in orders)
         {
@@ -82,38 +82,30 @@ public class OrderService
 
             _orderSQLLiteRepository.WriteOrder(order);
 
-            CalculateWriteMinPerpEquityForOrder(order);
+            var minPeForOrder = await CalculateMinPerpEquityForOrder(order);
+            _tradeRepositorySQL.WriteMinPeForOrder(minPeForOrder);
         }
 
         _fillsOrderService.OnNewOrders(orders);
     }
 
-    private async Task CalculateWriteMinPerpEquityForOrder(OriginalOrder order)
+    public async Task<MinPEForOrder> CalculateMinPerpEquityForOrder(OriginalOrder order)
     {
         var walletInfo = await _walletInfo.GetInfo(order.Wallet);
 
         var minPE = _informationService.CalculateMinPerpEquity(walletInfo.AccountVolume, order.VolumeUsd);
         var subType = await _currentWalletPositionService.GetOrderSubType(order);
 
-        _tradeRepositorySQL.WriteMinPeForOrder(new MinPEForOrder
+        return new MinPEForOrder
         {
             OrderId = order.OrderId,
             AccountVolume = walletInfo.AccountVolume,
             MinPE = minPE,
             SubType = subType,
-        });
+        };
     }
 
-    /// <summary>
-    /// Корректируем размещаемый ордер 
-    /// 1) по количесву разрешенных знаков после запятой у Size
-    /// </summary>
-    private async Task CorrectPlacedOrder(CopyOrder order)
-    {
-        var exchangeInfo = await _exchangeInfoProvider.GetExchangeInfo(order.Symbol);
 
-        order.Quantity = Math.Round(order.Quantity, exchangeInfo.QuantityDecimals!.Value);
-    }
 
     private static OrderSubType GetOrderType(Dictionary<string, Position> positions, OriginalOrder order)
     {
