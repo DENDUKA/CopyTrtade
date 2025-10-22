@@ -1,4 +1,5 @@
-﻿using CryptoExchange.Net.SharedApis;
+﻿using CopyTrading.Providers.Hyperliquid.Interfaces;
+using CryptoExchange.Net.SharedApis;
 using HyperLiquid.Net.Clients;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -6,7 +7,7 @@ namespace CopyTrading.Providers.Hyperliquid.Providers;
 
 public class ExchangeInfoProvider(
     ILogger<ExchangeInfoProvider> _logger,
-    IMemoryCache _cache)
+    IMemoryCache _cache) : IExchangeInfoProvider
 {
     private readonly HyperLiquidRestClient _client = new();
 

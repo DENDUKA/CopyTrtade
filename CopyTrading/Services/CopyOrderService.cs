@@ -2,6 +2,7 @@
 using CopyTrading.Models.Models.Enums.Order;
 using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Values;
+using CopyTrading.Providers.Hyperliquid.Interfaces;
 using CopyTrading.Providers.Hyperliquid.Providers;
 using CopyTrading.Services.Interfaces;
 using CopyTrading.Settings;
@@ -15,7 +16,7 @@ public class CopyOrderService
 {
     private readonly OrderService _orderService;
     private readonly IWalletInfoProvider _walletProvider;
-    private readonly ExchangeInfoProvider _exchangeInfoProvider;
+    private readonly IExchangeInfoProvider _exchangeInfoProvider;
     private readonly ILogger<CopyOrderService> _logger;
     //TODO вынести в конструктор , задаваться должен для каждого экземпляра ( поменять singleton )
     private readonly Wallet _myWallet = WalletSettings.MyWallet;
@@ -23,7 +24,7 @@ public class CopyOrderService
     public CopyOrderService(
         OrderService orderService,
         IWalletInfoProvider walletProvider,
-        ExchangeInfoProvider exchangeInfoProvider,
+        IExchangeInfoProvider exchangeInfoProvider,
         ILogger<CopyOrderService> logger)
     {
         _orderService = orderService;
@@ -103,12 +104,21 @@ public class CopyOrderService
 
     private async Task<CopyOrderV2> CreateCopyOrder(OriginalOrder order)
     {
-        var defaultLevel = 5;
-        var myAccountValue = 2000M;
+        // Получаем информацию о кошельке трейдера (копируемый кошелек)
+        var traderWalletInfo = await _walletProvider.GetInfo(order.Wallet);
 
-        var walletInfo = await _walletProvider.GetInfo(order.Wallet);
+        // Получаем информацию о СВОЕМ кошельке
+        var myWalletInfo = await _walletProvider.GetInfo(_myWallet, false);
+        var myAccountValue = myWalletInfo.AccountVolume;
 
-        var orderRatio = order.VolumeUsd / walletInfo.AccountVolume;
+        // Вычисляем долю от капитала трейдера (какой % от счета он вкладывает)
+        var orderRatio = order.VolumeUsd / traderWalletInfo.AccountVolume;
+
+        // Вычисляем ВАШ объем позиции (та же доля от ВАШЕГО баланса)
+        var myVolumeUsd = myAccountValue * orderRatio;
+
+        // Вычисляем количество монет по той же цене
+        var myQuantity = myVolumeUsd / order.Price;
 
         //TODO Подумать как получать Получить Leverage CurrentWalletPositionService.GetLEverage(Wallet, Coin)
         //Либо просто задается один раз для всех Coin или вообще это делать не тут а при размещении ордера
@@ -119,8 +129,8 @@ public class CopyOrderService
             OrderId = order.OrderId,
             OrderRatio = orderRatio,
             MyPE = myAccountValue,
-            AccountPE = walletInfo.AccountVolume,
-            Quantity = order.Quantity * orderRatio,
+            AccountPE = traderWalletInfo.AccountVolume,
+            Quantity = myQuantity,
         };
 
         await CorrectCopyOrder(newCopyOrder);

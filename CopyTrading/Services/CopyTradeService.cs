@@ -2,14 +2,14 @@
 using CopyTrading.Models.Models.Enums.Order;
 using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Models.Trade;
-using CopyTrading.Providers.Hyperliquid.Providers;
+using CopyTrading.Providers.Hyperliquid.Interfaces;
 using CopyTrading.Services.Interfaces;
 
 namespace CopyTrading.Services;
 
 public class CopyTradeService(
             IWalletInfoProvider _walletInfo,
-            ExchangeInfoProvider _exchangeInfoProvider)
+            IExchangeInfoProvider _exchangeInfoProvider)
 {
     private readonly OrderSubType[] OrderOpenedTypes = [OrderSubType.Decrease, OrderSubType.Increase, OrderSubType.Close];
 

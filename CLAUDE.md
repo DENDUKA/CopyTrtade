@@ -1,0 +1,227 @@
+# CLAUDE.md
+
+Этот файл содержит рекомендации для Claude Code (claude.ai/code) при работе с кодом в этом репозитории.
+
+## Обзор проекта
+
+CopyTrading - это ASP.NET Core 8.0 приложение, которое отслеживает и копирует торговую активность криптовалют из отслеживаемых кошельков на бирже HyperLiquid. Система использует WebSocket подписки для получения обновлений ордеров и сделок в реальном времени, обрабатывает их через событийно-ориентированную архитектуру и может реплицировать сделки на основе настраиваемых коэффициентов.
+
+## Команды для сборки и запуска
+
+### Сборка
+```bash
+dotnet build CopyTrading.sln
+```
+
+### Запуск
+```bash
+dotnet run --project CopyTrading/CopyTrading.csproj
+```
+
+### Тестирование
+```bash
+# Запустить все тесты
+dotnet test CopyTriding.Test/CopyTriding.Test.csproj
+
+# Запустить конкретный тест
+dotnet test CopyTriding.Test/CopyTriding.Test.csproj --filter "FullyQualifiedName~TestClassName.TestMethodName"
+```
+
+### Очистка
+```bash
+dotnet clean CopyTrading.sln
+```
+
+## Архитектура
+
+### Структура проекта
+
+- **CopyTrading** - Основное ASP.NET Core веб-приложение
+- **CopyTrading.Models** - Общие доменные модели и value objects
+- **CopyTriding.Test** - xUnit тесты с использованием Moq и FluentAssertions
+- **SQLliteBD** - Содержит файл базы данных SQLite (CopyTraidingDB.db)
+
+### Основные компоненты
+
+#### Событийно-ориентированный поток данных
+
+Приложение использует централизованный паттерн шины событий (`DataBusEvents` в `CopyTrading/DataEvents/DataBusEvents.cs`) с тремя основными событиями:
+
+- `NewTrades` - Генерируется при получении новых сделок из WebSocket подписок
+- `NewOrders` - Генерируется при получении новых ордеров из WebSocket подписок
+- `OrderFinished` - Генерируется когда ордер достигает финального статуса (Filled/Canceled/Rejected)
+
+#### Ключевые сервисы (Singleton жизненный цикл)
+
+**FillsOrderService** (`CopyTrading/Services/FillsOrderService.cs`)
+- Подписывается на события `NewTrades` и `NewOrders`
+- Отслеживает исполнение ордеров путем сопоставления ордеров с их сделками
+- Поддерживает concurrent словари для корреляции сделок с ордерами
+- Обрабатывает pending сделки, которые приходят раньше своих ордеров
+- Генерирует события `OrderFinished` когда ордера достигают финальных статусов
+- Активируется в `Startup.Configure` через `serviceProvider.GetService<FillsOrderService>()`
+
+**CopyOrderService** (`CopyTrading/Services/CopyOrderService.cs`)
+- Подписывается на события `NewOrders` через `DataBusEvents`
+- Автоматически реплицирует ордера из отслеживаемых кошельков
+- Рассчитывает коэффициенты ордеров на основе размеров счетов
+- Проверяет ордера на соответствие минимальным требованиям биржи (min notional value, min quantity)
+- Корректирует количество в ордере на основе правил десятичной точности биржи
+- Сейчас настроен с `MyWallet` из `WalletSettings` (захардкожено, отмечено как TODO)
+- Активируется в `Startup.Configure` через `serviceProvider.GetService<CopyOrderService>()`
+
+**OrderService, TradeService, CandleService, InformationService, CurrentWalletPositionService**
+- Различные сервисы бизнес-логики для обработки специфичных доменных операций
+
+#### Интеграция с HyperLiquid
+
+**Провайдеры** (`CopyTrading/Providers/Hyperliquid/Providers/`)
+- `WalletInfoProvider` - Получает информацию о кошельке и исторические данные
+- `OrdersProvider` - Размещает и управляет ордерами
+- `ExchangeInfoProvider` - Получает метаданные биржи (минимальные значения, десятичные знаки и т.д.)
+- `CandlesProvider` (KlinesProvider) - Получает данные свечей
+
+**Подписчики** (`CopyTrading/Providers/Hyperliquid/Subscribers/`)
+- `OrdersTradesSubscriber` - Управляет WebSocket подписками на ордера и сделки
+  - Отслеживает статус подписок для каждого кошелька
+  - Подписывается на обновления ордеров и сделок отдельно
+  - Публикует полученные данные в `DataBusEvents`
+  - Использует рекурсивную логику повторных попыток для неудачных подписок (отмечено как TODO для конвертации в while loop)
+- `OrderBookSubscriber` - Подписывается на обновления книги ордеров
+
+#### Хранение данных
+
+**InfluxDB репозитории** (`CopyTrading/Repository/Influx/`)
+- `OrderRepository` - Хранение временных рядов для ордеров
+- `TradeRepository` - Хранение временных рядов для сделок
+- `CandlesRepository` - Хранение временных рядов для свечей
+- Конфигурация через `InfluxSettings`
+
+**SQLite репозитории** (`CopyTrading/Repository/SQLite/`)
+- `OrderRepository` - Реляционное хранилище для ордеров
+- `TradeRepository` - Реляционное хранилище для сделок
+- `WalletInfoRepository` - Снапшоты кошельков и позиций
+- Путь к базе данных определен в `SQLLiteSettings.Path`
+
+#### Запланированные задачи
+
+**CollectTradeInfoJob** (`CopyTrading/QuartzJobs/CollectTradeInfoJob.cs`)
+- Quartz.NET запланированная задача
+- Запускается каждые 20 минут (cron: `0 0/20 * * * ?`)
+- Также запускается сразу при старте
+- В данный момент закомментирована/неактивна
+
+### Конфигурация
+
+**WalletSettings** (`CopyTrading/Settings/WalletSettings.cs`)
+- `TrackedWallets[]` - Массив из 26 кошельков, отслеживаемых для копи-трейдинга
+- `MyWallet` - Кошелек, используемый для размещения копируемых ордеров
+- `TestFillTrackedWallets[]` - Тестовые адреса кошельков
+
+**SQLLiteSettings** (`CopyTrading/Settings/SQLLiteSettings.cs`)
+- Централизованная конфигурация пути к базе данных SQLite
+- Используется как для логирования Serilog, так и для репозиториев приложения
+
+**InfluxSettings** (`CopyTrading/Settings/InfluxSettings.cs`)
+- Конфигурация подключения к InfluxDB
+
+### Логирование
+
+- Использует Serilog с несколькими выходами (sinks):
+  - Вывод в консоль
+  - Логирование в файл: `logs/copytrading-.log` (ежедневная ротация)
+  - База данных SQLite для структурированных логов
+- Serilog UI доступен по эндпоинту `/serilog-ui` (настроен через пакет `Serilog.UI`)
+
+### API эндпоинты
+
+Контроллеры в `CopyTrading/Controllers/`:
+- `OrdersController` - Управление ордерами
+- `TradesController` - Запросы по сделкам
+- `CandlesController` - Данные свечей
+- `WalletInfoController` - Информация о кошельках
+- `HealthCheckController` - Статус здоровья
+
+Swagger UI доступен в режиме разработки по адресу `/swagger`
+
+## Заметки по разработке
+
+### Паттерн инициализации сервисов
+
+`FillsOrderService` и `CopyOrderService` явно активируются в `Startup.Configure()` с использованием `serviceProvider.GetService<T>()`. Это гарантирует, что их конструкторы выполняются и регистрируются подписки на события, даже если они никуда не инжектятся. Это сделано намеренно для singleton сервисов, которым нужно запустить фоновую обработку.
+
+### Паттерн шины событий
+
+Сервисы общаются через статический класс `DataBusEvents`. При добавлении новых обработчиков событий:
+1. Подписывайтесь на события в конструкторах сервисов
+2. Обеспечьте потокобезопасность для конкурентных обработчиков событий
+3. Помните, что события срабатывают синхронно в потоке подписчика
+
+### Управление WebSocket подписками
+
+`OrdersTradesSubscriber` поддерживает раздельное отслеживание подписок на ордера и сделки. Каждый кошелек требует две подписки. Неудачные подписки автоматически повторяются рекурсивно (рассмотрите рефакторинг в итеративный подход согласно TODO).
+
+### Корреляция данных
+
+`FillsOrderService` выполняет сложную задачу корреляции сделок с ордерами:
+- Ордера могут приходить до или после своих сделок
+- Использует словарь `_pendingTrades` для сделок без соответствующих ордеров
+- Проверяет, что исполненные ордера соответствуют агрегированным количествам сделок
+
+### Логика пропорционального копирования ордеров
+
+При копировании ордеров (`CopyOrderService`) реализован пропорциональный расчет на основе **доли от капитала** трейдера:
+
+**Шаг 1: Получение информации о балансах**
+```csharp
+traderWalletInfo = await _walletProvider.GetInfo(order.Wallet);       // Баланс трейдера
+myWalletInfo = await _walletProvider.GetInfo(_myWallet, false);       // Ваш баланс
+myAccountValue = myWalletInfo.AccountVolume;
+```
+
+**Шаг 2: Расчет доли от капитала трейдера**
+```csharp
+orderRatio = order.VolumeUsd / traderWalletInfo.AccountVolume;
+// Например: $1,000 / $20,000 = 0.05 (трейдер вкладывает 5% своего счета)
+```
+
+**Шаг 3: Расчет вашего объема позиции (та же доля)**
+```csharp
+myVolumeUsd = myAccountValue * orderRatio;
+// Например: $2,000 × 0.05 = $100 (вы тоже вкладываете 5% своего счета)
+```
+
+**Шаг 4: Расчет количества монет**
+```csharp
+myQuantity = myVolumeUsd / order.Price;
+// Например: $100 / $50,000 = 0.002 BTC
+```
+
+**Шаг 5: Коррекция и валидация**
+- Округление до точности биржи через `ExchangeInfoProvider.GetExchangeInfo(symbol).QuantityDecimals`
+- Проверка на соответствие `MinNotionalValue` (минимум $10)
+- Проверка на соответствие `MinTradeQuantity`
+
+**Важно:**
+- Leverage копируется из оригинального ордера (но логика установки leverage для копируемого ордера - TODO)
+- Если трейдер использует высокое плечо (например, позиция = 300% от счета), вы тоже откроете позицию = 300% от своего счета
+- Маржа масштабируется пропорционально: если трейдер вкладывает 50% своего счета в маржу, вы тоже вкладываете 50%
+
+**Пример:**
+- Трейдер: баланс $20,000, открывает 0.02 BTC × $50,000 = $1,000 (5% от счета)
+- Вы: баланс $2,000, откроете 0.002 BTC × $50,000 = $100 (тоже 5% от счета)
+- Пропорция сохранена: обе позиции составляют 5% от соответствующих балансов
+
+## Зависимости
+
+Ключевые NuGet пакеты:
+- **HyperLiquid.Net** (v2.13.1) - Клиентская библиотека биржи
+- **Quartz** (v3.15.0) - Планирование задач
+- **Serilog** - Структурированное логирование с UI
+- **InfluxDB.Client** (v4.18.0) - База данных временных рядов
+- **Microsoft.Data.Sqlite** (v9.0.9) - Доступ к SQLite
+- **WatsonWebsocket** (v4.1.6) - Поддержка WebSocket
+- **Swashbuckle.AspNetCore** (v6.8.0) - Swagger/OpenAPI
+
+Зависимости для тестирования:
+- xUnit, Moq, FluentAssertions, coverlet.collector

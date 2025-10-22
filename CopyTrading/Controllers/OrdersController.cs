@@ -1,5 +1,6 @@
 ﻿using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Values;
+using CopyTrading.Providers.Hyperliquid.Interfaces;
 using CopyTrading.Providers.Hyperliquid.Providers;
 using CopyTrading.Services;
 using CopyTrading.Services.Interfaces;
@@ -13,12 +14,12 @@ public class OrdersController(
     OrderService orderService,
     OrdersProvider ordersHyperliquidProvider,
     IWalletInfoProvider walletInfoJKirfProvider,
-    ExchangeInfoProvider exchangeInfoProvider) : ControllerBase
+    IExchangeInfoProvider exchangeInfoProvider) : ControllerBase
 {
     private readonly OrderService _orderService = orderService;
     private readonly OrdersProvider _ordersHyperliquidProvider = ordersHyperliquidProvider;
     private readonly IWalletInfoProvider _walletInfoJKirfProvider = walletInfoJKirfProvider;
-    private readonly ExchangeInfoProvider _exchangeInfoProvider = exchangeInfoProvider;
+    private readonly IExchangeInfoProvider _exchangeInfoProvider = exchangeInfoProvider;
 
     [HttpGet("GetOrdersHistory")]
     public async Task<ActionResult<OriginalOrder[]>> GetOrdersHistory([FromQuery] string wallet)

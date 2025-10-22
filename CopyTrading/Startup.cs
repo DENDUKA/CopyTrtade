@@ -1,4 +1,5 @@
-﻿using CopyTrading.Providers.Hyperliquid.Providers;
+﻿using CopyTrading.Providers.Hyperliquid.Interfaces;
+using CopyTrading.Providers.Hyperliquid.Providers;
 using CopyTrading.Providers.Hyperliquid.Subscribers;
 using CopyTrading.QuartzJobs;
 using CopyTrading.Repository.Influx;
@@ -54,7 +55,7 @@ public class Startup
         //HyperLiquid Providers
         services.AddSingleton<IWalletInfoProvider, WalletInfoProvider>();        
         services.AddSingleton<OrdersProvider>(); 
-        services.AddSingleton<ExchangeInfoProvider>();
+        services.AddSingleton<IExchangeInfoProvider, ExchangeInfoProvider>();
         services.AddSingleton<CandlesProvider>();
 
         //HyperLiquid Subscribers

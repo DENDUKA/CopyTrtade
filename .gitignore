@@ -52,3 +52,6 @@
 /CopyTrading.Blazor/obj
 /CopyTriding.Test/bin
 /CopyTriding.Test/bin/Debug
+/CopyTriding.Test/bin/Debug
+CopyTriding.Test/bin/Debug/net8.0/CopyTrading.deps.json
+/CopyTriding.Test/bin

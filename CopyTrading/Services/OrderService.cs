@@ -3,6 +3,7 @@ using CopyTrading.Models.Models;
 using CopyTrading.Models.Models.Enums.Order;
 using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Values;
+using CopyTrading.Providers.Hyperliquid.Interfaces;
 using CopyTrading.Providers.Hyperliquid.Providers;
 using CopyTrading.Providers.Hyperliquid.Subscribers;
 using CopyTrading.Repository.Influx;
@@ -18,7 +19,7 @@ public class OrderService
     private readonly OrdersTradesSubscriber _orderProvider;
     private readonly IWalletInfoProvider _walletInfo;
     private readonly OrderRepository _orderDBProvider;
-    private readonly ExchangeInfoProvider _exchangeInfoProvider;
+    private readonly IExchangeInfoProvider _exchangeInfoProvider;
     private readonly SQLLiteOrderRepository _orderSQLLiteRepository;
     private readonly TradeRepositorySQL _tradeRepositorySQL;
     private readonly InformationService _informationService;
@@ -30,7 +31,7 @@ public class OrderService
         OrdersTradesSubscriber orderProvider,
         IWalletInfoProvider walletInfo,
         OrderRepository orderDBProvider,
-        ExchangeInfoProvider exchangeInfoProvider,
+        IExchangeInfoProvider exchangeInfoProvider,
         SQLLiteOrderRepository orderSQLLiteProvider,
         TradeRepositorySQL tradeRepositorySQL,
         InformationService informationService,
