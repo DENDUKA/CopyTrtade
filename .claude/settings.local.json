@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet test \"C:\\Programs\\CopyTrtade\\CopyTriding.Test\\CopyTriding.Test.csproj\" --no-build)",
+      "Bash(dotnet test \"C:\\Programs\\CopyTrtade\\CopyTriding.Test\\CopyTriding.Test.csproj\")"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

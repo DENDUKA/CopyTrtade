@@ -51,6 +51,7 @@ public class Startup
         services.AddSingleton<CandleService>();
         services.AddSingleton<InformationService>();
         services.AddSingleton<CurrentWalletPositionService>();
+        services.AddSingleton<PositionMappingService>();
 
         //HyperLiquid Providers
         services.AddSingleton<IWalletInfoProvider, WalletInfoProvider>();        

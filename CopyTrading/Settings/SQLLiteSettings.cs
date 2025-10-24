@@ -2,5 +2,9 @@
 
 public static class SQLLiteSettings
 {
-    public static string Path = @"C:\Program\CopyTrtade\SQLliteBD\CopyTradingDB.db";
+    public static string Path = System.IO.Path.Combine(
+        AppDomain.CurrentDomain.BaseDirectory,
+        "..", "..", "..", "..",
+        "SQLliteBD",
+        "CopyTradingDB.db");
 }

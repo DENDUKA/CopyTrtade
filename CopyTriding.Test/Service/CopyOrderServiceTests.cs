@@ -86,6 +86,8 @@ public class CopyOrderServiceTests
             null!,  // OrderService не используется в CreateCopyOrder
             _walletInfoProvider.Object,
             _exchangeInfoProvider.Object,
+            null!,  // CurrentWalletPositionService не используется в CreateCopyOrder
+            null!,  // PositionMappingService не используется в CreateCopyOrder
             _logger.Object,
             myWallet);
 
@@ -166,6 +168,8 @@ public class CopyOrderServiceTests
             null!,  // OrderService не используется в CreateCopyOrder
             _walletInfoProvider.Object,
             _exchangeInfoProvider.Object,
+            null!,  // CurrentWalletPositionService не используется в CreateCopyOrder
+            null!,  // PositionMappingService не используется в CreateCopyOrder
             _logger.Object,
             myWallet);
 
@@ -245,6 +249,8 @@ public class CopyOrderServiceTests
             null!,  // OrderService не используется в CreateCopyOrder
             _walletInfoProvider.Object,
             _exchangeInfoProvider.Object,
+            null!,  // CurrentWalletPositionService не используется в CreateCopyOrder
+            null!,  // PositionMappingService не используется в CreateCopyOrder
             _logger.Object,
             myWallet);
 
@@ -324,6 +330,8 @@ public class CopyOrderServiceTests
             null!,  // OrderService не используется в CreateCopyOrder
             _walletInfoProvider.Object,
             _exchangeInfoProvider.Object,
+            null!,  // CurrentWalletPositionService не используется в CreateCopyOrder
+            null!,  // PositionMappingService не используется в CreateCopyOrder
             _logger.Object,
             myWallet);
 
@@ -351,9 +359,11 @@ public class TestableCopyOrderService : CopyOrderService
         OrderService orderService,
         IWalletInfoProvider walletProvider,
         IExchangeInfoProvider exchangeInfoProvider,
+        CurrentWalletPositionService currentWalletPositionService,
+        PositionMappingService positionMappingService,
         ILogger<CopyOrderService> logger,
         Wallet myWallet)
-        : base(orderService, walletProvider, exchangeInfoProvider, logger)
+        : base(orderService, walletProvider, exchangeInfoProvider, currentWalletPositionService, positionMappingService, logger)
     {
         _testMyWallet = myWallet;
         // Используем рефлексию чтобы подменить _myWallet

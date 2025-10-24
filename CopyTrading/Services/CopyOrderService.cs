@@ -17,6 +17,8 @@ public class CopyOrderService
     private readonly OrderService _orderService;
     private readonly IWalletInfoProvider _walletProvider;
     private readonly IExchangeInfoProvider _exchangeInfoProvider;
+    private readonly CurrentWalletPositionService _currentWalletPositionService;
+    private readonly PositionMappingService _positionMappingService;
     private readonly ILogger<CopyOrderService> _logger;
     //TODO вынести в конструктор , задаваться должен для каждого экземпляра ( поменять singleton )
     private readonly Wallet _myWallet = WalletSettings.MyWallet;
@@ -25,11 +27,15 @@ public class CopyOrderService
         OrderService orderService,
         IWalletInfoProvider walletProvider,
         IExchangeInfoProvider exchangeInfoProvider,
+        CurrentWalletPositionService currentWalletPositionService,
+        PositionMappingService positionMappingService,
         ILogger<CopyOrderService> logger)
     {
         _orderService = orderService;
         _walletProvider = walletProvider;
         _exchangeInfoProvider = exchangeInfoProvider;
+        _currentWalletPositionService = currentWalletPositionService;
+        _positionMappingService = positionMappingService;
         _logger = logger;
 
         DataBusEvents.NewOrders += OnNewOrders;
@@ -43,63 +49,242 @@ public class CopyOrderService
         }
     }
 
-    private void OnNewOrder(OriginalOrder order)
+    private async void OnNewOrder(OriginalOrder order)
     {
+        _logger.LogInformation($"CopyOrderService OnNewOrder: {order.Symbol} {order.Direction} OrderId={order.OrderId}, Status={order.Status}");
+
         switch (order.Status)
         {
             case OrderStatus.Open:
-                {
-                    OrderOpen(order);
-                    break;
-                }
+                await HandleOpenOrder(order);
+                break;
+
             case OrderStatus.Filled:
-                {
-                    OrderFilled(order);
-                    break;
-                }
+                await HandleFilledOrder(order);
+                break;
+
             case OrderStatus.Canceled:
-                {
-                    OrderCanceled(order);
-                    break;
-                }
+                await HandleCanceledOrder(order);
+                break;
+
+            case OrderStatus.Rejected:
+                await HandleRejectedOrder(order);
+                break;
+
+            case OrderStatus.Triggered:
+                // Triggered ордер уже размещен на бирже, ждем когда станет Open или Filled
+                _logger.LogInformation($"CopyOrderService: Ордер {order.OrderId} триггернулся, ждем исполнения");
+                break;
+
+            case OrderStatus.Unknown:
+            case OrderStatus.MarginCanceled:
             default:
-                {
-                    _logger.LogError($"CopyOrderService OnNewOrder: Неизвестный статус ордера {order.Status}");
-                    break;
-                }
+                _logger.LogWarning($"CopyOrderService OnNewOrder: Необработанный статус {order.Status} для ордера {order.OrderId}");
+                break;
         }
     }
 
     /// <summary>
-    /// Ордер открыт 
-    /// Проверить нет ли у нас уже копии этого ордера (маловероятно)
-    /// Проверить можем ли мы его разместить ( достаточно ли средств, маржи, минимальной суммы размещения)
-    /// Создать копию ордера и поправить его по округлению quantity и тд
-    /// Разместить его на бирже 
-    /// Записать в БД о том что мы разместили и для какого originalOrderId его копировали
+    /// Обработка ордера в статусе Open - размещаем наш копируемый ордер
     /// </summary>
-    /// <param name="order"></param>
-    /// <returns></returns>
-    private async Task OrderOpen(OriginalOrder order)
+    private async Task HandleOpenOrder(OriginalOrder order)
     {
-        if (order.Status != OrderStatus.Open) return;
+        _logger.LogInformation($"HandleOpenOrder: {order.Symbol} {order.Direction}, OrderId={order.OrderId}");
 
-        var minPeForOrder = await _orderService.CalculateMinPerpEquityForOrder(order);
-        var walletInfo = await _walletProvider.GetInfo(_myWallet, false);
+        // Определяем тип ордера через CurrentWalletPositionService
+        var orderSubType = await _currentWalletPositionService.GetOrderSubType(order);
+
+        _logger.LogInformation($"CopyOrderService HandleOpenOrder: {order.Symbol} {order.Direction} SubType={orderSubType}");
+
+        switch (orderSubType)
+        {
+            case OrderSubType.Open:
+                await OpenNewPosition(order);
+                break;
+
+            case OrderSubType.Increase:
+                await IncreasePosition(order);
+                break;
+
+            case OrderSubType.Decrease:
+                await DecreasePosition(order);
+                break;
+
+            case OrderSubType.Close:
+                await ClosePosition(order);
+                break;
+
+            default:
+                _logger.LogWarning($"CopyOrderService HandleOpenOrder: Неизвестный OrderSubType {orderSubType} для ордера {order.OrderId}");
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Обработка ордера в статусе Filled - проверяем что наш ордер тоже исполнен
+    /// </summary>
+    private async Task HandleFilledOrder(OriginalOrder order)
+    {
+        _logger.LogInformation($"HandleFilledOrder: {order.Symbol} {order.Direction}, OrderId={order.OrderId}");
+
+        // TODO: Проверить статус нашего копируемого ордера
+        // Если наш ордер не исполнен полностью - залогировать ошибку или предпринять действия
+        // Можно получить наш ордер по OrderId трейдера из маппинга
+
+        _logger.LogWarning($"HandleFilledOrder: TODO - проверка исполнения копируемого ордера для {order.OrderId}");
+    }
+
+    /// <summary>
+    /// Обработка ордера в статусе Canceled - отменяем наш копируемый ордер
+    /// </summary>
+    private async Task HandleCanceledOrder(OriginalOrder order)
+    {
+        _logger.LogInformation($"HandleCanceledOrder: {order.Symbol} {order.Direction}, OrderId={order.OrderId}");
+
+        // TODO: Отменить наш копируемый ордер через OrdersProvider
+        // Можно получить наш ордер по OrderId трейдера из маппинга
+
+        _logger.LogWarning($"HandleCanceledOrder: TODO - отмена копируемого ордера для {order.OrderId}");
+    }
+
+    /// <summary>
+    /// Обработка ордера в статусе Rejected - отменяем наш копируемый ордер (если он был размещен)
+    /// </summary>
+    private async Task HandleRejectedOrder(OriginalOrder order)
+    {
+        _logger.LogInformation($"HandleRejectedOrder: {order.Symbol} {order.Direction}, OrderId={order.OrderId}");
+
+        // TODO: Отменить наш копируемый ордер через OrdersProvider (если он был размещен)
+        // Можно получить наш ордер по OrderId трейдера из маппинга
+
+        _logger.LogWarning($"HandleRejectedOrder: TODO - отмена копируемого ордера для {order.OrderId}");
+    }
+
+    /// <summary>
+    /// Открытие НОВОЙ позиции (Open)
+    /// Создаем копируемый ордер пропорционально балансу и сохраняем маппинг
+    /// </summary>
+    private async Task OpenNewPosition(OriginalOrder order)
+    {
+        _logger.LogInformation($"OpenNewPosition: {order.Symbol} {order.Direction}, Quantity={order.Quantity}");
 
         var copyOrder = await CreateCopyOrder(order);
 
-        _logger.LogInformation($"CopyOrderService OrderOpen Создан копируемый ордер: {copyOrder}");
+        // Сохраняем маппинг между позициями
+        var mapping = new Models.Models.PositionMapping
+        {
+            TraderWallet = order.Wallet,
+            MyWallet = _myWallet,
+            Symbol = order.Symbol,
+            Direction = order.Direction,
+            TraderQuantity = order.Quantity,
+            MyQuantity = copyOrder.Quantity,
+            PositionRatio = copyOrder.Quantity / order.Quantity,  // Сохраняем пропорцию!
+            LastUpdate = DateTime.UtcNow
+        };
+
+        _positionMappingService.SaveOrUpdateMapping(mapping);
+
+        _logger.LogInformation($"OpenNewPosition создан маппинг: {mapping}");
+
+        // TODO: Разместить ордер на бирже через OrdersProvider
+        _logger.LogInformation($"OpenNewPosition создан копируемый ордер: {order.OrderId} {copyOrder}");
     }
 
-    private void OrderCanceled(OriginalOrder order)
+    /// <summary>
+    /// Увеличение существующей позиции (Increase)
+    /// Копируем ордер используя СОХРАНЕННУЮ пропорцию из маппинга
+    /// </summary>
+    private async Task IncreasePosition(OriginalOrder order)
     {
-        //throw new NotImplementedException();
+        _logger.LogInformation($"IncreasePosition: {order.Symbol} {order.Direction}, Quantity={order.Quantity}");
+
+        var mapping = _positionMappingService.GetMapping(order.Wallet, _myWallet, order.Symbol, order.Direction);
+
+        if (mapping == null)
+        {
+            _logger.LogWarning($"IncreasePosition: Маппинг не найден для {order.Symbol} {order.Direction}. Открываем как новую позицию.");
+            await OpenNewPosition(order);
+            return;
+        }
+
+        // Используем СОХРАНЕННУЮ пропорцию, а не текущий баланс!
+        var myIncreaseQuantity = order.Quantity * mapping.PositionRatio;
+
+        // Округляем
+        var exchangeInfo = await _exchangeInfoProvider.GetExchangeInfo(order.Symbol);
+        myIncreaseQuantity = Math.Round(myIncreaseQuantity, exchangeInfo.QuantityDecimals!.Value, MidpointRounding.ToPositiveInfinity);
+
+        // Обновляем маппинг
+        mapping.TraderQuantity += order.Quantity;
+        mapping.MyQuantity += myIncreaseQuantity;
+        _positionMappingService.SaveOrUpdateMapping(mapping);
+
+        _logger.LogInformation($"IncreasePosition: {order.OrderId} Увеличиваем на {myIncreaseQuantity}, новая позиция: {mapping.MyQuantity}");
+
+        // TODO: Разместить ордер на увеличение через OrdersProvider
     }
 
-    private void OrderFilled(OriginalOrder order)
+    /// <summary>
+    /// Частичное закрытие позиции (Decrease)
+    /// Закрываем ту же ДОЛЮ от нашей позиции, что и трейдер
+    /// </summary>
+    private async Task DecreasePosition(OriginalOrder order)
     {
-        //throw new NotImplementedException();
+        _logger.LogInformation($"DecreasePosition: {order.Symbol} {order.Direction}, Quantity={order.Quantity}");
+
+        var mapping = _positionMappingService.GetMapping(order.Wallet, _myWallet, order.Symbol, order.Direction);
+
+        if (mapping == null)
+        {
+            _logger.LogWarning($"DecreasePosition: Маппинг не найден для {order.Symbol} {order.Direction}");
+            return;
+        }
+
+        // Рассчитываем какую долю закрывает трейдер
+        var closeRatio = order.Quantity / mapping.TraderQuantity;
+
+        // Закрываем ту же долю от ВАШЕЙ позиции
+        var myCloseQuantity = mapping.MyQuantity * closeRatio;
+
+        var exchangeInfo = await _exchangeInfoProvider.GetExchangeInfo(order.Symbol);
+        myCloseQuantity = Math.Round(myCloseQuantity, exchangeInfo.QuantityDecimals!.Value, MidpointRounding.ToPositiveInfinity);
+
+        // Обновляем маппинг
+        mapping.TraderQuantity -= order.Quantity;
+        mapping.MyQuantity -= myCloseQuantity;
+        _positionMappingService.SaveOrUpdateMapping(mapping);
+
+        _logger.LogInformation($"DecreasePosition {order.OrderId}: Закрываем {myCloseQuantity} (closeRatio={closeRatio:P2}), осталось: {mapping.MyQuantity}");
+
+        // TODO: Разместить ордер на частичное закрытие через OrdersProvider
+    }
+
+    /// <summary>
+    /// Полное закрытие позиции (Close)
+    /// Закрываем ВСЮ нашу позицию независимо от текущих балансов
+    /// </summary>
+    private async Task ClosePosition(OriginalOrder order)
+    {
+        _logger.LogInformation($"ClosePosition: {order.Symbol} {order.Direction}, Quantity={order.Quantity}");
+
+        var mapping = _positionMappingService.GetMapping(order.Wallet, _myWallet, order.Symbol, order.Direction);
+
+        if (mapping == null)
+        {
+            _logger.LogWarning($"ClosePosition: Маппинг не найден для {order.Symbol} {order.Direction}");
+            return;
+        }
+
+        // Закрываем ВСЮ нашу позицию
+        var myCloseQuantity = mapping.MyQuantity;
+
+        _logger.LogInformation($"ClosePosition: {order.OrderId} Закрываем полностью {myCloseQuantity}");
+
+        // Удаляем маппинг (позиция полностью закрыта)
+        _positionMappingService.DeleteMapping(order.Wallet, _myWallet, order.Symbol, order.Direction);
+
+        // TODO: Разместить ордер на полное закрытие через OrdersProvider
     }
 
     private async Task<CopyOrderV2> CreateCopyOrder(OriginalOrder order)
