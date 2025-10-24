@@ -23,6 +23,11 @@ public class FillsOrderService
         _logger = logger;
     }
 
+    public OrderFills[] GetAllOrderFills()
+    {
+        return _orders.Values.ToArray();
+    }
+
     public void OnNewOrders(OriginalOrder[] orders)
     {
         foreach (var newOrder in orders)

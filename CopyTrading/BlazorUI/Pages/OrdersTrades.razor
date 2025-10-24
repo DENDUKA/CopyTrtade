@@ -1,0 +1,454 @@
+@page "/orders-trades"
+@using CopyTrading.Services
+@using CopyTrading.Models.Models.Enums.Order
+@inject FillsOrderService FillsOrderService
+@inject ILogger<OrdersTrades> Logger
+
+<PageTitle>Ордера + Трейды - CopyTrading</PageTitle>
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>
+                <i class="fas fa-exchange-alt"></i> Ордера + Трейды
+            </h1>
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-primary" @onclick="RefreshData">
+                <i class="fas fa-sync-alt"></i> Обновить
+            </button>
+        </div>
+    </div>
+
+    <!-- Статистика -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="fas fa-list-ul"></i> Всего ордеров
+                    </h6>
+                    <h3>@orderFills.Length</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="fas fa-check-circle"></i> Полностью заполнены
+                    </h6>
+                    <h3>@orderFills.Count(o => o.FillStatus == OrderFillsStatus.Filled)</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="fas fa-exclamation-triangle"></i> Частично заполнены
+                    </h6>
+                    <h3>@orderFills.Count(o => o.FillStatus == OrderFillsStatus.PartiallyFilled)</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-secondary text-white">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="fas fa-times-circle"></i> Без заполнения
+                    </h6>
+                    <h3>@orderFills.Count(o => o.FillStatus == OrderFillsStatus.NoFills)</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Фильтры -->
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <input type="text"
+                   class="form-control"
+                   placeholder="Поиск по символу, кошельку или ID..."
+                   @bind="searchFilter"
+                   @bind:event="oninput" />
+        </div>
+        <div class="col-md-4">
+            <label class="form-label"><small>Статусы заполнения:</small></label>
+            <div class="d-flex gap-3">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="filterFilled"
+                           @bind="filterFilled" />
+                    <label class="form-check-label" for="filterFilled">
+                        Filled
+                    </label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="filterPartiallyFilled"
+                           @bind="filterPartiallyFilled" />
+                    <label class="form-check-label" for="filterPartiallyFilled">
+                        Partially Filled
+                    </label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="filterNoFills"
+                           @bind="filterNoFills" />
+                    <label class="form-check-label" for="filterNoFills">
+                        No Fills
+                    </label>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label"><small>Направление:</small></label>
+            <select class="form-select" @bind="directionFilter">
+                <option value="">Все</option>
+                <option value="Long">Long</option>
+                <option value="Short">Short</option>
+            </select>
+        </div>
+    </div>
+
+    @if (!GetFilteredOrderFills().Any())
+    {
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i>
+            Ордера не найдены
+        </div>
+    }
+    else
+    {
+        <div class="mb-2">
+            <small class="text-muted">Показано: @GetFilteredOrderFills().Count() из @orderFills.Length</small>
+        </div>
+
+        <!-- Список ордеров с трейдами -->
+        @foreach (var orderFill in GetFilteredOrderFills().OrderByDescending(o => o.OriginalOrder.Time))
+        {
+            <div class="card mb-3">
+                <!-- Заголовок ордера -->
+                <div class="card-header @GetOrderHeaderClass(orderFill)">
+                    <div class="row align-items-center">
+                        <div class="col-md-2">
+                            <strong><i class="fas fa-hashtag"></i> @orderFill.OriginalOrder.OrderId</strong>
+                        </div>
+                        <div class="col-md-2">
+                            <strong>@orderFill.OriginalOrder.Symbol</strong>
+                        </div>
+                        <div class="col-md-2">
+                            <span class="badge @GetDirectionBadgeClass(orderFill.OriginalOrder.Direction)">
+                                <i class="@GetDirectionIcon(orderFill.OriginalOrder.Direction)"></i>
+                                @orderFill.OriginalOrder.Direction
+                            </span>
+                        </div>
+                        <div class="col-md-2">
+                            <small class="font-monospace">...@GetShortWallet(orderFill.OriginalOrder.Wallet?.Value)</small>
+                        </div>
+                        <div class="col-md-1">
+                            <span class="badge @GetOrderStatusBadgeClass(orderFill.OriginalOrder.Status)">
+                                @orderFill.OriginalOrder.Status
+                            </span>
+                        </div>
+                        <div class="col-md-2">
+                            <span class="badge @GetFillStatusBadgeClass(orderFill.FillStatus)">
+                                @orderFill.FillStatus
+                            </span>
+                        </div>
+                        <div class="col-md-1 text-end">
+                            <button class="btn btn-sm btn-link text-white" @onclick="() => ToggleOrderDetails(orderFill.OriginalOrder.OrderId)">
+                                <i class="fas @(expandedOrders.Contains(orderFill.OriginalOrder.OrderId) ? "fa-chevron-up" : "fa-chevron-down")"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Детали ордера (сворачиваемые) -->
+                @if (expandedOrders.Contains(orderFill.OriginalOrder.OrderId))
+                {
+                    <div class="card-body">
+                        <!-- Информация об ордере -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-info-circle"></i> Информация об ордере</h6>
+                                <table class="table table-sm">
+                                    <tbody>
+                                        <tr>
+                                            <td><strong>Кошелек:</strong></td>
+                                            <td><span class="font-monospace">@orderFill.OriginalOrder.Wallet?.Value</span></td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Цена:</strong></td>
+                                            <td>$@orderFill.OriginalOrder.Price.ToString("F2")</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Количество:</strong></td>
+                                            <td>@orderFill.OriginalOrder.Quantity.ToString("F4")</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Заполнено:</strong></td>
+                                            <td>
+                                                @orderFill.FilledQuantity.ToString("F4")
+                                                <small class="text-muted">
+                                                    (@((orderFill.FilledQuantity / orderFill.OriginalOrder.Quantity * 100).ToString("F1"))%)
+                                                </small>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Объем USD:</strong></td>
+                                            <td>$@orderFill.OriginalOrder.VolumeUsd.ToString("F2")</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Время:</strong></td>
+                                            <td>@orderFill.OriginalOrder.Time.ToString("dd.MM.yyyy HH:mm:ss")</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-chart-bar"></i> Статистика по трейдам</h6>
+                                <table class="table table-sm">
+                                    <tbody>
+                                        <tr>
+                                            <td><strong>Количество трейдов:</strong></td>
+                                            <td>@orderFill.Trades.Count</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Общий объем:</strong></td>
+                                            <td>@orderFill.FilledQuantity.ToString("F4")</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Средняя цена:</strong></td>
+                                            <td>
+                                                @if (orderFill.Trades.Count > 0)
+                                                {
+                                                    <text>$@orderFill.Trades.Average(t => t.Price).ToString("F2")</text>
+                                                }
+                                                else
+                                                {
+                                                    <text>-</text>
+                                                }
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Общий объем USD:</strong></td>
+                                            <td>
+                                                @if (orderFill.Trades.Count > 0)
+                                                {
+                                                    <text>$@orderFill.Trades.Sum(t => t.VolumeUsd).ToString("F2")</text>
+                                                }
+                                                else
+                                                {
+                                                    <text>-</text>
+                                                }
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Список трейдов -->
+                        @if (orderFill.Trades.Count > 0)
+                        {
+                            <h6><i class="fas fa-list"></i> Трейды (@orderFill.Trades.Count)</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Trade ID</th>
+                                            <th>Время</th>
+                                            <th>Направление</th>
+                                            <th>Тип</th>
+                                            <th class="text-end">Цена</th>
+                                            <th class="text-end">Количество</th>
+                                            <th class="text-end">Объем USD</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var trade in orderFill.Trades.OrderBy(t => t.TimeStamp))
+                                        {
+                                            <tr>
+                                                <td>@trade.TradeId</td>
+                                                <td>
+                                                    <small>@trade.TimeStamp.ToString("HH:mm:ss")</small><br/>
+                                                    <small class="text-muted">@trade.TimeStamp.ToString("dd.MM.yyyy")</small>
+                                                </td>
+                                                <td>
+                                                    <span class="badge @GetDirectionBadgeClass(trade.Direction)">
+                                                        <i class="@GetDirectionIcon(trade.Direction)"></i>
+                                                        @trade.Direction
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <span class="badge @GetSubTypeBadgeClass(trade.SubType)">
+                                                        @trade.SubType
+                                                    </span>
+                                                </td>
+                                                <td class="text-end">$@trade.Price.ToString("F2")</td>
+                                                <td class="text-end">@trade.Quantity.ToString("F4")</td>
+                                                <td class="text-end"><strong>$@trade.VolumeUsd.ToString("F2")</strong></td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="alert alert-warning mb-0">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                У этого ордера нет трейдов
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private OrderFills[] orderFills = Array.Empty<OrderFills>();
+    private HashSet<long> expandedOrders = new();
+    private string searchFilter = string.Empty;
+    private string directionFilter = string.Empty;
+
+    // Множественный выбор статусов
+    private bool filterFilled = false;
+    private bool filterPartiallyFilled = false;
+    private bool filterNoFills = false;
+
+    protected override void OnInitialized()
+    {
+        LoadData();
+    }
+
+    private void LoadData()
+    {
+        orderFills = FillsOrderService.GetAllOrderFills();
+        Logger.LogInformation($"Загружено {orderFills.Length} ордеров");
+    }
+
+    private void RefreshData()
+    {
+        LoadData();
+        StateHasChanged();
+    }
+
+    private void ToggleOrderDetails(long orderId)
+    {
+        if (expandedOrders.Contains(orderId))
+        {
+            expandedOrders.Remove(orderId);
+        }
+        else
+        {
+            expandedOrders.Add(orderId);
+        }
+    }
+
+    private IEnumerable<OrderFills> GetFilteredOrderFills()
+    {
+        var filtered = orderFills.AsEnumerable();
+
+        // Фильтр по поиску
+        if (!string.IsNullOrWhiteSpace(searchFilter))
+        {
+            var filter = searchFilter.ToLower();
+            filtered = filtered.Where(o =>
+                o.OriginalOrder.Symbol.ToLower().Contains(filter) ||
+                o.OriginalOrder.Wallet?.Value.ToLower().Contains(filter) == true ||
+                o.OriginalOrder.OrderId.ToString().Contains(filter));
+        }
+
+        // Фильтр по статусу заполнения (множественный выбор)
+        if (filterFilled || filterPartiallyFilled || filterNoFills)
+        {
+            filtered = filtered.Where(o =>
+                (filterFilled && o.FillStatus == OrderFillsStatus.Filled) ||
+                (filterPartiallyFilled && o.FillStatus == OrderFillsStatus.PartiallyFilled) ||
+                (filterNoFills && o.FillStatus == OrderFillsStatus.NoFills));
+        }
+
+        // Фильтр по направлению
+        if (!string.IsNullOrWhiteSpace(directionFilter))
+        {
+            if (Enum.TryParse<Direction>(directionFilter, out var direction))
+            {
+                filtered = filtered.Where(o => o.OriginalOrder.Direction == direction);
+            }
+        }
+
+        return filtered;
+    }
+
+    private string GetShortWallet(string? wallet)
+    {
+        if (string.IsNullOrEmpty(wallet) || wallet.Length < 6)
+            return wallet ?? "";
+
+        return wallet.Substring(wallet.Length - 6);
+    }
+
+    private string GetOrderHeaderClass(OrderFills orderFill)
+    {
+        return orderFill.FillStatus switch
+        {
+            OrderFillsStatus.Filled => "bg-success text-white",
+            OrderFillsStatus.PartiallyFilled => "bg-warning text-dark",
+            OrderFillsStatus.NoFills => "bg-secondary text-white",
+            _ => "bg-primary text-white"
+        };
+    }
+
+    private string GetFillStatusBadgeClass(OrderFillsStatus status)
+    {
+        return status switch
+        {
+            OrderFillsStatus.Filled => "bg-success",
+            OrderFillsStatus.PartiallyFilled => "bg-warning text-dark",
+            OrderFillsStatus.NoFills => "bg-secondary",
+            _ => "bg-secondary"
+        };
+    }
+
+    private string GetOrderStatusBadgeClass(OrderStatus status)
+    {
+        return status switch
+        {
+            OrderStatus.Open => "bg-primary",
+            OrderStatus.Filled => "bg-success",
+            OrderStatus.Canceled => "bg-secondary",
+            OrderStatus.Rejected => "bg-danger",
+            OrderStatus.Triggered => "bg-warning text-dark",
+            OrderStatus.MarginCanceled => "bg-dark",
+            _ => "bg-secondary"
+        };
+    }
+
+    private string GetDirectionIcon(Direction direction)
+    {
+        return direction == Direction.Long
+            ? "fas fa-arrow-up"
+            : "fas fa-arrow-down";
+    }
+
+    private string GetDirectionBadgeClass(Direction direction)
+    {
+        return direction == Direction.Long
+            ? "bg-success"
+            : "bg-danger";
+    }
+
+    private string GetSubTypeBadgeClass(OrderSubType subType)
+    {
+        return subType switch
+        {
+            OrderSubType.Open => "bg-info",
+            OrderSubType.Close => "bg-warning text-dark",
+            OrderSubType.Increase => "bg-success",
+            OrderSubType.Decrease => "bg-danger",
+            _ => "bg-secondary"
+        };
+    }
+}
