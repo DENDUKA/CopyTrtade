@@ -1,0 +1,312 @@
+@page "/orders"
+@using Microsoft.AspNetCore.SignalR.Client
+@using CopyTrading.Models.Models.Enums.Order
+@inject NavigationManager Navigation
+@inject ILogger<Orders> Logger
+@implements IAsyncDisposable
+
+<PageTitle>Ордера - CopyTrading</PageTitle>
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>
+                <i class="fas fa-file-invoice"></i> Ордера
+            </h1>
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-primary" @onclick="RefreshOrders">
+                <i class="fas fa-sync-alt"></i> Обновить
+            </button>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Загрузка...</span>
+            </div>
+            <p class="mt-3">Загрузка ордеров...</p>
+        </div>
+    }
+    else
+    {
+        <div class="row mb-3">
+            <div class="col-md-2">
+                <div class="card bg-primary text-white">
+                    <div class="card-body">
+                        <h6 class="card-title">Всего ордеров</h6>
+                        <h3>@orders.Count</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card bg-info text-white">
+                    <div class="card-body">
+                        <h6 class="card-title">Open</h6>
+                        <h3>@orders.Count(o => o.Status == OrderStatus.Open)</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card bg-success text-white">
+                    <div class="card-body">
+                        <h6 class="card-title">Filled</h6>
+                        <h3>@orders.Count(o => o.Status == OrderStatus.Filled)</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card bg-warning text-dark">
+                    <div class="card-body">
+                        <h6 class="card-title">Triggered</h6>
+                        <h3>@orders.Count(o => o.Status == OrderStatus.Triggered)</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card bg-secondary text-white">
+                    <div class="card-body">
+                        <h6 class="card-title">Canceled</h6>
+                        <h3>@orders.Count(o => o.Status == OrderStatus.Canceled)</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card @GetConnectionStatusClass()">
+                    <div class="card-body">
+                        <h6 class="card-title">SignalR</h6>
+                        <h5>
+                            <i class="fas @GetConnectionIcon()"></i>
+                            @connectionStatus
+                        </h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <input type="text"
+                       class="form-control"
+                       placeholder="Поиск по символу, кошельку или ID..."
+                       @bind="searchFilter"
+                       @bind:event="oninput" />
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" @bind="statusFilter">
+                    <option value="">Все статусы</option>
+                    <option value="Open">Open</option>
+                    <option value="Filled">Filled</option>
+                    <option value="Triggered">Triggered</option>
+                    <option value="Canceled">Canceled</option>
+                    <option value="Rejected">Rejected</option>
+                    <option value="MarginCanceled">Margin Canceled</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" @bind="directionFilter">
+                    <option value="">Все направления</option>
+                    <option value="Long">Long</option>
+                    <option value="Short">Short</option>
+                </select>
+            </div>
+        </div>
+
+        @if (!GetFilteredOrders().Any())
+        {
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i>
+                Ордера не найдены
+            </div>
+        }
+        else
+        {
+            <div class="mb-2">
+                <small class="text-muted">Показано: @GetFilteredOrders().Count() из @orders.Count</small>
+            </div>
+
+            @foreach (var order in GetFilteredOrders().OrderByDescending(o => o.Time))
+            {
+                <OrderCard Order="@order" />
+            }
+        }
+    }
+</div>
+
+@code {
+    private HubConnection? hubConnection;
+    private List<OriginalOrder> orders = new();
+    private bool isLoading = true;
+    private string connectionStatus = "Disconnected";
+    private string searchFilter = string.Empty;
+    private string statusFilter = string.Empty;
+    private string directionFilter = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await InitializeSignalR();
+    }
+
+    private async Task InitializeSignalR()
+    {
+        try
+        {
+            // Создаем подключение к SignalR Hub
+            hubConnection = new HubConnectionBuilder()
+                .WithUrl(Navigation.ToAbsoluteUri("/copytradinghub"))
+                .WithAutomaticReconnect()
+                .Build();
+
+            // Подписываемся на получение новых ордеров
+            hubConnection.On<OriginalOrder[]>("ReceiveOrders", (receivedOrders) =>
+            {
+                foreach (var order in receivedOrders)
+                {
+                    // Проверяем, есть ли уже такой ордер
+                    var existingOrder = orders.FirstOrDefault(o => o.OrderId == order.OrderId);
+                    if (existingOrder != null)
+                    {
+                        // Обновляем существующий ордер
+                        var index = orders.IndexOf(existingOrder);
+                        orders[index] = order;
+                    }
+                    else
+                    {
+                        // Добавляем новый ордер
+                        orders.Add(order);
+                    }
+                }
+
+                Logger.LogInformation($"Получено {receivedOrders.Length} ордеров, всего: {orders.Count}");
+                InvokeAsync(StateHasChanged);
+            });
+
+            // Подписываемся на завершение ордеров
+            hubConnection.On<OrderFills>("ReceiveOrderFinished", (orderFills) =>
+            {
+                var order = orders.FirstOrDefault(o => o.OrderId == orderFills.OriginalOrder.OrderId);
+                if (order != null)
+                {
+                    var index = orders.IndexOf(order);
+                    orders[index] = orderFills.OriginalOrder;
+                    Logger.LogInformation($"Ордер {order.OrderId} обновлен: {order.Status}");
+                    InvokeAsync(StateHasChanged);
+                }
+            });
+
+            // Обработчики переподключения
+            hubConnection.Reconnecting += (error) =>
+            {
+                connectionStatus = "Reconnecting...";
+                Logger.LogWarning("SignalR переподключается...");
+                InvokeAsync(StateHasChanged);
+                return Task.CompletedTask;
+            };
+
+            hubConnection.Reconnected += (connectionId) =>
+            {
+                connectionStatus = "Connected";
+                Logger.LogInformation($"SignalR переподключен: {connectionId}");
+                InvokeAsync(StateHasChanged);
+                return Task.CompletedTask;
+            };
+
+            hubConnection.Closed += (error) =>
+            {
+                connectionStatus = "Disconnected";
+                Logger.LogError(error, "SignalR отключен");
+                InvokeAsync(StateHasChanged);
+                return Task.CompletedTask;
+            };
+
+            // Подключаемся
+            await hubConnection.StartAsync();
+            connectionStatus = "Connected";
+            Logger.LogInformation("SignalR подключен");
+
+            isLoading = false;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Ошибка при инициализации SignalR");
+            connectionStatus = "Error";
+            isLoading = false;
+        }
+    }
+
+    private async Task RefreshOrders()
+    {
+        // Для обновления просто очищаем список - новые ордера придут через SignalR
+        Logger.LogInformation("Обновление списка ордеров");
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private IEnumerable<OriginalOrder> GetFilteredOrders()
+    {
+        var filtered = orders.AsEnumerable();
+
+        // Фильтр по поиску
+        if (!string.IsNullOrWhiteSpace(searchFilter))
+        {
+            var filter = searchFilter.ToLower();
+            filtered = filtered.Where(o =>
+                o.Symbol.ToLower().Contains(filter) ||
+                o.Wallet.ToString().ToLower().Contains(filter) ||
+                o.OrderId.ToString().Contains(filter));
+        }
+
+        // Фильтр по статусу
+        if (!string.IsNullOrWhiteSpace(statusFilter))
+        {
+            if (Enum.TryParse<OrderStatus>(statusFilter, out var status))
+            {
+                filtered = filtered.Where(o => o.Status == status);
+            }
+        }
+
+        // Фильтр по направлению
+        if (!string.IsNullOrWhiteSpace(directionFilter))
+        {
+            if (Enum.TryParse<Direction>(directionFilter, out var direction))
+            {
+                filtered = filtered.Where(o => o.Direction == direction);
+            }
+        }
+
+        return filtered;
+    }
+
+    private string GetConnectionStatusClass()
+    {
+        return connectionStatus switch
+        {
+            "Connected" => "bg-success text-white",
+            "Reconnecting..." => "bg-warning text-dark",
+            "Disconnected" => "bg-secondary text-white",
+            "Error" => "bg-danger text-white",
+            _ => "bg-secondary text-white"
+        };
+    }
+
+    private string GetConnectionIcon()
+    {
+        return connectionStatus switch
+        {
+            "Connected" => "fa-plug",
+            "Reconnecting..." => "fa-spinner fa-spin",
+            "Disconnected" => "fa-plug-circle-xmark",
+            "Error" => "fa-exclamation-triangle",
+            _ => "fa-question-circle"
+        };
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is not null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+}

@@ -1,0 +1,103 @@
+@using CopyTrading.Models.Models.Orders
+@using CopyTrading.Models.Models.Enums
+@using CopyTrading.Models.Models.Enums.Order
+
+@* Компонент для отображения одного ордера *@
+
+<div class="card @GetCardClass() mb-2">
+    <div class="card-body py-2">
+        <div class="row align-items-center">
+            <div class="col-md-1">
+                <small class="text-muted">ID</small>
+                <div class="fw-bold">@Order.OrderId</div>
+            </div>
+
+            <div class="col-md-2">
+                <h6 class="mb-0">
+                    <i class="@GetDirectionIcon()"></i>
+                    @Order.Symbol
+                </h6>
+                <small class="text-muted">@Order.Direction - @Order.SubType</small>
+            </div>
+
+            <div class="col-md-1">
+                <small class="text-muted">Кошелек</small>
+                <div>@Order.Wallet</div>
+            </div>
+
+            <div class="col-md-1">
+                <small class="text-muted">Цена</small>
+                <div class="fw-bold">$@Order.Price.ToString("F2")</div>
+            </div>
+
+            <div class="col-md-1">
+                <small class="text-muted">Количество</small>
+                <div>@Order.Quantity.ToString("F4")</div>
+            </div>
+
+            <div class="col-md-1">
+                <small class="text-muted">Объем USD</small>
+                <div class="fw-bold">$@Order.VolumeUsd.ToString("F2")</div>
+            </div>
+
+            <div class="col-md-1">
+                <small class="text-muted">Плечо</small>
+                <div>@Order.Leverage.ToString("F1")x</div>
+            </div>
+
+            <div class="col-md-2">
+                <small class="text-muted">Статус</small>
+                <div>
+                    <span class="badge @GetStatusBadgeClass()">
+                        @Order.Status
+                    </span>
+                </div>
+                <small class="text-muted">@Order.Time.ToString("HH:mm:ss dd.MM")</small>
+            </div>
+
+            <div class="col-md-2 text-end">
+                <button class="btn btn-sm btn-outline-info" @onclick="ShowDetails">
+                    <i class="fas fa-info-circle"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public OriginalOrder Order { get; set; } = null!;
+
+    private string GetCardClass()
+    {
+        return Order.Direction == Direction.Long
+            ? "border-success border-start border-3"
+            : "border-danger border-start border-3";
+    }
+
+    private string GetDirectionIcon()
+    {
+        return Order.Direction == Direction.Long
+            ? "fas fa-arrow-up text-success"
+            : "fas fa-arrow-down text-danger";
+    }
+
+    private string GetStatusBadgeClass()
+    {
+        return Order.Status switch
+        {
+            OrderStatus.Open => "bg-primary",
+            OrderStatus.Filled => "bg-success",
+            OrderStatus.Canceled => "bg-secondary",
+            OrderStatus.Rejected => "bg-danger",
+            OrderStatus.Triggered => "bg-warning text-dark",
+            OrderStatus.MarginCanceled => "bg-dark",
+            _ => "bg-secondary"
+        };
+    }
+
+    private void ShowDetails()
+    {
+        // TODO: Показать детали ордера (модальное окно или переход на другую страницу)
+    }
+}

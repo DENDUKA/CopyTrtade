@@ -43,6 +43,16 @@ public class Startup
         services.AddEndpointsApiExplorer();
         services.AddSwaggerGen();
 
+        // Blazor Server
+        services.AddRazorPages();
+        services.AddServerSideBlazor();
+
+        // SignalR (для real-time обновлений)
+        services.AddSignalR();
+
+        // UI Services
+        services.AddSingleton<BlazorUI.Services.RealtimeUpdateService>();
+
         //Services
         services.AddSingleton<OrderService>();
         services.AddSingleton<TradeService>();
@@ -109,22 +119,30 @@ public class Startup
 
     public void Configure(IApplicationBuilder app, IHostEnvironment env, IServiceProvider serviceProvider)
     {
+        app.UseHttpsRedirection();
+
         // Перемещаем UseStaticFiles() перед Serilog UI
         app.UseStaticFiles();
-        
+
         app.UseRouting();
 
-        app.UseEndpoints(endpoints =>
-        {
-            endpoints.MapControllers();
-        });
-
+        // Serilog UI должен быть зарегистрирован ДО endpoints
         app.UseSerilogUi(option=> option.WithHomeUrl(@"/serilog-ui"));
 
         app.UseSwagger();
         app.UseSwaggerUI();
 
-        app.UseHttpsRedirection();
+        app.UseEndpoints(endpoints =>
+        {
+            endpoints.MapControllers();
+
+            // SignalR Hub для real-time обновлений
+            endpoints.MapHub<BlazorUI.Hubs.CopyTradingHub>("/copytradinghub");
+
+            // Blazor Server endpoints
+            endpoints.MapBlazorHub();
+            endpoints.MapFallbackToPage("/_Host");
+        });
 
         app.UseExceptionHandler("/Error");
 
@@ -132,5 +150,8 @@ public class Startup
 
         serviceProvider.GetService<FillsOrderService>();
         serviceProvider.GetService<CopyOrderService>();
+
+        // Инициализируем RealtimeUpdateService для подписки на DataBusEvents
+        serviceProvider.GetRequiredService<BlazorUI.Services.RealtimeUpdateService>();
     }
 }
