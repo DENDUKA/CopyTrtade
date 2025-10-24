@@ -1,0 +1,183 @@
+@page "/settings"
+
+<PageTitle>Настройки - CopyTrading</PageTitle>
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>
+                <i class="fas fa-cog"></i> Настройки
+            </h1>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <!-- Общие настройки -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <i class="fas fa-sliders-h"></i> Общие настройки
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        Настройки в разработке. Скоро здесь появятся параметры копирования.
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <i class="fas fa-percentage"></i> Коэффициент копирования по умолчанию
+                        </label>
+                        <input type="number" class="form-control" placeholder="1.0" step="0.1" disabled />
+                        <small class="text-muted">Множитель для копирования позиций трейдеров</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <i class="fas fa-dollar-sign"></i> Максимальный размер позиции (USD)
+                        </label>
+                        <input type="number" class="form-control" placeholder="1000" disabled />
+                        <small class="text-muted">Ограничение на размер одной позиции</small>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="autoCopy" disabled />
+                        <label class="form-check-label" for="autoCopy">
+                            Автоматическое копирование новых позиций
+                        </label>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="closePositions" disabled />
+                        <label class="form-check-label" for="closePositions">
+                            Автоматически закрывать позиции при закрытии трейдером
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Управление трейдерами -->
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <i class="fas fa-users"></i> Управление трейдерами
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        Функция добавления/удаления трейдеров в разработке.
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <i class="fas fa-plus"></i> Добавить трейдера
+                        </label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" placeholder="0x..." disabled />
+                            <button class="btn btn-success" disabled>
+                                <i class="fas fa-plus"></i> Добавить
+                            </button>
+                        </div>
+                        <small class="text-muted">Введите адрес кошелька трейдера (0x...)</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Список отслеживаемых трейдеров:</label>
+                        <div class="list-group">
+                            <div class="list-group-item text-muted text-center">
+                                Трейдеры появятся после добавления
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Уведомления -->
+            <div class="card mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <i class="fas fa-bell"></i> Уведомления
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        Настройки уведомлений в разработке.
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="notifyNewPosition" disabled />
+                        <label class="form-check-label" for="notifyNewPosition">
+                            Уведомлять о новых позициях трейдеров
+                        </label>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="notifyClosedPosition" disabled />
+                        <label class="form-check-label" for="notifyClosedPosition">
+                            Уведомлять о закрытых позициях
+                        </label>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="notifyLargeOrders" disabled />
+                        <label class="form-check-label" for="notifyLargeOrders">
+                            Уведомлять о крупных ордерах
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Информация о системе -->
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <i class="fas fa-info-circle"></i> Информация о системе
+                </div>
+                <div class="card-body">
+                    <h6>CopyTrading System</h6>
+                    <p class="text-muted mb-2">Версия: 1.0.0</p>
+                    <hr />
+                    <div class="mb-2">
+                        <small class="text-muted">Blazor Server</small><br />
+                        <span class="badge bg-success">Активен</span>
+                    </div>
+                    <div class="mb-2">
+                        <small class="text-muted">SignalR Hub</small><br />
+                        <span class="badge bg-success">Работает</span>
+                    </div>
+                    <div class="mb-2">
+                        <small class="text-muted">Real-time обновления</small><br />
+                        <span class="badge bg-success">Включены</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <i class="fas fa-link"></i> Полезные ссылки
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        <a href="/serilog-ui" target="_blank" class="list-group-item list-group-item-action">
+                            <i class="fas fa-file-alt"></i> Логи (Serilog UI)
+                        </a>
+                        <a href="/swagger" target="_blank" class="list-group-item list-group-item-action">
+                            <i class="fas fa-code"></i> API (Swagger)
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card border-warning">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="fas fa-exclamation-triangle text-warning"></i> Внимание
+                    </h6>
+                    <p class="card-text small">
+                        Это бета-версия системы копирования. Используйте с осторожностью.
+                        Всегда проверяйте позиции перед копированием.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

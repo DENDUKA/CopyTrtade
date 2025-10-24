@@ -47,6 +47,13 @@ public class InformationService(
 
     public decimal CalculateMinPerpEquity(decimal walletVolume, decimal tradeVolume)
     {
-        return 100 / (tradeVolume / walletVolume * 100) * 10;
+        try
+        {
+            return 100 / (tradeVolume / walletVolume * 100);
+        }
+        catch (Exception ex)
+        {
+            return 0;
+        }
     }
 }

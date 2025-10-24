@@ -1,0 +1,302 @@
+@page "/subscriptions"
+@using CopyTrading.Services
+@using CopyTrading.Settings
+@using CopyTrading.Providers.Hyperliquid.Subscribers
+@inject OrderService OrderService
+@inject TradeService TradeService
+@inject OrdersTradesSubscriber OrdersTradesSubscriber
+@inject ILogger<Subscriptions> Logger
+
+<PageTitle>Подписки - CopyTrading</PageTitle>
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>
+                <i class="fas fa-bell"></i> Подписки
+            </h1>
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-success me-2" @onclick="SubscribeToOrders" disabled="@isSubscribingOrders">
+                <i class="fas @(isSubscribingOrders ? "fa-spinner fa-spin" : "fa-check")"></i>
+                Подписаться на ордера
+            </button>
+            <button class="btn btn-primary" @onclick="SubscribeToTrades" disabled="@isSubscribingTrades">
+                <i class="fas @(isSubscribingTrades ? "fa-spinner fa-spin" : "fa-check")"></i>
+                Подписаться на трейды
+            </button>
+        </div>
+    </div>
+
+    <!-- Статистика -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="fas fa-wallet"></i> Всего кошельков
+                    </h6>
+                    <h3>@WalletSettings.TrackedWallets.Length</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="fas fa-list-ul"></i> Подписки на ордера
+                    </h6>
+                    <h3>@ordersSubscribedCount</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="fas fa-history"></i> Подписки на трейды
+                    </h6>
+                    <h3>@tradesSubscribedCount</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="fas fa-clock"></i> В ожидании
+                    </h6>
+                    <h3>@pendingCount</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Фильтр -->
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <input type="text"
+                   class="form-control"
+                   placeholder="Поиск по адресу кошелька..."
+                   @bind="searchFilter"
+                   @bind:event="oninput" />
+        </div>
+        <div class="col-md-3">
+            <select class="form-select" @bind="statusFilter">
+                <option value="">Все статусы</option>
+                <option value="both">Подписан на оба</option>
+                <option value="orders">Только ордера</option>
+                <option value="trades">Только трейды</option>
+                <option value="none">Не подписан</option>
+            </select>
+        </div>
+        <div class="col-md-auto ms-auto">
+            <button class="btn btn-secondary" @onclick="RefreshStatus">
+                <i class="fas fa-sync-alt"></i> Обновить
+            </button>
+        </div>
+    </div>
+
+    <!-- Таблица кошельков -->
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Адрес кошелька</th>
+                    <th class="text-center">Подписка на ордера</th>
+                    <th class="text-center">Подписка на трейды</th>
+                </tr>
+            </thead>
+            <tbody>
+                @{
+                    var filteredWallets = GetFilteredWallets();
+                    var index = 1;
+                }
+                @foreach (var wallet in filteredWallets)
+                {
+                    OrdersTradesSubscriber.GetSubscribeStatus(wallet, out bool ordersSubscribed, out bool tradesSubscribed);
+
+                    <tr>
+                        <td>@index</td>
+                        <td>
+                            <span class="font-monospace">@wallet.Value</span>
+                        </td>
+                        <td class="text-center">
+                            @if (ordersSubscribed)
+                            {
+                                <span class="badge bg-success">
+                                    <i class="fas fa-check"></i> Подписан
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">
+                                    <i class="fas fa-times"></i> Не подписан
+                                </span>
+                            }
+                        </td>
+                        <td class="text-center">
+                            @if (tradesSubscribed)
+                            {
+                                <span class="badge bg-success">
+                                    <i class="fas fa-check"></i> Подписан
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">
+                                    <i class="fas fa-times"></i> Не подписан
+                                </span>
+                            }
+                        </td>
+                    </tr>
+                    index++;
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (!filteredWallets.Any())
+    {
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i>
+            Кошельки не найдены
+        </div>
+    }
+    else
+    {
+        <div class="mb-2">
+            <small class="text-muted">Показано: @filteredWallets.Count() из @WalletSettings.TrackedWallets.Length</small>
+        </div>
+    }
+</div>
+
+@code {
+    private bool isSubscribingOrders = false;
+    private bool isSubscribingTrades = false;
+    private string searchFilter = string.Empty;
+    private string statusFilter = string.Empty;
+
+    private int ordersSubscribedCount = 0;
+    private int tradesSubscribedCount = 0;
+    private int pendingCount = 0;
+
+    protected override void OnInitialized()
+    {
+        UpdateMetrics();
+    }
+
+    private async Task SubscribeToOrders()
+    {
+        try
+        {
+            isSubscribingOrders = true;
+            StateHasChanged();
+
+            Logger.LogInformation("Начинаем подписку на ордера для отслеживаемых кошельков");
+            await OrderService.SubscribeToTrackedWalletsOrders();
+            Logger.LogInformation("Подписка на ордера завершена");
+
+            UpdateMetrics();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Ошибка при подписке на ордера");
+        }
+        finally
+        {
+            isSubscribingOrders = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SubscribeToTrades()
+    {
+        try
+        {
+            isSubscribingTrades = true;
+            StateHasChanged();
+
+            Logger.LogInformation("Начинаем подписку на трейды для отслеживаемых кошельков");
+            await TradeService.SubscribeToTrackedWalletsTrades();
+            Logger.LogInformation("Подписка на трейды завершена");
+
+            UpdateMetrics();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Ошибка при подписке на трейды");
+        }
+        finally
+        {
+            isSubscribingTrades = false;
+            StateHasChanged();
+        }
+    }
+
+    private void RefreshStatus()
+    {
+        UpdateMetrics();
+        StateHasChanged();
+    }
+
+    private void UpdateMetrics()
+    {
+        ordersSubscribedCount = 0;
+        tradesSubscribedCount = 0;
+        pendingCount = 0;
+
+        foreach (var wallet in WalletSettings.TrackedWallets)
+        {
+            OrdersTradesSubscriber.GetSubscribeStatus(wallet, out bool ordersSubscribed, out bool tradesSubscribed);
+
+            if (ordersSubscribed) ordersSubscribedCount++;
+            if (tradesSubscribed) tradesSubscribedCount++;
+            if (!ordersSubscribed || !tradesSubscribed) pendingCount++;
+        }
+    }
+
+    private IEnumerable<CopyTrading.Models.Values.Wallet> GetFilteredWallets()
+    {
+        var wallets = WalletSettings.TrackedWallets.AsEnumerable();
+
+        // Фильтр по поиску
+        if (!string.IsNullOrWhiteSpace(searchFilter))
+        {
+            var filter = searchFilter.ToLower();
+            wallets = wallets.Where(w => w.Value.ToLower().Contains(filter));
+        }
+
+        // Фильтр по статусу подписки
+        if (!string.IsNullOrWhiteSpace(statusFilter))
+        {
+            wallets = statusFilter switch
+            {
+                "both" => wallets.Where(w =>
+                {
+                    OrdersTradesSubscriber.GetSubscribeStatus(w, out bool o, out bool t);
+                    return o && t;
+                }),
+                "orders" => wallets.Where(w =>
+                {
+                    OrdersTradesSubscriber.GetSubscribeStatus(w, out bool o, out bool t);
+                    return o && !t;
+                }),
+                "trades" => wallets.Where(w =>
+                {
+                    OrdersTradesSubscriber.GetSubscribeStatus(w, out bool o, out bool t);
+                    return !o && t;
+                }),
+                "none" => wallets.Where(w =>
+                {
+                    OrdersTradesSubscriber.GetSubscribeStatus(w, out bool o, out bool t);
+                    return !o && !t;
+                }),
+                _ => wallets
+            };
+        }
+
+        return wallets;
+    }
+}

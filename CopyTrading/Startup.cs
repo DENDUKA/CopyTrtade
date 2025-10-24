@@ -129,8 +129,12 @@ public class Startup
         // Serilog UI должен быть зарегистрирован ДО endpoints
         app.UseSerilogUi(option=> option.WithHomeUrl(@"/serilog-ui"));
 
+        // Swagger доступен по /swagger, но не запускается автоматически
         app.UseSwagger();
-        app.UseSwaggerUI();
+        app.UseSwaggerUI(c =>
+        {
+            c.RoutePrefix = "swagger"; // Swagger доступен по /swagger
+        });
 
         app.UseEndpoints(endpoints =>
         {

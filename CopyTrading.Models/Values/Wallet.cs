@@ -1,17 +1,20 @@
-﻿namespace CopyTrading.Models.Values;
+﻿using System.Text.Json.Serialization;
+
+namespace CopyTrading.Models.Values;
 
 public record Wallet
 {
     public string Value { get; }
 
-    public Wallet(string wallet)
+    [JsonConstructor]
+    public Wallet(string value)
     {
-        if (!IsValid(wallet))
+        if (!IsValid(value))
         {
-            throw new ArgumentException("Некорректный формат кошелька.", nameof(wallet));
+            throw new ArgumentException("Некорректный формат кошелька.", nameof(value));
         }
 
-        Value = wallet;
+        Value = value;
     }
 
     public static bool IsValid(string wallet)

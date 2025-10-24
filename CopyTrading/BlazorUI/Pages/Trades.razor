@@ -1,0 +1,351 @@
+@page "/trades"
+@using Microsoft.AspNetCore.SignalR.Client
+@using CopyTrading.Models.Models.Trade
+@using CopyTrading.Models.Models.Enums.Order
+@inject NavigationManager Navigation
+@inject ILogger<Trades> Logger
+@implements IAsyncDisposable
+
+<PageTitle>История трейдов - CopyTrading</PageTitle>
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>
+                <i class="fas fa-history"></i> История трейдов
+            </h1>
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-primary" @onclick="RefreshTrades">
+                <i class="fas fa-sync-alt"></i> Обновить
+            </button>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Загрузка...</span>
+            </div>
+            <p class="mt-3">Загрузка трейдов...</p>
+        </div>
+    }
+    else
+    {
+        <!-- Статистика -->
+        <div class="row mb-3">
+            <div class="col-md-3">
+                <div class="card bg-primary text-white">
+                    <div class="card-body">
+                        <h6 class="card-title">Всего трейдов</h6>
+                        <h3>@trades.Count</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-success text-white">
+                    <div class="card-body">
+                        <h6 class="card-title">Long трейды</h6>
+                        <h3>@trades.Count(t => t.Direction == Direction.Long)</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-danger text-white">
+                    <div class="card-body">
+                        <h6 class="card-title">Short трейды</h6>
+                        <h3>@trades.Count(t => t.Direction == Direction.Short)</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card @GetConnectionStatusClass()">
+                    <div class="card-body">
+                        <h6 class="card-title">SignalR</h6>
+                        <h5>
+                            <i class="@GetConnectionIcon()"></i>
+                            @connectionStatus
+                        </h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Фильтры -->
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <input type="text"
+                       class="form-control"
+                       placeholder="Поиск по символу или кошельку..."
+                       @bind="searchFilter"
+                       @bind:event="oninput" />
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" @bind="directionFilter">
+                    <option value="">Все направления</option>
+                    <option value="Long">Long</option>
+                    <option value="Short">Short</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" @bind="subTypeFilter">
+                    <option value="">Все типы</option>
+                    <option value="Open">Open</option>
+                    <option value="Close">Close</option>
+                    <option value="Increase">Increase</option>
+                    <option value="Decrease">Decrease</option>
+                </select>
+            </div>
+        </div>
+
+        @if (!GetFilteredTrades().Any())
+        {
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i>
+                Трейды не найдены
+            </div>
+        }
+        else
+        {
+            <div class="mb-2">
+                <small class="text-muted">Показано: @GetFilteredTrades().Count() из @trades.Count</small>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Время</th>
+                            <th>Символ</th>
+                            <th>Направление</th>
+                            <th>Тип</th>
+                            <th>Цена</th>
+                            <th>Количество</th>
+                            <th>Объем USD</th>
+                            <th>Кошелек</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var trade in GetFilteredTrades().OrderByDescending(t => t.TimeStamp).Take(100))
+                        {
+                            <tr>
+                                <td>@trade.TradeId</td>
+                                <td>
+                                    <small>@trade.TimeStamp.ToString("HH:mm:ss")</small><br/>
+                                    <small class="text-muted">@trade.TimeStamp.ToString("dd.MM.yyyy")</small>
+                                </td>
+                                <td><strong>@trade.Symbol</strong></td>
+                                <td>
+                                    <span class="badge @GetDirectionBadgeClass(trade.Direction)">
+                                        <i class="@GetDirectionIcon(trade.Direction)"></i>
+                                        @trade.Direction
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge @GetSubTypeBadgeClass(trade.SubType)">
+                                        @trade.SubType
+                                    </span>
+                                </td>
+                                <td>$@trade.Price.ToString("F2")</td>
+                                <td>@trade.Quantity.ToString("F4")</td>
+                                <td><strong>$@trade.VolumeUsd.ToString("F2")</strong></td>
+                                <td>
+                                    <small class="text-muted">@trade.Wallet.ToString().Substring(0, 10)...</small>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (GetFilteredTrades().Count() > 100)
+            {
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Показаны первые 100 трейдов. Используйте фильтры для уточнения поиска.
+                </div>
+            }
+        }
+    }
+</div>
+
+@code {
+    private HubConnection? hubConnection;
+    private List<OriginalTrade> trades = new();
+    private bool isLoading = true;
+    private string connectionStatus = "Disconnected";
+    private string searchFilter = string.Empty;
+    private string directionFilter = string.Empty;
+    private string subTypeFilter = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await InitializeSignalR();
+    }
+
+    private async Task InitializeSignalR()
+    {
+        try
+        {
+            hubConnection = new HubConnectionBuilder()
+                .WithUrl(Navigation.ToAbsoluteUri("/copytradinghub"))
+                .WithAutomaticReconnect()
+                .Build();
+
+            // Подписываемся на новые трейды
+            hubConnection.On<OriginalTrade[]>("ReceiveTrades", async (receivedTrades) =>
+            {
+                try
+                {
+                    foreach (var trade in receivedTrades)
+                    {
+                        if (!trades.Any(t => t.TradeId == trade.TradeId))
+                        {
+                            trades.Add(trade);
+                        }
+                    }
+
+                    Logger.LogInformation($"Получено {receivedTrades.Length} трейдов, всего: {trades.Count}");
+                    await InvokeAsync(StateHasChanged);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, "Ошибка при обработке трейдов");
+                }
+            });
+
+            // Обработчики переподключения
+            hubConnection.Reconnecting += (error) =>
+            {
+                connectionStatus = "Reconnecting...";
+                InvokeAsync(StateHasChanged);
+                return Task.CompletedTask;
+            };
+
+            hubConnection.Reconnected += (connectionId) =>
+            {
+                connectionStatus = "Connected";
+                InvokeAsync(StateHasChanged);
+                return Task.CompletedTask;
+            };
+
+            hubConnection.Closed += (error) =>
+            {
+                connectionStatus = "Disconnected";
+                Logger.LogError(error, "SignalR отключен");
+                InvokeAsync(StateHasChanged);
+                return Task.CompletedTask;
+            };
+
+            await hubConnection.StartAsync();
+            connectionStatus = "Connected";
+            Logger.LogInformation("SignalR подключен");
+
+            isLoading = false;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Ошибка при инициализации SignalR");
+            connectionStatus = "Error";
+            isLoading = false;
+        }
+    }
+
+    private async Task RefreshTrades()
+    {
+        Logger.LogInformation("Обновление списка трейдов");
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private IEnumerable<OriginalTrade> GetFilteredTrades()
+    {
+        var filtered = trades.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(searchFilter))
+        {
+            var filter = searchFilter.ToLower();
+            filtered = filtered.Where(t =>
+                t.Symbol.ToLower().Contains(filter) ||
+                t.Wallet.ToString().ToLower().Contains(filter) ||
+                t.TradeId.ToString().Contains(filter));
+        }
+
+        if (!string.IsNullOrWhiteSpace(directionFilter))
+        {
+            if (Enum.TryParse<Direction>(directionFilter, out var direction))
+            {
+                filtered = filtered.Where(t => t.Direction == direction);
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(subTypeFilter))
+        {
+            if (Enum.TryParse<OrderSubType>(subTypeFilter, out var subType))
+            {
+                filtered = filtered.Where(t => t.SubType == subType);
+            }
+        }
+
+        return filtered;
+    }
+
+    private string GetConnectionStatusClass()
+    {
+        return connectionStatus switch
+        {
+            "Connected" => "bg-success text-white",
+            "Reconnecting..." => "bg-warning text-dark",
+            "Disconnected" => "bg-secondary text-white",
+            "Error" => "bg-danger text-white",
+            _ => "bg-secondary text-white"
+        };
+    }
+
+    private string GetConnectionIcon()
+    {
+        return connectionStatus switch
+        {
+            "Connected" => "fa-plug",
+            "Reconnecting..." => "fa-spinner fa-spin",
+            "Disconnected" => "fa-plug-circle-xmark",
+            "Error" => "fa-exclamation-triangle",
+            _ => "fa-question-circle"
+        };
+    }
+
+    private string GetDirectionIcon(Direction direction)
+    {
+        return direction == Direction.Long
+            ? "fas fa-arrow-up"
+            : "fas fa-arrow-down";
+    }
+
+    private string GetDirectionBadgeClass(Direction direction)
+    {
+        return direction == Direction.Long
+            ? "bg-success"
+            : "bg-danger";
+    }
+
+    private string GetSubTypeBadgeClass(OrderSubType subType)
+    {
+        return subType switch
+        {
+            OrderSubType.Open => "bg-info",
+            OrderSubType.Close => "bg-warning text-dark",
+            OrderSubType.Increase => "bg-success",
+            OrderSubType.Decrease => "bg-danger",
+            _ => "bg-secondary"
+        };
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is not null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+}

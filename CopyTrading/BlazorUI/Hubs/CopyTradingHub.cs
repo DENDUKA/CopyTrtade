@@ -54,8 +54,18 @@ public class CopyTradingHub : Hub
     /// </summary>
     public async Task<PositionMapping[]> GetAllPositions()
     {
-        _logger.LogDebug("GetAllPositions вызван");
-        return _positionMappingService.GetAllMappings().ToArray();
+        try
+        {
+            _logger.LogDebug("GetAllPositions вызван");
+            var positions = _positionMappingService.GetAllMappings().ToArray();
+            _logger.LogDebug($"GetAllPositions возвращает {positions.Length} позиций");
+            return positions;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка в GetAllPositions");
+            throw;
+        }
     }
 
     /// <summary>
@@ -84,15 +94,27 @@ public class CopyTradingHub : Hub
     {
         try
         {
+            _logger.LogInformation("Начинаем отправку начальных данных");
+
             // Отправляем текущие позиции
-            var positions = _positionMappingService.GetAllMappings();
+            var positions = _positionMappingService.GetAllMappings().ToArray();
+            _logger.LogInformation($"Получено {positions.Length} позиций из сервиса");
+
+            // Логируем каждую позицию для отладки
+            foreach (var pos in positions)
+            {
+                _logger.LogDebug($"Позиция: {pos.Symbol} {pos.Direction}, Trader: {pos.TraderWallet?.ToString() ?? "null"}, My: {pos.MyWallet?.ToString() ?? "null"}");
+            }
+
+            _logger.LogInformation("Попытка сериализации и отправки позиций...");
             await Clients.Caller.SendAsync("ReceiveInitialPositions", positions);
 
-            _logger.LogInformation($"Отправлено {positions.Count()} позиций клиенту {Context.ConnectionId}");
+            _logger.LogInformation($"Успешно отправлено {positions.Length} позиций клиенту {Context.ConnectionId}");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Ошибка при отправке начальных данных");
+            throw;
         }
     }
 }

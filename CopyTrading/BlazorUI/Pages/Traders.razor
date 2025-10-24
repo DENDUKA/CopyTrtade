@@ -1,0 +1,333 @@
+@page "/traders"
+@using Microsoft.AspNetCore.SignalR.Client
+@inject NavigationManager Navigation
+@inject ILogger<Traders> Logger
+@implements IAsyncDisposable
+
+<PageTitle>Трейдеры - CopyTrading</PageTitle>
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>
+                <i class="fas fa-users"></i> Трейдеры
+            </h1>
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-primary" @onclick="RefreshTraders">
+                <i class="fas fa-sync-alt"></i> Обновить
+            </button>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Загрузка...</span>
+            </div>
+            <p class="mt-3">Загрузка списка трейдеров...</p>
+        </div>
+    }
+    else
+    {
+        <!-- Статистика -->
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <div class="card bg-primary text-white">
+                    <div class="card-body">
+                        <h6 class="card-title">
+                            <i class="fas fa-users"></i> Отслеживаемых трейдеров
+                        </h6>
+                        <h3>@traderWallets.Count</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-success text-white">
+                    <div class="card-body">
+                        <h6 class="card-title">
+                            <i class="fas fa-chart-line"></i> Активных позиций
+                        </h6>
+                        <h3>@positions.Count</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card @GetConnectionStatusClass()">
+                    <div class="card-body">
+                        <h6 class="card-title">SignalR</h6>
+                        <h5>
+                            <i class="@GetConnectionIcon()"></i>
+                            @connectionStatus
+                        </h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if (!traderWallets.Any())
+        {
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i>
+                Нет отслеживаемых трейдеров. Позиции будут появляться автоматически при копировании.
+            </div>
+        }
+        else
+        {
+            <div class="row">
+                @foreach (var wallet in traderWallets)
+                {
+                    var traderPositions = positions.Where(p => p.TraderWallet.ToString() == wallet).ToList();
+                    var totalLong = traderPositions.Where(p => p.Direction == Direction.Long).Sum(p => p.TraderQuantity);
+                    var totalShort = traderPositions.Where(p => p.Direction == Direction.Short).Sum(p => p.TraderQuantity);
+
+                    <div class="col-md-6 mb-3">
+                        <div class="card">
+                            <div class="card-header bg-primary text-white">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <i class="fas fa-user"></i>
+                                        <strong>Трейдер</strong>
+                                    </div>
+                                    <span class="badge bg-light text-dark">
+                                        @traderPositions.Count позиций
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <small class="text-muted">Адрес кошелька:</small>
+                                    <div class="font-monospace">
+                                        <small>@wallet</small>
+                                    </div>
+                                </div>
+
+                                <div class="row mb-3">
+                                    <div class="col-6">
+                                        <div class="card border-success">
+                                            <div class="card-body py-2">
+                                                <small class="text-muted">Long позиции</small>
+                                                <h5 class="text-success mb-0">
+                                                    @traderPositions.Count(p => p.Direction == Direction.Long)
+                                                </h5>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="card border-danger">
+                                            <div class="card-body py-2">
+                                                <small class="text-muted">Short позиции</small>
+                                                <h5 class="text-danger mb-0">
+                                                    @traderPositions.Count(p => p.Direction == Direction.Short)
+                                                </h5>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                @if (traderPositions.Any())
+                                {
+                                    <div class="list-group">
+                                        <div class="list-group-item bg-light">
+                                            <strong>Активные позиции:</strong>
+                                        </div>
+                                        @foreach (var position in traderPositions.Take(5))
+                                        {
+                                            <div class="list-group-item">
+                                                <div class="d-flex justify-content-between">
+                                                    <div>
+                                                        <i class="@GetDirectionIcon(position.Direction)"></i>
+                                                        <strong>@position.Symbol</strong>
+                                                    </div>
+                                                    <span class="badge @GetDirectionBadgeClass(position.Direction)">
+                                                        @position.Direction
+                                                    </span>
+                                                </div>
+                                                <small class="text-muted">
+                                                    Количество: @position.TraderQuantity.ToString("F4") |
+                                                    Ratio: @position.PositionRatio.ToString("F4")
+                                                </small>
+                                            </div>
+                                        }
+                                        @if (traderPositions.Count > 5)
+                                        {
+                                            <div class="list-group-item text-center text-muted">
+                                                <small>+@(traderPositions.Count - 5) ещё...</small>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                            <div class="card-footer">
+                                <small class="text-muted">
+                                    Последнее обновление: @traderPositions.OrderByDescending(p => p.LastUpdate).FirstOrDefault()?.LastUpdate.ToString("HH:mm:ss dd.MM")
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private HubConnection? hubConnection;
+    private List<PositionMapping> positions = new();
+    private List<string> traderWallets = new();
+    private bool isLoading = true;
+    private string connectionStatus = "Disconnected";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await InitializeSignalR();
+    }
+
+    private async Task InitializeSignalR()
+    {
+        try
+        {
+            hubConnection = new HubConnectionBuilder()
+                .WithUrl(Navigation.ToAbsoluteUri("/copytradinghub"))
+                .WithAutomaticReconnect()
+                .Build();
+
+            // Подписываемся на начальные позиции
+            hubConnection.On<PositionMapping[]>("ReceiveInitialPositions", async (receivedPositions) =>
+            {
+                try
+                {
+                    positions = receivedPositions.ToList();
+                    UpdateTradersList();
+                    Logger.LogInformation($"Получено {positions.Count} позиций");
+                    await InvokeAsync(StateHasChanged);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, "Ошибка при обработке позиций");
+                }
+            });
+
+            // Подписываемся на обновления позиций
+            hubConnection.On("PositionsUpdated", async () =>
+            {
+                await RefreshPositions();
+            });
+
+            // Обработчики переподключения
+            hubConnection.Reconnecting += (error) =>
+            {
+                connectionStatus = "Reconnecting...";
+                InvokeAsync(StateHasChanged);
+                return Task.CompletedTask;
+            };
+
+            hubConnection.Reconnected += (connectionId) =>
+            {
+                connectionStatus = "Connected";
+                InvokeAsync(StateHasChanged);
+                return Task.CompletedTask;
+            };
+
+            hubConnection.Closed += (error) =>
+            {
+                connectionStatus = "Disconnected";
+                Logger.LogError(error, "SignalR отключен");
+                InvokeAsync(StateHasChanged);
+                return Task.CompletedTask;
+            };
+
+            await hubConnection.StartAsync();
+            connectionStatus = "Connected";
+            Logger.LogInformation("SignalR подключен");
+
+            isLoading = false;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Ошибка при инициализации SignalR");
+            connectionStatus = "Error";
+            isLoading = false;
+        }
+    }
+
+    private async Task RefreshPositions()
+    {
+        if (hubConnection?.State == HubConnectionState.Connected)
+        {
+            try
+            {
+                var receivedPositions = await hubConnection.InvokeAsync<PositionMapping[]>("GetAllPositions");
+                positions = receivedPositions.ToList();
+                UpdateTradersList();
+                Logger.LogInformation($"Обновлено {positions.Count} позиций");
+                await InvokeAsync(StateHasChanged);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Ошибка при обновлении позиций");
+            }
+        }
+    }
+
+    private async Task RefreshTraders()
+    {
+        await RefreshPositions();
+    }
+
+    private void UpdateTradersList()
+    {
+        traderWallets = positions
+            .Select(p => p.TraderWallet.ToString())
+            .Distinct()
+            .OrderBy(w => w)
+            .ToList();
+    }
+
+    private string GetConnectionStatusClass()
+    {
+        return connectionStatus switch
+        {
+            "Connected" => "bg-success text-white",
+            "Reconnecting..." => "bg-warning text-dark",
+            "Disconnected" => "bg-secondary text-white",
+            "Error" => "bg-danger text-white",
+            _ => "bg-secondary text-white"
+        };
+    }
+
+    private string GetConnectionIcon()
+    {
+        return connectionStatus switch
+        {
+            "Connected" => "fa-plug",
+            "Reconnecting..." => "fa-spinner fa-spin",
+            "Disconnected" => "fa-plug-circle-xmark",
+            "Error" => "fa-exclamation-triangle",
+            _ => "fa-question-circle"
+        };
+    }
+
+    private string GetDirectionIcon(Direction direction)
+    {
+        return direction == Direction.Long
+            ? "fas fa-arrow-up text-success"
+            : "fas fa-arrow-down text-danger";
+    }
+
+    private string GetDirectionBadgeClass(Direction direction)
+    {
+        return direction == Direction.Long
+            ? "bg-success"
+            : "bg-danger";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is not null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+}

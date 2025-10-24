@@ -114,12 +114,20 @@
                 .Build();
 
             // Подписываемся на получение начальных позиций
-            hubConnection.On<PositionMapping[]>("ReceiveInitialPositions", (receivedPositions) =>
+            hubConnection.On<PositionMapping[]>("ReceiveInitialPositions", async (receivedPositions) =>
             {
-                positions = receivedPositions.ToList();
-                isLoading = false;
-                Logger.LogInformation($"Получено {positions.Count} позиций");
-                InvokeAsync(StateHasChanged);
+                try
+                {
+                    Logger.LogInformation($"Получено {receivedPositions.Length} позиций от сервера");
+                    positions = receivedPositions.ToList();
+                    isLoading = false;
+                    await InvokeAsync(StateHasChanged);
+                    Logger.LogInformation($"Позиции успешно загружены и отображены");
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, "Ошибка при обработке начальных позиций");
+                }
             });
 
             // Подписываемся на обновления позиций
@@ -155,15 +163,23 @@
             };
 
             // Подключаемся
+            Logger.LogInformation("Начинаем подключение к SignalR Hub...");
             await hubConnection.StartAsync();
             connectionStatus = "Connected";
-            Logger.LogInformation("SignalR подключен");
+            Logger.LogInformation("SignalR подключен успешно");
+
+            // Даем время на получение начальных данных
+            await Task.Delay(100);
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Ошибка при инициализации SignalR");
             connectionStatus = "Error";
             isLoading = false;
+        }
+        finally
+        {
+            await InvokeAsync(StateHasChanged);
         }
     }
 
