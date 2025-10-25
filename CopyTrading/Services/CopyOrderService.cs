@@ -242,7 +242,16 @@ public class CopyOrderService
         }
 
         // Рассчитываем какую долю закрывает трейдер
-        var closeRatio = order.Quantity / mapping.TraderQuantity;
+        decimal closeRatio;
+        try
+        {
+            closeRatio = order.Quantity / mapping.TraderQuantity;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"CopyOrderService DecreasePosition: Ошибка при расчете closeRatio деление на 0 для {order.Symbol} {order.Direction}: {ex.Message} {order.Quantity} {mapping.TraderQuantity}");
+            return;
+        }
 
         // Закрываем ту же долю от ВАШЕЙ позиции
         var myCloseQuantity = mapping.MyQuantity * closeRatio;

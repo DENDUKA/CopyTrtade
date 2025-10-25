@@ -58,7 +58,15 @@ public class CurrentWalletPositionService(
                 if (openPos[0].Direction == trade.Direction)
                 {
                     //TODO тут может быть деление на 0 пока хз как , openPos[0].Quantity может быть отрецительным если short , trade.Q - всегда положительный
-                    openPos[0].AverageEntryPrice = (openPos[0].VolumeUsd + trade.VolumeUsd) / (openPos[0].Quantity + trade.Quantity);
+                    try
+                    {
+                        openPos[0].AverageEntryPrice = (openPos[0].VolumeUsd + trade.VolumeUsd) / (openPos[0].Quantity + trade.Quantity);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError($"CurrentWalletPositionService AddTrade Деление на ноль !!!");
+                    }
+                    
                     openPos[0].Quantity += trade.RealQuantity;
                     return OrderSubType.Increase;
                 }

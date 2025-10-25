@@ -221,7 +221,7 @@
                                             <td>
                                                 @if (orderFill.Trades.Count > 0)
                                                 {
-                                                    <text>$@orderFill.Trades.Average(t => t.Price).ToString("F2")</text>
+                                                    <text>$@orderFill.Trades.Average(t => t.Price)</text>
                                                 }
                                                 else
                                                 {

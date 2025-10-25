@@ -7,9 +7,7 @@ public static class WalletSettings
     public static Wallet[] TrackedWallets =
     [
         new Wallet("0x7bde2b9240a2ee352108c6823a9fa20f225b83a0"),
-        new Wallet("0x9bb6e9a1e81b11f938da15126ce6320decc35262"),
         new Wallet("0x1e37a337ed460039d1b15bd3bc489de789768d5e"),
-        new Wallet("0xa2752a1d0d2d5b8572e13f8a3f161fe357f5fd3f"),
         new Wallet("0x99c2cec0cd98df74fb14a8b7e6b71f0ebcc02600"),
         new Wallet("0x582696ac2eb0559234d695452f3d76c4f6be96f6"),
         new Wallet("0xc2d4ff17906940004b25884779c74aecda24fb83"),
@@ -33,6 +31,13 @@ public static class WalletSettings
         new Wallet("0xf770f371cc66499a89ae56aa84f9506e083f99ea"),
         new Wallet("0x6e4d47dad1e97833f4ecb0ef56347ba8e6fd1c0e"),
         new Wallet("0x491251909171d4b9b39c5bc5d70515292e21eaf0"),
+
+
+        new Wallet("0xba939edf38c0ae0cc689c98b492e0535f43e4550"),
+        new Wallet("0x6049ddfd35e4d9098a6367e36023f2a36792b642"),
+        new Wallet("0x5a8e21c3a73cc4742ecf1f422379a6fbf1992a42"),
+
+
     ];
 
     //https://trysuper.co/copytrade
