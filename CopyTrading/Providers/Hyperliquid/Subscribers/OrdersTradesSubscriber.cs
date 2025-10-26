@@ -63,7 +63,13 @@ public class OrdersTradesSubscriber(ILogger<OrdersTradesSubscriber> _logger)
         HyperLiquidSocketClient _socketClient = new();
 
         var response = await _socketClient.FuturesApi.SubscribeToOrderUpdatesAsync(wallet.Value,
-            (newOrders) => DataBusEvents.NewOrders.Invoke(newOrders.Data.Select(x => x.ToBll(wallet)).ToArray()));
+            (newOrders) =>
+            {
+                DataBusEvents.NewOrders.Invoke(newOrders.Data
+                    .Where(x => x.Order.Quantity != 0)
+                    .Select(x => x.ToBll(wallet))
+                    .ToArray());
+            });
 
         _pendingOrderSubscribes.Remove(wallet);
 

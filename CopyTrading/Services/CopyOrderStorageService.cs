@@ -1,3 +1,4 @@
+using CopyTrading.BlazorUI.Pages;
 using CopyTrading.DataEvents;
 using CopyTrading.Models.Models.Enums.Order;
 using CopyTrading.Models.Models.Orders;
@@ -28,6 +29,7 @@ public class CopyOrderStorageService
     /// </summary>
     private void OnCopyOrderCreated(CopyOrderV2 copyOrder)
     {
+        _logger.LogInformation($"CopyOrderStorageService OnCopyOrderCreated {copyOrder.ToString()}");
         AddOrder(copyOrder);
     }
 
@@ -36,6 +38,7 @@ public class CopyOrderStorageService
     /// </summary>
     private void OnCopyOrderClosed((OriginalOrder Order, OrderStatus Status) data)
     {
+        _logger.LogInformation($"CopyOrderStorageService OnCopyOrderClosed {data.Order.ToString()}");
         CloseOrder(data.Order, data.Status);
     }
 

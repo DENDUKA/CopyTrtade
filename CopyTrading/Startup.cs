@@ -156,6 +156,9 @@ public class Startup
         serviceProvider.GetService<FillsOrderService>();
         serviceProvider.GetService<CopyOrderService>();
 
+        // Инициализируем CopyOrderStorageService для подписки на события создания/закрытия копируемых ордеров
+        serviceProvider.GetRequiredService<CopyOrderStorageService>();
+
         // Инициализируем RealtimeUpdateService для подписки на DataBusEvents
         serviceProvider.GetRequiredService<BlazorUI.Services.RealtimeUpdateService>();
     }

@@ -40,20 +40,13 @@ public class InformationService(
             AccountVolume = walletInfo.AccountVolume,
             DeltaTimeS = deltaTimeS,
             MinPE = minPE,
-            Spread = spread,            
+            Spread = spread,
             SubType = trade.SubType,
         });
     }
 
     public decimal CalculateMinPerpEquity(decimal walletVolume, decimal tradeVolume)
     {
-        try
-        {
-            return 100 / (tradeVolume / walletVolume * 100);
-        }
-        catch (Exception ex)
-        {
-            return 0;
-        }
+        return 100 / (tradeVolume / walletVolume * 100);
     }
 }

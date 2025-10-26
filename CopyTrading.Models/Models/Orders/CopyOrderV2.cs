@@ -17,7 +17,7 @@ public class CopyOrderV2
 
     public override string ToString()
     {
-        return $"CopyOrder Oo.Q:{OriginalOrder.Quantity} CopyQ:{Quantity} Oo.V:{OriginalOrder.VolumeUsd} CopyV:{VolumeUsd} " +
+        return $"CopyOrder OrderId {OriginalOrder.OrderId} Oo.Q:{OriginalOrder.Quantity} CopyQ:{Quantity} Oo.V:{OriginalOrder.VolumeUsd} CopyV:{VolumeUsd} " +
                $"ORation:{OrderRatio} MyValue:{MyPE} CopyValue:{AccountPE}";
     }
 }
