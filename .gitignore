@@ -61,3 +61,7 @@ CopyTriding.Test/bin/Debug/net8.0/CopyTriding.Test.deps.json
 CopyTriding.Test/bin/Debug/net8.0/CoverletSourceRootsMapping_CopyTriding.Test
 CopyTriding.Test/bin/Debug/net8.0/CoverletSourceRootsMapping_CopyTriding.Test
 CopyTriding.Test/bin/Debug/net8.0/CoverletSourceRootsMapping_CopyTriding.Test
+/CopyTriding.Test/bin
+/CopyTriding.Test/bin/Debug
+/CopyTriding.Test/bin/Debug/net8.0
+CopyTriding.Test/bin/Debug/net8.0/CopyTrading.staticwebassets.endpoints.json

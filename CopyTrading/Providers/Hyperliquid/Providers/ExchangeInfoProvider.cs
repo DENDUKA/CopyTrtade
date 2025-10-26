@@ -27,6 +27,7 @@ public class ExchangeInfoProvider(
             }
             else
             {
+                //TODO тут возвращается null , дальше из за этого всё падает , возможно тут пытаются дернуть spot символ , нао изучить
                 _logger.LogError($"Не найдена информация о {symbol}");
                 return null;
             }

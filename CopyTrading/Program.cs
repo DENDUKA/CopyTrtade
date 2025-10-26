@@ -1,10 +1,40 @@
+using Serilog;
+
 namespace CopyTrading
 {
     public class Program
     {
         public static async Task Main(string[] args)
         {
-            await CreateHostBuilder(args).Build().RunAsync();
+            // Настраиваем обработчики необработанных исключений
+            AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
+            {
+                var exception = e.ExceptionObject as Exception;
+                Log.Fatal(exception, "Необработанное исключение привело к завершению приложения");
+                Log.CloseAndFlush();
+            };
+
+            TaskScheduler.UnobservedTaskException += (sender, e) =>
+            {
+                Log.Fatal(e.Exception, "Необработанное исключение в Task");
+                e.SetObserved();
+            };
+
+            try
+            {
+                Log.Information("Запуск приложения CopyTrading");
+                await CreateHostBuilder(args).Build().RunAsync();
+                Log.Information("Приложение CopyTrading завершено корректно");
+            }
+            catch (Exception ex)
+            {
+                Log.Fatal(ex, "Приложение завершилось с критической ошибкой");
+                throw;
+            }
+            finally
+            {
+                Log.CloseAndFlush();
+            }
         }
 
         private static IHostBuilder CreateHostBuilder(string[] args)

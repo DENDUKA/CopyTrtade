@@ -1,10 +1,13 @@
-﻿namespace CopyTrading.Models.Models.Orders;
+using CopyTrading.Models.Models.Enums.Order;
+
+namespace CopyTrading.Models.Models.Orders;
 
 public class CopyOrderV2
 {
     public long OrderId {  get; set; }
     public long OriginalOrderId {  get; init; }
     public OriginalOrder OriginalOrder {  get; init; }
+    public OrderSubType OrderSubType { get; init; }
     public decimal OrderRatio { get; init; }
     public decimal MyPE { get; init; }
     public decimal AccountPE { get; init; }

@@ -5,7 +5,9 @@
       "Bash(dotnet test \"C:\\Programs\\CopyTrtade\\CopyTriding.Test\\CopyTriding.Test.csproj\")",
       "Bash(dotnet build CopyTrading/CopyTrading.csproj)",
       "Bash(dotnet build CopyTrading/CopyTrading.csproj --no-incremental)",
-      "Bash(cat \"C:\\Programs\\CopyTrtade\\CopyTrading\\BlazorUI\\Shared\\NavMenu.razor\")"
+      "Bash(cat \"C:\\Programs\\CopyTrtade\\CopyTrading\\BlazorUI\\Shared\\NavMenu.razor\")",
+      "Bash(dotnet build \"C:\\Programs\\CopyTrtade\\CopyTrading\\CopyTrading.csproj\" --no-incremental)",
+      "Bash(dotnet build \"C:\\Programs\\CopyTrtade\\CopyTrading\\CopyTrading.csproj\")"
     ],
     "deny": [],
     "ask": []

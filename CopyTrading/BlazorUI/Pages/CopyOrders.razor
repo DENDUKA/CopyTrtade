@@ -1,0 +1,268 @@
+@page "/copy-orders"
+@using CopyTrading.Models.Models.Orders
+@using CopyTrading.Models.Models.Enums
+@using CopyTrading.Models.Models.Enums.Order
+@using CopyTrading.Models.Values
+@using CopyTrading.Services
+@inject CopyOrderStorageService CopyOrderStorage
+
+<h3>Копируемые ордера</h3>
+
+<div class="row mb-3">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="stat-card">
+                            <h6>Всего ордеров</h6>
+                            <h3>@statistics["Total"]</h3>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card">
+                            <h6>Open</h6>
+                            <h3 class="text-info">@statistics["Open"]</h3>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card">
+                            <h6>Filled</h6>
+                            <h3 class="text-success">@statistics["Filled"]</h3>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card">
+                            <h6>Canceled</h6>
+                            <h3 class="text-warning">@statistics["Canceled"]</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <h5>Фильтры</h5>
+                <div class="row">
+                    <div class="col-md-3">
+                        <input type="text" class="form-control" placeholder="Поиск по символу..." @bind="searchSymbol" @bind:event="oninput" />
+                    </div>
+                    <div class="col-md-9">
+                        <label class="me-3">
+                            <input type="checkbox" @bind="filterOpen" /> Open
+                        </label>
+                        <label class="me-3">
+                            <input type="checkbox" @bind="filterFilled" /> Filled
+                        </label>
+                        <label class="me-3">
+                            <input type="checkbox" @bind="filterCanceled" /> Canceled
+                        </label>
+                        <label class="me-3">
+                            <input type="checkbox" @bind="filterRejected" /> Rejected
+                        </label>
+                        <label class="me-3">
+                            <input type="checkbox" @bind="filterTriggered" /> Triggered
+                        </label>
+                    </div>
+                </div>
+                <div class="row mt-2">
+                    <div class="col-md-12">
+                        <label class="me-3">OrderSubType:</label>
+                        <label class="me-3">
+                            <input type="checkbox" @bind="filterSubTypeOpen" /> Open
+                        </label>
+                        <label class="me-3">
+                            <input type="checkbox" @bind="filterSubTypeIncrease" /> Increase
+                        </label>
+                        <label class="me-3">
+                            <input type="checkbox" @bind="filterSubTypeDecrease" /> Decrease
+                        </label>
+                        <label class="me-3">
+                            <input type="checkbox" @bind="filterSubTypeClose" /> Close
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Original Order ID</th>
+                            <th>Symbol</th>
+                            <th>Direction</th>
+                            <th>Status</th>
+                            <th>SubType</th>
+                            <th>Price</th>
+                            <th>Quantity</th>
+                            <th>Volume USD</th>
+                            <th>Order Ratio</th>
+                            <th>Wallet</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var order in GetFilteredOrders())
+                        {
+                            <tr>
+                                <td>@order.OrderId</td>
+                                <td>@order.OriginalOrderId</td>
+                                <td><strong>@order.OriginalOrder.Symbol</strong></td>
+                                <td>
+                                    <span class="badge @GetDirectionClass(order.OriginalOrder.Direction)">
+                                        @order.OriginalOrder.Direction
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge @GetStatusClass(order.OriginalOrder.Status)">
+                                        @order.OriginalOrder.Status
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">
+                                        @order.OrderSubType
+                                    </span>
+                                </td>
+                                <td>$@order.OriginalOrder.Price</td>
+                                <td>@order.Quantity</td>
+                                <td>$@order.VolumeUsd</td>
+                                <td>@order.OrderRatio.ToString("P2")</td>
+                                <td>@GetShortWallet(order.OriginalOrder.Wallet)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                @if (!GetFilteredOrders().Any())
+                {
+                    <div class="alert alert-info text-center">
+                        Нет копируемых ордеров
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private Dictionary<string, int> statistics = new();
+    private string searchSymbol = "";
+
+    // Фильтры по статусу
+    private bool filterOpen = false;
+    private bool filterFilled = false;
+    private bool filterCanceled = false;
+    private bool filterRejected = false;
+    private bool filterTriggered = false;
+
+    // Фильтры по OrderSubType
+    private bool filterSubTypeOpen = false;
+    private bool filterSubTypeIncrease = false;
+    private bool filterSubTypeDecrease = false;
+    private bool filterSubTypeClose = false;
+
+    protected override void OnInitialized()
+    {
+        UpdateStatistics();
+    }
+
+    private void UpdateStatistics()
+    {
+        statistics = CopyOrderStorage.GetStatistics();
+    }
+
+    private IEnumerable<CopyOrderV2> GetFilteredOrders()
+    {
+        var orders = CopyOrderStorage.GetAllOrders();
+
+        // Фильтр по символу
+        if (!string.IsNullOrWhiteSpace(searchSymbol))
+        {
+            orders = orders.Where(o => o.OriginalOrder.Symbol.Contains(searchSymbol, StringComparison.OrdinalIgnoreCase)).ToArray();
+        }
+
+        // Фильтр по статусу
+        if (filterOpen || filterFilled || filterCanceled || filterRejected || filterTriggered)
+        {
+            orders = orders.Where(o =>
+                (filterOpen && o.OriginalOrder.Status == OrderStatus.Open) ||
+                (filterFilled && o.OriginalOrder.Status == OrderStatus.Filled) ||
+                (filterCanceled && o.OriginalOrder.Status == OrderStatus.Canceled) ||
+                (filterRejected && o.OriginalOrder.Status == OrderStatus.Rejected) ||
+                (filterTriggered && o.OriginalOrder.Status == OrderStatus.Triggered)
+            ).ToArray();
+        }
+
+        // Фильтр по OrderSubType
+        if (filterSubTypeOpen || filterSubTypeIncrease || filterSubTypeDecrease || filterSubTypeClose)
+        {
+            orders = orders.Where(o =>
+                (filterSubTypeOpen && o.OrderSubType == OrderSubType.Open) ||
+                (filterSubTypeIncrease && o.OrderSubType == OrderSubType.Increase) ||
+                (filterSubTypeDecrease && o.OrderSubType == OrderSubType.Decrease) ||
+                (filterSubTypeClose && o.OrderSubType == OrderSubType.Close)
+            ).ToArray();
+        }
+
+        return orders.OrderByDescending(o => o.OrderId);
+    }
+
+    private string GetDirectionClass(Direction direction)
+    {
+        return direction switch
+        {
+            Direction.Long => "bg-success",
+            Direction.Short => "bg-danger",
+            _ => "bg-secondary"
+        };
+    }
+
+    private string GetStatusClass(OrderStatus status)
+    {
+        return status switch
+        {
+            OrderStatus.Open => "bg-info",
+            OrderStatus.Filled => "bg-success",
+            OrderStatus.Canceled => "bg-warning",
+            OrderStatus.Rejected => "bg-danger",
+            OrderStatus.Triggered => "bg-primary",
+            _ => "bg-secondary"
+        };
+    }
+
+    private string GetShortWallet(Wallet? wallet)
+    {
+        if (wallet == null || string.IsNullOrEmpty(wallet.Value) || wallet.Value.Length < 6)
+            return wallet?.Value ?? "";
+        return wallet.Value.Substring(wallet.Value.Length - 6);
+    }
+}
+
+<style>
+    .stat-card {
+        padding: 15px;
+        border-left: 4px solid #007bff;
+        background-color: #f8f9fa;
+    }
+
+    .stat-card h6 {
+        margin-bottom: 5px;
+        color: #6c757d;
+    }
+
+    .stat-card h3 {
+        margin: 0;
+        font-weight: bold;
+    }
+</style>

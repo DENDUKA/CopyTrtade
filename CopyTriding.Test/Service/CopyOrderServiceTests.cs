@@ -377,7 +377,7 @@ public class TestableCopyOrderService : CopyOrderService
         var method = typeof(CopyOrderService).GetMethod("CreateCopyOrder",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
 
-        var task = (Task<CopyOrderV2>)method.Invoke(this, new object[] { order });
+        var task = (Task<CopyOrderV2>)method.Invoke(this, new object[] { order, OrderSubType.Open });
         return await task;
     }
 }

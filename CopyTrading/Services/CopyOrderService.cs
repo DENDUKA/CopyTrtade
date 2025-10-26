@@ -141,10 +141,11 @@ public class CopyOrderService
     {
         _logger.LogInformation($"HandleCanceledOrder: {order.Symbol} {order.Direction}, OrderId={order.OrderId}");
 
-        // TODO: Отменить наш копируемый ордер через OrdersProvider
-        // Можно получить наш ордер по OrderId трейдера из маппинга
+        // Публикуем событие закрытия копируемого ордера
+        DataBusEvents.CopyOrderClosed?.Invoke((order, OrderStatus.Canceled));
 
-        _logger.LogWarning($"HandleCanceledOrder: TODO - отмена копируемого ордера для {order.OrderId}");
+        // TODO: Отменить наш копируемый ордер через OrdersProvider
+        _logger.LogWarning($"HandleCanceledOrder: TODO - отмена копируемого ордера на бирже для {order.OrderId}");
     }
 
     /// <summary>
@@ -154,10 +155,11 @@ public class CopyOrderService
     {
         _logger.LogInformation($"HandleRejectedOrder: {order.Symbol} {order.Direction}, OrderId={order.OrderId}");
 
-        // TODO: Отменить наш копируемый ордер через OrdersProvider (если он был размещен)
-        // Можно получить наш ордер по OrderId трейдера из маппинга
+        // Публикуем событие закрытия копируемого ордера
+        DataBusEvents.CopyOrderClosed?.Invoke((order, OrderStatus.Rejected));
 
-        _logger.LogWarning($"HandleRejectedOrder: TODO - отмена копируемого ордера для {order.OrderId}");
+        // TODO: Отменить наш копируемый ордер через OrdersProvider (если он был размещен)
+        _logger.LogWarning($"HandleRejectedOrder: TODO - отмена копируемого ордера на бирже для {order.OrderId}");
     }
 
     /// <summary>
@@ -168,7 +170,10 @@ public class CopyOrderService
     {
         _logger.LogInformation($"OpenNewPosition: {order.Symbol} {order.Direction}, Quantity={order.Quantity}");
 
-        var copyOrder = await CreateCopyOrder(order);
+        var copyOrder = await CreateCopyOrder(order, OrderSubType.Open);
+
+        // Публикуем событие создания копируемого ордера
+        DataBusEvents.CopyOrderCreated?.Invoke(copyOrder);
 
         // Сохраняем маппинг между позициями
         var mapping = new Models.Models.PositionMapping
@@ -215,6 +220,12 @@ public class CopyOrderService
         var exchangeInfo = await _exchangeInfoProvider.GetExchangeInfo(order.Symbol);
         myIncreaseQuantity = Math.Round(myIncreaseQuantity, exchangeInfo.QuantityDecimals!.Value, MidpointRounding.ToPositiveInfinity);
 
+        // Создаем копируемый ордер
+        var copyOrder = CreateCopyOrderFromQuantity(order, myIncreaseQuantity, mapping.PositionRatio, OrderSubType.Increase);
+
+        // Публикуем событие создания копируемого ордера
+        DataBusEvents.CopyOrderCreated?.Invoke(copyOrder);
+
         // Обновляем маппинг
         mapping.TraderQuantity += order.Quantity;
         mapping.MyQuantity += myIncreaseQuantity;
@@ -259,6 +270,12 @@ public class CopyOrderService
         var exchangeInfo = await _exchangeInfoProvider.GetExchangeInfo(order.Symbol);
         myCloseQuantity = Math.Round(myCloseQuantity, exchangeInfo.QuantityDecimals!.Value, MidpointRounding.ToPositiveInfinity);
 
+        // Создаем копируемый ордер
+        var copyOrder = CreateCopyOrderFromQuantity(order, myCloseQuantity, mapping.PositionRatio, OrderSubType.Decrease);
+
+        // Публикуем событие создания копируемого ордера
+        DataBusEvents.CopyOrderCreated?.Invoke(copyOrder);
+
         // Обновляем маппинг
         mapping.TraderQuantity -= order.Quantity;
         mapping.MyQuantity -= myCloseQuantity;
@@ -288,6 +305,12 @@ public class CopyOrderService
         // Закрываем ВСЮ нашу позицию
         var myCloseQuantity = mapping.MyQuantity;
 
+        // Создаем копируемый ордер
+        var copyOrder = CreateCopyOrderFromQuantity(order, myCloseQuantity, mapping.PositionRatio, OrderSubType.Close);
+
+        // Публикуем событие создания копируемого ордера
+        DataBusEvents.CopyOrderCreated?.Invoke(copyOrder);
+
         _logger.LogInformation($"ClosePosition: {order.OrderId} Закрываем полностью {myCloseQuantity}");
 
         // Удаляем маппинг (позиция полностью закрыта)
@@ -296,7 +319,7 @@ public class CopyOrderService
         // TODO: Разместить ордер на полное закрытие через OrdersProvider
     }
 
-    private async Task<CopyOrderV2> CreateCopyOrder(OriginalOrder order)
+    private async Task<CopyOrderV2> CreateCopyOrder(OriginalOrder order, OrderSubType orderSubType)
     {
         // Получаем информацию о кошельке трейдера (копируемый кошелек)
         var traderWalletInfo = await _walletProvider.GetInfo(order.Wallet);
@@ -317,10 +340,16 @@ public class CopyOrderService
         //TODO Подумать как получать Получить Leverage CurrentWalletPositionService.GetLEverage(Wallet, Coin)
         //Либо просто задается один раз для всех Coin или вообще это делать не тут а при размещении ордера
 
+        // Генерируем уникальный временный ID для копируемого ордера
+        // После размещения на бирже этот ID будет заменен на ID от биржи
+        var tempOrderId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
         var newCopyOrder = new CopyOrderV2()
         {
             OriginalOrder = order,
-            OrderId = order.OrderId,
+            OrderId = tempOrderId,
+            OriginalOrderId = order.OrderId,
+            OrderSubType = orderSubType,
             OrderRatio = orderRatio,
             MyPE = myAccountValue,
             AccountPE = traderWalletInfo.AccountVolume,
@@ -330,6 +359,30 @@ public class CopyOrderService
         await CorrectCopyOrder(newCopyOrder);
 
         return newCopyOrder;
+    }
+
+    /// <summary>
+    /// Создать копируемый ордер на основе уже рассчитанного количества
+    /// Используется для Increase/Decrease/Close позиций
+    /// </summary>
+    private CopyOrderV2 CreateCopyOrderFromQuantity(OriginalOrder order, decimal myQuantity, decimal positionRatio, OrderSubType orderSubType)
+    {
+        // Генерируем уникальный временный ID для копируемого ордера
+        var tempOrderId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+        var copyOrder = new CopyOrderV2()
+        {
+            OriginalOrder = order,
+            OrderId = tempOrderId,
+            OriginalOrderId = order.OrderId,
+            OrderSubType = orderSubType,
+            OrderRatio = positionRatio,  // Используем сохраненную пропорцию
+            MyPE = 0,  // Не актуально для Increase/Decrease/Close
+            AccountPE = 0,  // Не актуально для Increase/Decrease/Close
+            Quantity = myQuantity,
+        };
+
+        return copyOrder;
     }
 
     /// <summary>
