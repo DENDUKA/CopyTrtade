@@ -185,4 +185,12 @@ public class CurrentWalletPositionService(
 
         return position.Leverage;
     }
+
+    /// <summary>
+    /// Получить все отслеживаемые кошельки
+    /// </summary>
+    public IEnumerable<Wallet> GetAllWallets()
+    {
+        return _walletPositionSnapshot.Keys.ToList();
+    }
 }
