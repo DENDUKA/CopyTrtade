@@ -272,20 +272,27 @@ public class CopyOrderService
                 return;
             }
 
+            // Проверяем что у нас есть открытая позиция с валидной пропорцией
+            if (mapping.PositionRatio == 0)
+            {
+                _logger.LogWarning($"IncreasePosition: OrderId={order.OrderId} mapping.PositionRatio = 0 для {order.Symbol} {order.Direction} - позиция была открыта с Quantity=0. CopyOrder НЕ БУДЕТ СОЗДАН!");
+                return;
+            }
+
             // Используем СОХРАНЕННУЮ пропорцию, а не текущий баланс!
             var myIncreaseQuantity = order.Quantity * mapping.PositionRatio;
 
             // Округляем
-            _logger.LogInformation($"IncreasePosition: Получаем ExchangeInfo для {order.Symbol}");
+            _logger.LogInformation($"IncreasePosition: OrderId={order.OrderId} Получаем ExchangeInfo для {order.Symbol}");
             var exchangeInfo = await _exchangeInfoProvider.GetExchangeInfo(order.Symbol);
 
             if (exchangeInfo == null)
             {
-                _logger.LogError($"IncreasePosition: Не удалось получить ExchangeInfo для {order.Symbol} - CopyOrder НЕ БУДЕТ СОЗДАН!");
+                _logger.LogError($"IncreasePosition: OrderId={order.OrderId} Не удалось получить ExchangeInfo для {order.Symbol} - CopyOrder НЕ БУДЕТ СОЗДАН!");
                 return;
             }
 
-            _logger.LogInformation($"IncreasePosition: ExchangeInfo получен, QuantityDecimals={exchangeInfo.QuantityDecimals}");
+            _logger.LogInformation($"IncreasePosition: OrderId={order.OrderId} ExchangeInfo получен, QuantityDecimals={exchangeInfo.QuantityDecimals}");
             myIncreaseQuantity = Math.Round(myIncreaseQuantity, exchangeInfo.QuantityDecimals!.Value, MidpointRounding.ToPositiveInfinity);
 
             // Создаем копируемый ордер
@@ -333,43 +340,50 @@ public class CopyOrderService
             }
 
             // Получаем РЕАЛЬНУЮ позицию трейдера из snapshot (единственный источник истины!)
-            _logger.LogInformation($"DecreasePosition: Получаем snapshot для определения реальной позиции трейдера");
+            _logger.LogInformation($"DecreasePosition: OrderId={order.OrderId} Получаем snapshot для определения реальной позиции трейдера");
             var snapshot = await _currentWalletPositionService.GetSnapshot(order.Wallet);
             var traderPosition = snapshot.Positions.FirstOrDefault(p => p.Symbol == order.Symbol);
 
             if (traderPosition == null)
             {
-                _logger.LogError($"DecreasePosition: Позиция трейдера не найдена в snapshot для {order.Symbol} - CopyOrder НЕ БУДЕТ СОЗДАН!");
+                _logger.LogError($"DecreasePosition: OrderId{order.OrderId} Позиция трейдера не найдена в snapshot для {order.Symbol} - CopyOrder НЕ БУДЕТ СОЗДАН!");
                 return;
             }
 
             // Реальное количество позиции трейдера (всегда положительное)
             var actualTraderQuantity = Math.Abs(traderPosition.Quantity);
-            _logger.LogInformation($"DecreasePosition: Реальная позиция трейдера из snapshot: {actualTraderQuantity}");
+            _logger.LogInformation($"DecreasePosition: OrderId{order.OrderId} Реальная позиция трейдера из snapshot: {actualTraderQuantity}");
 
             if (actualTraderQuantity == 0)
             {
-                _logger.LogWarning($"DecreasePosition: Реальная позиция трейдера = 0 для {order.Symbol} - возможно уже закрыта. CopyOrder НЕ БУДЕТ СОЗДАН!");
+                _logger.LogWarning($"DecreasePosition: Реальная позиция трейдера = 0 для {order.Symbol} - возможно уже закрыта. CopyOrder НЕ БУДЕТ СОЗДАН! OrderId{order.OrderId}");
+                return;
+            }
+
+            // Проверяем что у нас есть открытая позиция
+            if (mapping.MyQuantity == 0)
+            {
+                _logger.LogWarning($"DecreasePosition: OrderId={order.OrderId} mapping.MyQuantity = 0 для {order.Symbol} {order.Direction} - позиция не была открыта или уже закрыта. CopyOrder НЕ БУДЕТ СОЗДАН!");
                 return;
             }
 
             // Рассчитываем какую долю закрывает трейдер (теперь деление на 0 невозможно!)
             var closeRatio = order.Quantity / actualTraderQuantity;
-            _logger.LogInformation($"DecreasePosition: Трейдер закрывает {closeRatio:P2} позиции ({order.Quantity} из {actualTraderQuantity})");
+            _logger.LogInformation($"DecreasePosition: OrderId={order.OrderId} Трейдер закрывает {closeRatio:P2} позиции ({order.Quantity} из {actualTraderQuantity})");
 
             // Закрываем ту же долю от НАШЕЙ позиции
             var myCloseQuantity = mapping.MyQuantity * closeRatio;
 
-            _logger.LogInformation($"DecreasePosition: Получаем ExchangeInfo для {order.Symbol}");
+            _logger.LogInformation($"DecreasePosition: OrderId={order.OrderId} Получаем ExchangeInfo для {order.Symbol}");
             var exchangeInfo = await _exchangeInfoProvider.GetExchangeInfo(order.Symbol);
 
             if (exchangeInfo == null)
             {
-                _logger.LogError($"DecreasePosition: Не удалось получить ExchangeInfo для {order.Symbol} - CopyOrder НЕ БУДЕТ СОЗДАН!");
+                _logger.LogError($"DecreasePosition: OrderId={order.OrderId} Не удалось получить ExchangeInfo для {order.Symbol} - CopyOrder НЕ БУДЕТ СОЗДАН!");
                 return;
             }
 
-            _logger.LogInformation($"DecreasePosition: ExchangeInfo получен, QuantityDecimals={exchangeInfo.QuantityDecimals}");
+            _logger.LogInformation($"DecreasePosition: OrderId={order.OrderId} ExchangeInfo получен, QuantityDecimals={exchangeInfo.QuantityDecimals}");
             myCloseQuantity = Math.Round(myCloseQuantity, exchangeInfo.QuantityDecimals!.Value, MidpointRounding.ToPositiveInfinity);
 
             // Создаем копируемый ордер
@@ -417,6 +431,14 @@ public class CopyOrderService
 
             // Закрываем ВСЮ нашу позицию
             var myCloseQuantity = mapping.MyQuantity;
+
+            // Проверяем что у нас есть открытая позиция
+            if (myCloseQuantity == 0)
+            {
+                _logger.LogWarning($"ClosePosition: OrderId={order.OrderId} mapping.MyQuantity = 0 для {order.Symbol} {order.Direction} - позиция не была открыта. Удаляем маппинг без создания CopyOrder.");
+                _positionMappingService.DeleteMapping(order.Wallet, _myWallet, order.Symbol, order.Direction);
+                return;
+            }
 
             // Создаем копируемый ордер
             _logger.LogInformation($"ClosePosition: Создаем CopyOrder для {order.OrderId}");
@@ -514,16 +536,16 @@ public class CopyOrderService
     /// </summary>
     private async Task CorrectCopyOrder(CopyOrderV2 copyOrder)
     {
-        _logger.LogInformation($"CorrectCopyOrder: Получаем ExchangeInfo для {copyOrder.OriginalOrder.Symbol}");
+        _logger.LogInformation($"CorrectCopyOrder: OrderId={copyOrder.OriginalOrderId} Получаем ExchangeInfo для {copyOrder.OriginalOrder.Symbol}");
         var exchangeInfo = await _exchangeInfoProvider.GetExchangeInfo(copyOrder.OriginalOrder.Symbol);
 
         if (exchangeInfo == null)
         {
-            _logger.LogError($"CorrectCopyOrder: Не удалось получить ExchangeInfo для {copyOrder.OriginalOrder.Symbol} - используем Quantity без округления!");
+            _logger.LogError($"CorrectCopyOrder: OrderId={copyOrder.OriginalOrderId} Не удалось получить ExchangeInfo для {copyOrder.OriginalOrder.Symbol} - используем Quantity без округления!");
             return;
         }
 
-        _logger.LogInformation($"CorrectCopyOrder: ExchangeInfo получен, QuantityDecimals={exchangeInfo.QuantityDecimals}");
+        _logger.LogInformation($"CorrectCopyOrder: OrderId={copyOrder.OriginalOrderId} ExchangeInfo получен, QuantityDecimals={exchangeInfo.QuantityDecimals}");
         copyOrder.Quantity = Math.Round(copyOrder.Quantity, exchangeInfo.QuantityDecimals!.Value, MidpointRounding.ToPositiveInfinity);
     }
 
