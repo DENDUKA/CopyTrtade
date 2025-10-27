@@ -105,7 +105,23 @@ public class CopyOrderService
     {
         _logger.LogInformation($"HandleOpenOrder START: {order.Symbol} {order.Direction}, OrderId={order.OrderId}");
 
-        // Определяем тип ордера через CurrentWalletPositionService
+        // КРИТИЧЕСКИ ВАЖНО: Сначала проверяем наличие маппинга
+        // Если маппинга нет - значит мы еще не открывали позицию для этого символа/направления,
+        // даже если у трейдера позиция уже открыта
+        var mapping = _positionMappingService.GetMapping(order.Wallet, _myWallet, order.Symbol, order.Direction);
+
+        if (mapping == null)
+        {
+            // Маппинга нет - это наша первая позиция для этого символа/направления
+            _logger.LogInformation($"HandleOpenOrder: Маппинг не найден для {order.OrderId} - открываем как новую позицию (Open)");
+            await OpenNewPosition(order);
+            _logger.LogInformation($"HandleOpenOrder: OpenNewPosition завершен для {order.OrderId}");
+            _logger.LogInformation($"HandleOpenOrder END: {order.Symbol} {order.Direction}, OrderId={order.OrderId}");
+            return;
+        }
+
+        // Маппинг существует - определяем тип ордера через CurrentWalletPositionService
+        _logger.LogInformation($"HandleOpenOrder: Маппинг найден для {order.OrderId}, определяем OrderSubType через CurrentWalletPositionService");
         var orderSubType = await _currentWalletPositionService.GetOrderSubType(order);
 
         _logger.LogInformation($"CopyOrderService HandleOpenOrder: OrderId={order.OrderId} {order.Symbol} {order.Direction} SubType={orderSubType}");
@@ -113,7 +129,8 @@ public class CopyOrderService
         switch (orderSubType)
         {
             case OrderSubType.Open:
-                _logger.LogInformation($"HandleOpenOrder: Вызываем OpenNewPosition для {order.OrderId}");
+                // Это не должно происходить, так как маппинг уже существует
+                _logger.LogWarning($"HandleOpenOrder: OrderSubType.Open при существующем маппинге для {order.OrderId} - открываем как новую позицию");
                 await OpenNewPosition(order);
                 _logger.LogInformation($"HandleOpenOrder: OpenNewPosition завершен для {order.OrderId}");
                 break;

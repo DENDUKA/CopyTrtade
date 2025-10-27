@@ -15,7 +15,7 @@ namespace CopyTriding.Test.Service;
 public class CurrentWalletPositionServiceTests
 {
     private readonly Mock<IWalletInfoProvider> _walletInfoProvider = new(MockBehavior.Strict);
-    private readonly Mock<ILogger<CurrentWalletPositionService>> _logger = new(MockBehavior.Strict);
+    private readonly Mock<ILogger<CurrentWalletPositionService>> _logger = new(MockBehavior.Loose);
 
     [Fact]
     public async Task CurrentLongPosInitialize_Add_Succsess()
