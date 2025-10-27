@@ -45,6 +45,7 @@ public class TradeService
         _tradeRepositorySQL = tradeRepositorySQL;
         _walletInfoRepository = walletInfoRepository;
         _informationService = informationService;
+        // ✅ Оставляем зависимость для InitializeWalletSnapshot (используется в SubscribeToWallet)
         _currentWalletPositionService = currentWalletPositionService;
         _fillsOrderService = fillsOrderService;
         _logger = logger;
@@ -99,7 +100,8 @@ public class TradeService
 
             _logger.LogInformation($"Новый trade : {trade.ToString()}");
 
-            await _currentWalletPositionService.AddTrade(trade);
+            // ✅ CurrentWalletPositionService теперь сам подписан на DataBusEvents.NewTrades
+            // await _currentWalletPositionService.AddTrade(trade);
         }
 
         _fillsOrderService.OnNewTrades(newTrades);

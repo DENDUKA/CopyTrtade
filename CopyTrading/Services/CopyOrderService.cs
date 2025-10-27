@@ -153,11 +153,11 @@ public class CopyOrderService
                 break;
 
             case OrderSubType.None:
-                _logger.LogWarning($"CopyOrderService HandleOpenOrder: OrderSubType.None для ордера {order.OrderId} - CopyOrder НЕ БУДЕТ СОЗДАН!");
+                _logger.LogError($"CopyOrderService HandleOpenOrder: OrderSubType.None для ордера {order.OrderId} - CopyOrder НЕ БУДЕТ СОЗДАН!");
                 break;
 
             default:
-                _logger.LogWarning($"CopyOrderService HandleOpenOrder: Неизвестный OrderSubType {orderSubType} для ордера {order.OrderId} - CopyOrder НЕ БУДЕТ СОЗДАН!");
+                _logger.LogError($"CopyOrderService HandleOpenOrder: Неизвестный OrderSubType {orderSubType} для ордера {order.OrderId} - CopyOrder НЕ БУДЕТ СОЗДАН!");
                 break;
         }
 
@@ -275,7 +275,7 @@ public class CopyOrderService
             // Проверяем что у нас есть открытая позиция с валидной пропорцией
             if (mapping.PositionRatio == 0)
             {
-                _logger.LogWarning($"IncreasePosition: OrderId={order.OrderId} mapping.PositionRatio = 0 для {order.Symbol} {order.Direction} - позиция была открыта с Quantity=0. CopyOrder НЕ БУДЕТ СОЗДАН!");
+                _logger.LogError($"IncreasePosition: OrderId={order.OrderId} mapping.PositionRatio = 0 для {order.Symbol} {order.Direction} - позиция была открыта с Quantity=0. CopyOrder НЕ БУДЕТ СОЗДАН!");
                 return;
             }
 
@@ -335,7 +335,7 @@ public class CopyOrderService
 
             if (mapping == null)
             {
-                _logger.LogWarning($"DecreasePosition: Маппинг не найден для {order.OrderId} {order.Symbol} {order.Direction} - CopyOrder НЕ БУДЕТ СОЗДАН!");
+                _logger.LogError($"DecreasePosition: Маппинг не найден для {order.OrderId} {order.Symbol} {order.Direction} - CopyOrder НЕ БУДЕТ СОЗДАН!");
                 return;
             }
 
@@ -356,14 +356,14 @@ public class CopyOrderService
 
             if (actualTraderQuantity == 0)
             {
-                _logger.LogWarning($"DecreasePosition: Реальная позиция трейдера = 0 для {order.Symbol} - возможно уже закрыта. CopyOrder НЕ БУДЕТ СОЗДАН! OrderId{order.OrderId}");
+                _logger.LogError($"DecreasePosition: Реальная позиция трейдера = 0 для {order.Symbol} - возможно уже закрыта. CopyOrder НЕ БУДЕТ СОЗДАН! OrderId{order.OrderId}");
                 return;
             }
 
             // Проверяем что у нас есть открытая позиция
             if (mapping.MyQuantity == 0)
             {
-                _logger.LogWarning($"DecreasePosition: OrderId={order.OrderId} mapping.MyQuantity = 0 для {order.Symbol} {order.Direction} - позиция не была открыта или уже закрыта. CopyOrder НЕ БУДЕТ СОЗДАН!");
+                _logger.LogError($"DecreasePosition: OrderId={order.OrderId} mapping.MyQuantity = 0 для {order.Symbol} {order.Direction} - позиция не была открыта или уже закрыта. CopyOrder НЕ БУДЕТ СОЗДАН!");
                 return;
             }
 
@@ -425,7 +425,7 @@ public class CopyOrderService
 
             if (mapping == null)
             {
-                _logger.LogWarning($"ClosePosition: Маппинг не найден для {order.OrderId} {order.Symbol} {order.Direction} - CopyOrder НЕ БУДЕТ СОЗДАН!");
+                _logger.LogError($"ClosePosition: Маппинг не найден для {order.OrderId} {order.Symbol} {order.Direction} - CopyOrder НЕ БУДЕТ СОЗДАН!");
                 return;
             }
 
