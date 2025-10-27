@@ -267,7 +267,41 @@ HandleOpenOrder: OpenNewPosition завершен для 212866465121
 HandleOpenOrder END: BCH Short, OrderId=212866465121
 ```
 
+## Важные архитектурные решения
+
+### Snapshot как единственный источник истины для позиции трейдера
+
+**Проблема**: Ранее `mapping.TraderQuantity` обновлялась через `+=` и `-=` в методах IncreasePosition/DecreasePosition на основе ордеров. Это приводило к десинхронизации с реальными позициями, которые отслеживаются через трейды в `CurrentWalletPositionService`.
+
+**Решение**: Начиная с 2025-10-27, `mapping.TraderQuantity` больше не обновляется в IncreasePosition/DecreasePosition. Вместо этого:
+
+- В **DecreasePosition** реальное количество позиции трейдера получается из snapshot:
+  ```csharp
+  var snapshot = await _currentWalletPositionService.GetSnapshot(order.Wallet);
+  var traderPosition = snapshot.Positions.FirstOrDefault(p => p.Symbol == order.Symbol);
+  var actualTraderQuantity = Math.Abs(traderPosition.Quantity);
+  ```
+
+- **Mapping хранит**:
+  - `MyQuantity` - наша позиция (мы контролируем это значение через += и -=)
+  - `PositionRatio` - пропорция для масштабирования (рассчитывается один раз при Open)
+  - `TraderQuantity` - устанавливается при открытии, но НЕ используется для расчетов
+
+**Преимущества**:
+- Невозможно деление на 0 - проверяем перед расчетом
+- Автоматически учитываются неполные исполнения, комиссии, проскальзывание
+- Один источник истины для позиции трейдера (snapshot из трейдов)
+- Избегаем накопления ошибок при множественных операциях
+
 ## История изменений
+
+### 2025-10-27
+- ✅ **КРИТИЧЕСКОЕ ИЗМЕНЕНИЕ**: Snapshot теперь единственный источник истины для TraderQuantity
+- ✅ DecreasePosition: получаем actualTraderQuantity из snapshot вместо mapping.TraderQuantity
+- ✅ IncreasePosition: удалено обновление mapping.TraderQuantity
+- ✅ DecreasePosition: удалено обновление mapping.TraderQuantity
+- ✅ Исправлена проблема деления на 0 в DecreasePosition
+- 📝 Создан детальный анализ проблемы в TraderQuantity_Zero_Analysis.md
 
 ### 2025-10-26
 - ✅ Исправлена логика определения типа ордера: проверка маппинга перед GetOrderSubType

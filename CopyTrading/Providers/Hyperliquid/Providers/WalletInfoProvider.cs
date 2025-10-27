@@ -3,6 +3,7 @@ using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Models.Trade;
 using CopyTrading.Models.Values;
 using CopyTrading.Services.Interfaces;
+using CopyTrading.Settings;
 using HyperLiquid.Net.Clients;
 using HyperLiquid.Net.Objects.Models;
 using Microsoft.Extensions.Caching.Memory;
@@ -21,6 +22,16 @@ public class WalletInfoProvider(
 
     public async Task<WalletInfoModel?> GetInfo(Wallet wallet, bool useCache = true)
     {
+        if (wallet == WalletSettings.MyWallet)
+        {
+            return new WalletInfoModel()
+            {
+                Wallet = wallet,
+                AccountVolume = WalletSettings.MyWalletVolume,
+                Positions = []
+            };
+        }
+
         if (useCache && _cache.TryGetValue(wallet, out WalletInfoModel? cached))
             return cached;
 

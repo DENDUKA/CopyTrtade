@@ -42,5 +42,7 @@ public static class WalletSettings
         "0x744cf47e88d9d0847544f0ac2fa7575cf5925f79"
     ];
 
-    public static Wallet MyWallet = new("0x6e4d47dad1e97833f4ecb0ef56347ba8e6fd1c0e");
+    public static Wallet MyWallet = new("0x6e4d47dad1e97833f4ecb0ef56347ba8e6fd0000");
+
+    public static decimal MyWalletVolume = 2000M;
 }

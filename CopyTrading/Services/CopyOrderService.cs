@@ -3,7 +3,6 @@ using CopyTrading.Models.Models.Enums.Order;
 using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Values;
 using CopyTrading.Providers.Hyperliquid.Interfaces;
-using CopyTrading.Providers.Hyperliquid.Providers;
 using CopyTrading.Services.Interfaces;
 using CopyTrading.Settings;
 
@@ -256,6 +255,7 @@ public class CopyOrderService
     /// <summary>
     /// Увеличение существующей позиции (Increase)
     /// Копируем ордер используя СОХРАНЕННУЮ пропорцию из маппинга
+    /// ВАЖНО: TraderQuantity не обновляем, берем из snapshot при необходимости
     /// </summary>
     private async Task IncreasePosition(OriginalOrder order)
     {
@@ -298,8 +298,7 @@ public class CopyOrderService
             DataBusEvents.CopyOrderCreated?.Invoke(copyOrder);
             _logger.LogInformation($"IncreasePosition: CopyOrderCreated опубликован для {order.OrderId}");
 
-            // Обновляем маппинг
-            mapping.TraderQuantity += order.Quantity;
+            // Обновляем только MyQuantity в маппинге (TraderQuantity берем из snapshot, не храним)
             mapping.MyQuantity += myIncreaseQuantity;
             _positionMappingService.SaveOrUpdateMapping(mapping);
 
@@ -317,6 +316,7 @@ public class CopyOrderService
     /// <summary>
     /// Частичное закрытие позиции (Decrease)
     /// Закрываем ту же ДОЛЮ от нашей позиции, что и трейдер
+    /// ВАЖНО: Используем snapshot как единственный источник истины для позиции трейдера
     /// </summary>
     private async Task DecreasePosition(OriginalOrder order)
     {
@@ -332,19 +332,32 @@ public class CopyOrderService
                 return;
             }
 
-            // Рассчитываем какую долю закрывает трейдер
-            decimal closeRatio;
-            try
+            // Получаем РЕАЛЬНУЮ позицию трейдера из snapshot (единственный источник истины!)
+            _logger.LogInformation($"DecreasePosition: Получаем snapshot для определения реальной позиции трейдера");
+            var snapshot = await _currentWalletPositionService.GetSnapshot(order.Wallet);
+            var traderPosition = snapshot.Positions.FirstOrDefault(p => p.Symbol == order.Symbol);
+
+            if (traderPosition == null)
             {
-                closeRatio = order.Quantity / mapping.TraderQuantity;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"CopyOrderService DecreasePosition: Ошибка при расчете closeRatio деление на 0 для {order.OrderId} {order.Symbol} {order.Direction}: {ex.Message} {order.Quantity} {mapping.TraderQuantity} - CopyOrder НЕ БУДЕТ СОЗДАН!");
+                _logger.LogError($"DecreasePosition: Позиция трейдера не найдена в snapshot для {order.Symbol} - CopyOrder НЕ БУДЕТ СОЗДАН!");
                 return;
             }
 
-            // Закрываем ту же долю от ВАШЕЙ позиции
+            // Реальное количество позиции трейдера (всегда положительное)
+            var actualTraderQuantity = Math.Abs(traderPosition.Quantity);
+            _logger.LogInformation($"DecreasePosition: Реальная позиция трейдера из snapshot: {actualTraderQuantity}");
+
+            if (actualTraderQuantity == 0)
+            {
+                _logger.LogWarning($"DecreasePosition: Реальная позиция трейдера = 0 для {order.Symbol} - возможно уже закрыта. CopyOrder НЕ БУДЕТ СОЗДАН!");
+                return;
+            }
+
+            // Рассчитываем какую долю закрывает трейдер (теперь деление на 0 невозможно!)
+            var closeRatio = order.Quantity / actualTraderQuantity;
+            _logger.LogInformation($"DecreasePosition: Трейдер закрывает {closeRatio:P2} позиции ({order.Quantity} из {actualTraderQuantity})");
+
+            // Закрываем ту же долю от НАШЕЙ позиции
             var myCloseQuantity = mapping.MyQuantity * closeRatio;
 
             _logger.LogInformation($"DecreasePosition: Получаем ExchangeInfo для {order.Symbol}");
@@ -369,8 +382,7 @@ public class CopyOrderService
             DataBusEvents.CopyOrderCreated?.Invoke(copyOrder);
             _logger.LogInformation($"DecreasePosition: CopyOrderCreated опубликован для {order.OrderId}");
 
-            // Обновляем маппинг
-            mapping.TraderQuantity -= order.Quantity;
+            // Обновляем только MyQuantity в маппинге (TraderQuantity берем из snapshot, не храним)
             mapping.MyQuantity -= myCloseQuantity;
             _positionMappingService.SaveOrUpdateMapping(mapping);
 

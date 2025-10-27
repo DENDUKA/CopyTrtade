@@ -1,4 +1,3 @@
-using CopyTrading.BlazorUI.Pages;
 using CopyTrading.DataEvents;
 using CopyTrading.Models.Models.Enums.Order;
 using CopyTrading.Models.Models.Orders;

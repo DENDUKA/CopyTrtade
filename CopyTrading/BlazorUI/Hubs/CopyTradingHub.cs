@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.SignalR;
 using CopyTrading.Services;
 using CopyTrading.Models.Models;
-using CopyTrading.Models.Models.Orders;
 
 namespace CopyTrading.BlazorUI.Hubs;
 

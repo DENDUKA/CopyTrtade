@@ -4,7 +4,6 @@ using CopyTrading.Models.Models.Enums.Order;
 using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Values;
 using CopyTrading.Providers.Hyperliquid.Interfaces;
-using CopyTrading.Providers.Hyperliquid.Providers;
 using CopyTrading.Providers.Hyperliquid.Subscribers;
 using CopyTrading.Repository.Influx;
 using CopyTrading.Services.Interfaces;

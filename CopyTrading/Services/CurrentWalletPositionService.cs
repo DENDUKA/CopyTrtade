@@ -10,7 +10,7 @@ using System.Collections.Concurrent;
 namespace CopyTrading.Services;
 
 public class CurrentWalletPositionService(
-    IWalletInfoProvider walletInfoProvider,
+    IWalletInfoProvider _walletInfoProvider,
     ILogger<CurrentWalletPositionService> _logger)
 {
     private readonly ConcurrentDictionary<Wallet, WalletPositionsSnapshot> _walletPositionSnapshot = [];
@@ -41,7 +41,7 @@ public class CurrentWalletPositionService(
 
             if (openPos.Length == 0)
             {
-                var walletInfo = await walletInfoProvider.GetInfo(trade.Wallet, false);
+                var walletInfo = await _walletInfoProvider.GetInfo(trade.Wallet, false);
 
                 if (!walletInfo.Positions.TryGetValue(trade.Symbol, out var position))
                 {
@@ -116,7 +116,7 @@ public class CurrentWalletPositionService(
             return snapshot;
         }
 
-        var walletInfo = await walletInfoProvider.GetInfo(wallet);
+        var walletInfo = await _walletInfoProvider.GetInfo(wallet);
         var walletSnapshot = walletInfo.ToWalletSnapshot();
 
         InitializeWalletSnapshot(walletSnapshot);
