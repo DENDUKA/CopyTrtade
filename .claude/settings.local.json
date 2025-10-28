@@ -8,7 +8,12 @@
       "Bash(cat \"C:\\Programs\\CopyTrtade\\CopyTrading\\BlazorUI\\Shared\\NavMenu.razor\")",
       "Bash(dotnet build \"C:\\Programs\\CopyTrtade\\CopyTrading\\CopyTrading.csproj\" --no-incremental)",
       "Bash(dotnet build \"C:\\Programs\\CopyTrtade\\CopyTrading\\CopyTrading.csproj\")",
-      "Bash(dotnet build \"C:\\Programs\\CopyTrtade\\CopyTriding.Test\\CopyTriding.Test.csproj\")"
+      "Bash(dotnet build \"C:\\Programs\\CopyTrtade\\CopyTriding.Test\\CopyTriding.Test.csproj\")",
+      "Bash(dotnet test \"C:\\Programs\\CopyTrtade\\CopyTriding.Test\\CopyTriding.Test.csproj\" --filter \"FullyQualifiedName~ComplexTradingScenario_With100Trades_ShouldHandleAllOperations\")",
+      "Bash(dotnet test \"C:\\Programs\\CopyTrtade\\CopyTriding.Test\\CopyTriding.Test.csproj\" --filter \"FullyQualifiedName~ComplexTradingScenario_With100Trades_ShouldHandleAllOperations\" --logger \"console;verbosity=detailed\")",
+      "Bash(Select-String -Pattern \"Trade #(8[5-9]|9[0-5])\" -Context 0,0)",
+      "Bash(dotnet test \"C:\\Programs\\CopyTrtade\\CopyTriding.Test\\CopyTriding.Test.csproj\" --filter \"FullyQualifiedName~ComplexTradingScenario_With100Trades\")",
+      "Bash(dotnet test \"C:\\Programs\\CopyTrtade\\CopyTriding.Test\\CopyTriding.Test.csproj\" --filter \"FullyQualifiedName~ComplexTradingScenario_With100Trades\" --no-build)"
     ],
     "deny": [],
     "ask": []

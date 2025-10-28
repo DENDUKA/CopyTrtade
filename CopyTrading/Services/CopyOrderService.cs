@@ -13,7 +13,6 @@ namespace CopyTrading.Services;
 /// </summary>
 public class CopyOrderService
 {
-    private readonly OrderService _orderService;
     private readonly IWalletInfoProvider _walletProvider;
     private readonly IExchangeInfoProvider _exchangeInfoProvider;
     private readonly CurrentWalletPositionService _currentWalletPositionService;
@@ -23,14 +22,12 @@ public class CopyOrderService
     private readonly Wallet _myWallet = WalletSettings.MyWallet;
 
     public CopyOrderService(
-        OrderService orderService,
         IWalletInfoProvider walletProvider,
         IExchangeInfoProvider exchangeInfoProvider,
         CurrentWalletPositionService currentWalletPositionService,
         PositionMappingService positionMappingService,
         ILogger<CopyOrderService> logger)
     {
-        _orderService = orderService;
         _walletProvider = walletProvider;
         _exchangeInfoProvider = exchangeInfoProvider;
         _currentWalletPositionService = currentWalletPositionService;

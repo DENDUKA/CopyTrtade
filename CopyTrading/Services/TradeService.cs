@@ -21,7 +21,6 @@ public class TradeService
     private readonly TradeRepositoryInflux _tradeRepositoryInflux;
     private readonly TradeRepositoreySQL _tradeRepositorySQL;
     private readonly WalletInfoRepository _walletInfoRepository;
-    private readonly InformationService _informationService;
     private readonly CurrentWalletPositionService _currentWalletPositionService;
     private readonly FillsOrderService _fillsOrderService;
     private readonly ILogger<TradeService> _logger;
@@ -33,7 +32,6 @@ public class TradeService
         TradeRepositoryInflux tradeRepositoryInflux,
         TradeRepositoreySQL tradeRepositorySQL,
         WalletInfoRepository walletInfoRepository,
-        InformationService informationService,
         CurrentWalletPositionService currentWalletPositionService,
         FillsOrderService fillsOrderService,
         ILogger<TradeService> logger)
@@ -44,7 +42,6 @@ public class TradeService
         _tradeRepositoryInflux = tradeRepositoryInflux;
         _tradeRepositorySQL = tradeRepositorySQL;
         _walletInfoRepository = walletInfoRepository;
-        _informationService = informationService;
         // ✅ Оставляем зависимость для InitializeWalletSnapshot (используется в SubscribeToWallet)
         _currentWalletPositionService = currentWalletPositionService;
         _fillsOrderService = fillsOrderService;

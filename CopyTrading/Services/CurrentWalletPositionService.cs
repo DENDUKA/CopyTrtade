@@ -197,16 +197,44 @@ public class CurrentWalletPositionService
     /// <returns></returns>
     public async Task<WalletPositionsSnapshot> GetSnapshot(Wallet wallet)
     {
+        // Быстрая проверка без блокировки
         if (_walletPositionSnapshot.TryGetValue(wallet, out WalletPositionsSnapshot snapshot))
         {
             return snapshot;
         }
 
-        var walletInfo = await _walletInfoProvider.GetInfo(wallet);
-        var walletSnapshot = walletInfo.ToWalletSnapshot();
+        // Получаем семафор для этого кошелька (создаем если нет)
+        var semaphore = _walletSemaphores.GetOrAdd(wallet, _ => new SemaphoreSlim(1, 1));
+        await semaphore.WaitAsync();
+        try
+        {
+            // Double-check: проверяем снова после получения блокировки
+            // (другой поток мог добавить пока мы ждали)
+            if (_walletPositionSnapshot.TryGetValue(wallet, out snapshot))
+            {
+                return snapshot;
+            }
 
-        InitializeWalletSnapshot(walletSnapshot);
-        return walletSnapshot;
+            // Теперь точно нужно создать snapshot
+            var walletInfo = await _walletInfoProvider.GetInfo(wallet);
+            var walletSnapshot = walletInfo.ToWalletSnapshot();
+
+            // Добавляем в dictionary
+            if (_walletPositionSnapshot.TryAdd(wallet, walletSnapshot))
+            {
+                _logger.LogInformation($"CurrentWalletPositionService GetSnapshot создан новый snapshot для {wallet}");
+                return walletSnapshot;
+            }
+
+            // Если TryAdd вернул false (другой поток успел добавить между проверкой и добавлением)
+            // возвращаем ту версию что в dictionary
+            _logger.LogWarning($"CurrentWalletPositionService GetSnapshot snapshot для {wallet} уже был добавлен другим потоком");
+            return _walletPositionSnapshot[wallet];
+        }
+        finally
+        {
+            semaphore.Release();
+        }
     }
 
     public async Task<OrderSubType> GetOrderSubType(OriginalOrder order)
