@@ -48,7 +48,15 @@ else
 
     <div class="card mb-3">
         <div class="card-header">
-            <h4>Кошелек: @selectedWallet.Value</h4>
+            <h4>
+                Кошелек:
+                <a href="https://app.dextrabot.com/wallet-details/@selectedWallet.Value"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   class="wallet-link">
+                    @selectedWallet.Value
+                </a>
+            </h4>
         </div>
         <div class="card-body">
             @if (selectedSnapshot == null)
@@ -181,5 +189,16 @@ else
     .table-responsive {
         max-height: 600px;
         overflow-y: auto;
+    }
+
+    .wallet-link {
+        color: #0d6efd;
+        text-decoration: none;
+        transition: color 0.2s;
+    }
+
+    .wallet-link:hover {
+        color: #0a58ca;
+        text-decoration: underline;
     }
 </style>

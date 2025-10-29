@@ -21,17 +21,19 @@ public class CurrentWalletPositionServiceTests
     public async Task CurrentLongPosInitialize_Add_Succsess()
     {
         // Arrange
+        var wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00");
+
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
             _logger.Object);
 
-        var snapshot = new WalletPositionsSnapshot()
+        var snapshot = new WalletPositionsSnapshot
         {
-            Wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00"),
+            Wallet = wallet,
             TimeStamp = DateTime.UtcNow,
-            Positions = new List<Position>()
+            Positions = new List<Position>
             {
-                new Position()
+                new Position
                 {
                     Symbol = "BTC",
                     AverageEntryPrice = 50000,
@@ -46,7 +48,7 @@ public class CurrentWalletPositionServiceTests
 
         var shortTrade = new OriginalTrade()
         {
-            Wallet = snapshot.Wallet,
+            Wallet = wallet,
             Symbol = "BTC",
             Direction = Direction.Short,
             Quantity = 0.1M,
@@ -54,7 +56,7 @@ public class CurrentWalletPositionServiceTests
 
         var longTrade = new OriginalTrade()
         {
-            Wallet = snapshot.Wallet,
+            Wallet = wallet,
             Symbol = "BTC",
             Direction = Direction.Long,
             Quantity = 0.1M,
@@ -63,7 +65,7 @@ public class CurrentWalletPositionServiceTests
         // Act
         service.InitializeWalletSnapshot(snapshot);
         var subType = await service.AddTrade(shortTrade);
-        var currentSnapshot = await service.GetSnapshot(snapshot.Wallet);
+        var currentSnapshot = await service.GetSnapshot(wallet);
 
         //Assert
         var currentPositions = currentSnapshot.Positions.First(x => x.Symbol == shortTrade.Symbol);
@@ -73,7 +75,7 @@ public class CurrentWalletPositionServiceTests
 
         // Act
         subType = await service.AddTrade(longTrade);
-        currentSnapshot = await service.GetSnapshot(snapshot.Wallet);
+        currentSnapshot = await service.GetSnapshot(wallet);
 
         //Assert
         currentPositions = currentSnapshot.Positions.First(x => x.Symbol == shortTrade.Symbol);
@@ -84,7 +86,7 @@ public class CurrentWalletPositionServiceTests
         // Act
         subType = await service.AddTrade(shortTrade);
         subType = await service.AddTrade(shortTrade);
-        currentSnapshot = await service.GetSnapshot(snapshot.Wallet);
+        currentSnapshot = await service.GetSnapshot(wallet);
 
         //Assert
         currentPositions = currentSnapshot.Positions.FirstOrDefault(x => x.Symbol == shortTrade.Symbol);
@@ -96,17 +98,19 @@ public class CurrentWalletPositionServiceTests
     public async Task CurrentShortPosInitialize_Add_Succsess()
     {
         // Arrange
+        var wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00");
+
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
             _logger.Object);
 
-        var snapshot = new WalletPositionsSnapshot()
+        var snapshot = new WalletPositionsSnapshot
         {
-            Wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00"),
+            Wallet = wallet,
             TimeStamp = DateTime.UtcNow,
-            Positions = new List<Position>()
+            Positions = new List<Position>
             {
-                new Position()
+                new Position
                 {
                     Symbol = "BTC",
                     AverageEntryPrice = 50000,
@@ -121,7 +125,7 @@ public class CurrentWalletPositionServiceTests
 
         var shortTrade = new OriginalTrade()
         {
-            Wallet = snapshot.Wallet,
+            Wallet = wallet,
             Symbol = "BTC",
             Direction = Direction.Short,
             Quantity = 0.1M,
@@ -129,7 +133,7 @@ public class CurrentWalletPositionServiceTests
 
         var longTrade = new OriginalTrade()
         {
-            Wallet = snapshot.Wallet,
+            Wallet = wallet,
             Symbol = "BTC",
             Direction = Direction.Long,
             Quantity = 0.1M,
@@ -138,7 +142,7 @@ public class CurrentWalletPositionServiceTests
         // Act
         service.InitializeWalletSnapshot(snapshot);
         var subType = await service.AddTrade(shortTrade);
-        var currentSnapshot = await service.GetSnapshot(snapshot.Wallet);
+        var currentSnapshot = await service.GetSnapshot(wallet);
 
         //Assert
         var currentPositions = currentSnapshot.Positions.First(x => x.Symbol == shortTrade.Symbol);
@@ -148,7 +152,7 @@ public class CurrentWalletPositionServiceTests
 
         // Act
         subType = await service.AddTrade(longTrade);
-        currentSnapshot = await service.GetSnapshot(snapshot.Wallet);
+        currentSnapshot = await service.GetSnapshot(wallet);
 
         //Assert
         currentPositions = currentSnapshot.Positions.First(x => x.Symbol == shortTrade.Symbol);
@@ -159,7 +163,7 @@ public class CurrentWalletPositionServiceTests
         // Act
         subType = await service.AddTrade(longTrade);
         subType = await service.AddTrade(longTrade);
-        currentSnapshot = await service.GetSnapshot(snapshot.Wallet);
+        currentSnapshot = await service.GetSnapshot(wallet);
 
         //Assert
         currentPositions = currentSnapshot.Positions.FirstOrDefault(x => x.Symbol == shortTrade.Symbol);
@@ -171,11 +175,12 @@ public class CurrentWalletPositionServiceTests
     public async Task GetOrderSubType_ShouldReturnOpen_WhenNoPositionExists()
     {
         // Arrange
+        var wallet = new Wallet("0x7bde2b9240a2ee352108c6823a9fa20f225b83a0");
+
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
             _logger.Object);
 
-        var wallet = new Wallet("0x7bde2b9240a2ee352108c6823a9fa20f225b83a0");
         var snapshot = new WalletPositionsSnapshot
         {
             Wallet = wallet,
@@ -206,11 +211,12 @@ public class CurrentWalletPositionServiceTests
     public async Task GetOrderSubType_ShouldReturnIncrease_WhenSameDirectionPositionExists()
     {
         // Arrange
+        var wallet = new Wallet("0x7bde2b9240a2ee352108c6823a9fa20f225b83a0");
+
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
             _logger.Object);
 
-        var wallet = new Wallet("0x7bde2b9240a2ee352108c6823a9fa20f225b83a0");
         var snapshot = new WalletPositionsSnapshot
         {
             Wallet = wallet,
@@ -251,11 +257,12 @@ public class CurrentWalletPositionServiceTests
     public async Task GetOrderSubType_ShouldReturnDecrease_WhenOppositeDirectionWithSmallerQuantity()
     {
         // Arrange
+        var wallet = new Wallet("0x7bde2b9240a2ee352108c6823a9fa20f225b83a0");
+
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
             _logger.Object);
 
-        var wallet = new Wallet("0x7bde2b9240a2ee352108c6823a9fa20f225b83a0");
         var snapshot = new WalletPositionsSnapshot
         {
             Wallet = wallet,
@@ -296,11 +303,12 @@ public class CurrentWalletPositionServiceTests
     public async Task GetOrderSubType_ShouldReturnClose_WhenOppositeDirectionWithExactQuantity()
     {
         // Arrange
+        var wallet = new Wallet("0x7bde2b9240a2ee352108c6823a9fa20f225b83a0");
+
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
             _logger.Object);
 
-        var wallet = new Wallet("0x7bde2b9240a2ee352108c6823a9fa20f225b83a0");
         var snapshot = new WalletPositionsSnapshot
         {
             Wallet = wallet,
@@ -343,29 +351,6 @@ public class CurrentWalletPositionServiceTests
         // Arrange
         var wallet = new Wallet("0x7bde2b9240a2ee352108c6823a9fa20f225b83a0");
 
-        var walletInfo = new WalletInfoModel
-        {
-            Wallet = wallet,
-            AccountVolume = 10000M,
-            TotalMarginUsed = 0,
-            Positions = new Dictionary<string, Position>
-            {
-                ["BNB"] = new Position
-                {
-                    Symbol = "BNB",
-                    Quantity = 10M, // Positive = Long
-                    AverageEntryPrice = 300M,
-                    VolumeUsd = 3000M,
-                    Leverage = 2
-                }
-            },
-            TimeStamp = DateTime.UtcNow
-        };
-
-        _walletInfoProvider
-            .Setup(x => x.GetInfo(wallet, false))
-            .ReturnsAsync(walletInfo);
-
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
             _logger.Object);
@@ -402,11 +387,12 @@ public class CurrentWalletPositionServiceTests
     public async Task AddTrade_ShouldUpdateAveragePrice_WhenIncreasingPosition()
     {
         // Arrange
+        var wallet = new Wallet("0x7bde2b9240a2ee352108c6823a9fa20f225b83a0");
+
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
             _logger.Object);
 
-        var wallet = new Wallet("0x7bde2b9240a2ee352108c6823a9fa20f225b83a0");
         var snapshot = new WalletPositionsSnapshot
         {
             Wallet = wallet,
@@ -452,11 +438,12 @@ public class CurrentWalletPositionServiceTests
     public async Task TryGetLeverage_ShouldReturnLeverage_WhenPositionExists()
     {
         // Arrange
+        var wallet = new Wallet("0x7bde2b9240a2ee352108c6823a9fa20f225b83a0");
+
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
             _logger.Object);
 
-        var wallet = new Wallet("0x7bde2b9240a2ee352108c6823a9fa20f225b83a0");
         var snapshot = new WalletPositionsSnapshot
         {
             Wallet = wallet,
@@ -487,11 +474,12 @@ public class CurrentWalletPositionServiceTests
     public async Task TryGetLeverage_ShouldReturnNull_WhenPositionDoesNotExist()
     {
         // Arrange
+        var wallet = new Wallet("0x7bde2b9240a2ee352108c6823a9fa20f225b83a0");
+
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
             _logger.Object);
 
-        var wallet = new Wallet("0x7bde2b9240a2ee352108c6823a9fa20f225b83a0");
         var snapshot = new WalletPositionsSnapshot
         {
             Wallet = wallet,
@@ -511,12 +499,13 @@ public class CurrentWalletPositionServiceTests
     public async Task GetSnapshot_ShouldReturnCachedSnapshot_WhenAlreadyInitialized()
     {
         // Arrange
+        var wallet = new Wallet("0x7bde2b9240a2ee352108c6823a9fa20f225b83a0");
+        var originalTimestamp = DateTime.UtcNow.AddMinutes(-10);
+
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
             _logger.Object);
 
-        var wallet = new Wallet("0x7bde2b9240a2ee352108c6823a9fa20f225b83a0");
-        var originalTimestamp = DateTime.UtcNow.AddMinutes(-10);
         var snapshot = new WalletPositionsSnapshot
         {
             Wallet = wallet,
@@ -635,11 +624,12 @@ public class CurrentWalletPositionServiceTests
     public async Task AddTrade_ShouldHandleConcurrentAccess()
     {
         // Arrange
+        var wallet = new Wallet("0x7bde2b9240a2ee352108c6823a9fa20f225b83a0");
+
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
             _logger.Object);
 
-        var wallet = new Wallet("0x7bde2b9240a2ee352108c6823a9fa20f225b83a0");
         var snapshot = new WalletPositionsSnapshot
         {
             Wallet = wallet,
@@ -688,31 +678,6 @@ public class CurrentWalletPositionServiceTests
 
         // Setup mock для случаев когда нужно получить позицию из provider (Open и Flip)
         var currentPrice = 50000M;
-
-        _walletInfoProvider
-            .Setup(x => x.GetInfo(wallet, false))
-            .ReturnsAsync((Wallet w, bool b) =>
-            {
-                // Симулируем текущую позицию с актуальной ценой
-                return new WalletInfoModel
-                {
-                    Wallet = w,
-                    AccountVolume = 100000M,
-                    TotalMarginUsed = 5000M,
-                    Positions = new Dictionary<string, Position>
-                    {
-                        ["BTC"] = new Position
-                        {
-                            Symbol = "BTC",
-                            Quantity = 0.1M, // Начальное значение, будет обновляться
-                            AverageEntryPrice = currentPrice,
-                            VolumeUsd = 0.1M * currentPrice,
-                            Leverage = 10
-                        }
-                    },
-                    TimeStamp = DateTime.UtcNow
-                };
-            });
 
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,

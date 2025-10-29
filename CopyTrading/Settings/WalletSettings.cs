@@ -11,7 +11,6 @@ public static class WalletSettings
 
 
         //Рассматриваю
-        new Wallet("0xee62db4851c3c6c5bf8010e839f2ae15fb4764bb"),
         new Wallet("0x987163b6b482c30c2f5f3aa2760109668eb0091d"),
         new Wallet("0xf770f371cc66499a89ae56aa84f9506e083f99ea"),
         new Wallet("0x6e4d47dad1e97833f4ecb0ef56347ba8e6fd1c0e"),

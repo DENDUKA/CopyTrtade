@@ -13,7 +13,10 @@
       "Bash(dotnet test \"C:\\Programs\\CopyTrtade\\CopyTriding.Test\\CopyTriding.Test.csproj\" --filter \"FullyQualifiedName~ComplexTradingScenario_With100Trades_ShouldHandleAllOperations\" --logger \"console;verbosity=detailed\")",
       "Bash(Select-String -Pattern \"Trade #(8[5-9]|9[0-5])\" -Context 0,0)",
       "Bash(dotnet test \"C:\\Programs\\CopyTrtade\\CopyTriding.Test\\CopyTriding.Test.csproj\" --filter \"FullyQualifiedName~ComplexTradingScenario_With100Trades\")",
-      "Bash(dotnet test \"C:\\Programs\\CopyTrtade\\CopyTriding.Test\\CopyTriding.Test.csproj\" --filter \"FullyQualifiedName~ComplexTradingScenario_With100Trades\" --no-build)"
+      "Bash(dotnet test \"C:\\Programs\\CopyTrtade\\CopyTriding.Test\\CopyTriding.Test.csproj\" --filter \"FullyQualifiedName~ComplexTradingScenario_With100Trades\" --no-build)",
+      "Bash(dotnet test \"C:\\Programs\\CopyTrtade\\CopyTriding.Test\\CopyTriding.Test.csproj\" --filter \"FullyQualifiedName~CurrentWalletPositionServiceTests\")",
+      "Bash(dotnet test CopyTriding.TestCopyTriding.Test.csproj --filter \"FullyQualifiedName~CurrentWalletPositionServiceTests\" --verbosity normal)",
+      "Bash(dotnet test \"CopyTriding.Test/CopyTriding.Test.csproj\" --filter \"FullyQualifiedName~CurrentWalletPositionServiceTests\" --verbosity normal)"
     ],
     "deny": [],
     "ask": []

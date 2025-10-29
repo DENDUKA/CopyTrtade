@@ -20,8 +20,6 @@ public class TradeService
     private readonly IWalletInfoProvider _walletInfoProvider;
     private readonly TradeRepositoryInflux _tradeRepositoryInflux;
     private readonly TradeRepositoreySQL _tradeRepositorySQL;
-    private readonly WalletInfoRepository _walletInfoRepository;
-    private readonly CurrentWalletPositionService _currentWalletPositionService;
     private readonly FillsOrderService _fillsOrderService;
     private readonly ILogger<TradeService> _logger;
 
@@ -31,8 +29,6 @@ public class TradeService
         IWalletInfoProvider walletInfoProvider,
         TradeRepositoryInflux tradeRepositoryInflux,
         TradeRepositoreySQL tradeRepositorySQL,
-        WalletInfoRepository walletInfoRepository,
-        CurrentWalletPositionService currentWalletPositionService,
         FillsOrderService fillsOrderService,
         ILogger<TradeService> logger)
     {
@@ -41,9 +37,6 @@ public class TradeService
         _walletInfoProvider = walletInfoProvider;
         _tradeRepositoryInflux = tradeRepositoryInflux;
         _tradeRepositorySQL = tradeRepositorySQL;
-        _walletInfoRepository = walletInfoRepository;
-        // ✅ Оставляем зависимость для InitializeWalletSnapshot (используется в SubscribeToWallet)
-        _currentWalletPositionService = currentWalletPositionService;
         _fillsOrderService = fillsOrderService;
         _logger = logger;
 
@@ -69,16 +62,6 @@ public class TradeService
 
     private async Task SubscribeToWallet(Wallet[] wallets)
     {
-        foreach (var wallet in wallets)
-        {
-            var walletInfo = await _walletInfoProvider.GetInfo(wallet, false);
-            var walletSnapshot = walletInfo.ToWalletSnapshot();
-
-            _currentWalletPositionService.InitializeWalletSnapshot(walletSnapshot);
-
-            _walletInfoRepository.WriteCurrentPositions(new WalletSnapshotPositionsDto(walletSnapshot));
-        }
-
         await _orderProvider.SubscribeToTrades(wallets);
     }
 
@@ -96,9 +79,6 @@ public class TradeService
             }
 
             _logger.LogInformation($"Новый trade : {trade.ToString()}");
-
-            // ✅ CurrentWalletPositionService теперь сам подписан на DataBusEvents.NewTrades
-            // await _currentWalletPositionService.AddTrade(trade);
         }
 
         _fillsOrderService.OnNewTrades(newTrades);

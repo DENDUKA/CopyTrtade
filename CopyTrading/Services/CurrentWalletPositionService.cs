@@ -5,6 +5,8 @@ using CopyTrading.Models.Models.Enums.Order;
 using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Models.Trade;
 using CopyTrading.Models.Values;
+using CopyTrading.Repository.SQLite;
+using CopyTrading.Repository.SQLite.Dto;
 using CopyTrading.Services.Interfaces;
 using System.Collections.Concurrent;
 
@@ -30,15 +32,16 @@ public class CurrentWalletPositionService
 
     private async void OnNewTrades((OriginalTrade[] Trades, bool IsSnapshot) newTrades)
     {
-        // Обрабатываем каждый трейд
+        // Если это snapshot - инициализируем кошельки из данных трейдов
+        if (newTrades.IsSnapshot)
+        {
+            await CreateSnapshotByTradesSnapshot(newTrades);
+            return;
+        }
+
+        // Обрабатываем обычные трейды
         foreach (var trade in newTrades.Trades)
         {
-            // Пропускаем трейды из snapshot (они используются только для инициализации)
-            if (newTrades.IsSnapshot)
-            {
-                continue;
-            }
-
             // Пропускаем не-фьючерсные трейды
             if (!trade.IsFuture)
             {
@@ -56,6 +59,36 @@ public class CurrentWalletPositionService
         }
     }
 
+    private async Task CreateSnapshotByTradesSnapshot((OriginalTrade[] Trades, bool IsSnapshot) newTrades)
+    {
+        var firstFutureTrade = newTrades.Trades.FirstOrDefault(t => t.IsFuture);
+
+        if (firstFutureTrade == null)
+        {
+            _logger.LogError("CurrentWalletPositionService CreateSnapshotByTradesSnapshot не найдено фьючерсных трейдов");
+            return;
+        }
+
+        try
+        {
+            var wallet = firstFutureTrade.Wallet;
+
+            var walletInfo = await _walletInfoProvider.GetInfo(wallet, false);
+            var walletSnapshot = walletInfo.ToWalletSnapshot();
+
+            InitializeWalletSnapshot(walletSnapshot);
+
+            _logger.LogInformation($"CurrentWalletPositionService инициализирован snapshot для {wallet} с {walletSnapshot.Positions.Count} позициями");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"CurrentWalletPositionService CreateSnapshotByTradesSnapshot ошибка инициализации snapshot для {firstFutureTrade.Wallet}: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Инициализирует snapshot для кошелька из готового объекта
+    /// </summary>
     public void InitializeWalletSnapshot(WalletPositionsSnapshot snapshot)
     {
         if (_walletPositionSnapshot.ContainsKey(snapshot.Wallet)) return;
