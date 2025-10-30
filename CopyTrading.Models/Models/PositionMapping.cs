@@ -30,18 +30,14 @@ public class PositionMapping
     public Direction Direction { get; set; }
 
     /// <summary>
-    /// Текущее количество в позиции трейдера
-    /// </summary>
-    public decimal TraderQuantity { get; set; }
-
-    /// <summary>
     /// Текущее количество в вашей позиции
     /// </summary>
     public decimal MyQuantity { get; set; }
 
     /// <summary>
-    /// Коэффициент между позициями (MyQuantity / TraderQuantity)
-    /// Сохраняется при первом открытии позиции и используется для всех последующих операций
+    /// Коэффициент между позициями (MyQuantity / TraderQuantity при открытии)
+    /// Сохраняется при первом открытии позиции и используется для всех последующих операций.
+    /// Позиция трейдера всегда получается из CurrentWalletPositionService.GetSnapshot()
     /// </summary>
     public decimal PositionRatio { get; set; }
 
@@ -53,7 +49,7 @@ public class PositionMapping
     public override string ToString()
     {
         return $"{TraderWallet} -> {MyWallet} | {Symbol} {Direction} | " +
-               $"Trader: {TraderQuantity}, My: {MyQuantity}, Ratio: {PositionRatio:F6}";
+               $"My: {MyQuantity}, Ratio: {PositionRatio:F6}";
     }
 
     /// <summary>

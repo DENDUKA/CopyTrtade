@@ -79,8 +79,8 @@
                 @foreach (var wallet in traderWallets)
                 {
                     var traderPositions = positions.Where(p => p.TraderWallet.ToString() == wallet).ToList();
-                    var totalLong = traderPositions.Where(p => p.Direction == Direction.Long).Sum(p => p.TraderQuantity);
-                    var totalShort = traderPositions.Where(p => p.Direction == Direction.Short).Sum(p => p.TraderQuantity);
+                    var totalLong = traderPositions.Where(p => p.Direction == Direction.Long).Sum(p => p.MyQuantity);
+                    var totalShort = traderPositions.Where(p => p.Direction == Direction.Short).Sum(p => p.MyQuantity);
 
                     <div class="col-md-6 mb-3">
                         <div class="card">
@@ -145,7 +145,7 @@
                                                     </span>
                                                 </div>
                                                 <small class="text-muted">
-                                                    Количество: @position.TraderQuantity.ToString("F4") |
+                                                    Мой: @position.MyQuantity.ToString("F4") |
                                                     Ratio: @position.PositionRatio.ToString("F4")
                                                 </small>
                                             </div>

@@ -27,22 +27,22 @@
 
             <div class="col-md-1">
                 <small class="text-muted">Цена</small>
-                <div class="fw-bold">$@Order.Price.ToString("F2")</div>
+                <div class="fw-bold">$@Order.Price.ToString()</div>
             </div>
 
             <div class="col-md-1">
                 <small class="text-muted">Количество</small>
-                <div>@Order.Quantity.ToString("F4")</div>
+                <div>@Order.Quantity.ToString()</div>
             </div>
 
             <div class="col-md-1">
                 <small class="text-muted">Объем USD</small>
-                <div class="fw-bold">$@Order.VolumeUsd.ToString("F2")</div>
+                <div class="fw-bold">$@Order.VolumeUsd.ToString()</div>
             </div>
 
             <div class="col-md-1">
                 <small class="text-muted">Плечо</small>
-                <div>@Order.Leverage.ToString("F1")x</div>
+                <div>@Order.Leverage.ToString()x</div>
             </div>
 
             <div class="col-md-2">

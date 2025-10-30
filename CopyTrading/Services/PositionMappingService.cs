@@ -65,23 +65,6 @@ public class PositionMappingService
     }
 
     /// <summary>
-    /// Обновить количество в позиции трейдера
-    /// </summary>
-    public bool UpdateTraderQuantity(Wallet traderWallet, Wallet myWallet, string symbol, Direction direction, decimal newQuantity)
-    {
-        var mapping = GetMapping(traderWallet, myWallet, symbol, direction);
-        if (mapping == null)
-        {
-            _logger.LogWarning($"Маппинг не найден для обновления TraderQuantity: {symbol} {direction}");
-            return false;
-        }
-
-        mapping.TraderQuantity = newQuantity;
-        SaveOrUpdateMapping(mapping);
-        return true;
-    }
-
-    /// <summary>
     /// Обновить количество в вашей позиции
     /// </summary>
     public bool UpdateMyQuantity(Wallet traderWallet, Wallet myWallet, string symbol, Direction direction, decimal newQuantity)

@@ -17,18 +17,17 @@
             <div class="col-md-2">
                 <small class="text-muted">Трейдер</small>
                 <div class="fw-bold">@Position.TraderWallet</div>
-                <div>@Position.TraderQuantity.ToString("F4")</div>
             </div>
 
             <div class="col-md-2">
                 <small class="text-muted">Мой кошелек</small>
                 <div class="fw-bold">@Position.MyWallet</div>
-                <div>@Position.MyQuantity.ToString("F4")</div>
+                <div>@Position.MyQuantity.ToString()</div>
             </div>
 
             <div class="col-md-2">
                 <small class="text-muted">Коэффициент</small>
-                <div class="fw-bold">@Position.PositionRatio.ToString("F6")</div>
+                <div class="fw-bold">@Position.PositionRatio.ToString()</div>
             </div>
 
             <div class="col-md-2">

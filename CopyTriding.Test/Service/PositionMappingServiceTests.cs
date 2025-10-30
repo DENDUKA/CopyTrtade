@@ -32,7 +32,6 @@ public class PositionMappingServiceTests
             MyWallet = _myWallet,
             Symbol = "BTC",
             Direction = Direction.Long,
-            TraderQuantity = 1.5M,
             MyQuantity = 0.15M,
             PositionRatio = 0.1M,
             LastUpdate = DateTime.UtcNow
@@ -44,8 +43,7 @@ public class PositionMappingServiceTests
         // Assert
         var retrieved = _service.GetMapping(_traderWallet, _myWallet, "BTC", Direction.Long);
         retrieved.Should().NotBeNull();
-        retrieved!.TraderQuantity.Should().Be(1.5M);
-        retrieved.MyQuantity.Should().Be(0.15M);
+        retrieved!.MyQuantity.Should().Be(0.15M);
         retrieved.PositionRatio.Should().Be(0.1M);
     }
 
@@ -59,7 +57,6 @@ public class PositionMappingServiceTests
             MyWallet = _myWallet,
             Symbol = "ETH",
             Direction = Direction.Short,
-            TraderQuantity = 10M,
             MyQuantity = 1M,
             PositionRatio = 0.1M,
             LastUpdate = DateTime.UtcNow
@@ -68,14 +65,12 @@ public class PositionMappingServiceTests
         _service.SaveOrUpdateMapping(mapping);
 
         // Act - обновляем количества
-        mapping.TraderQuantity = 15M;
         mapping.MyQuantity = 1.5M;
         _service.SaveOrUpdateMapping(mapping);
 
         // Assert
         var retrieved = _service.GetMapping(_traderWallet, _myWallet, "ETH", Direction.Short);
         retrieved.Should().NotBeNull();
-        retrieved!.TraderQuantity.Should().Be(15M);
         retrieved.MyQuantity.Should().Be(1.5M);
         retrieved.PositionRatio.Should().Be(0.1M);
     }
@@ -100,7 +95,6 @@ public class PositionMappingServiceTests
             MyWallet = _myWallet,
             Symbol = "AVAX",
             Direction = Direction.Long,
-            TraderQuantity = 100M,
             MyQuantity = 10M,
             PositionRatio = 0.1M,
             LastUpdate = DateTime.UtcNow
@@ -128,44 +122,6 @@ public class PositionMappingServiceTests
     }
 
     [Fact]
-    public void UpdateTraderQuantity_ShouldUpdateQuantity_WhenMappingExists()
-    {
-        // Arrange
-        var mapping = new PositionMapping
-        {
-            TraderWallet = _traderWallet,
-            MyWallet = _myWallet,
-            Symbol = "BNB",
-            Direction = Direction.Long,
-            TraderQuantity = 5M,
-            MyQuantity = 0.5M,
-            PositionRatio = 0.1M,
-            LastUpdate = DateTime.UtcNow
-        };
-
-        _service.SaveOrUpdateMapping(mapping);
-
-        // Act
-        var updated = _service.UpdateTraderQuantity(_traderWallet, _myWallet, "BNB", Direction.Long, 7.5M);
-
-        // Assert
-        updated.Should().BeTrue();
-        var retrieved = _service.GetMapping(_traderWallet, _myWallet, "BNB", Direction.Long);
-        retrieved!.TraderQuantity.Should().Be(7.5M);
-        retrieved.MyQuantity.Should().Be(0.5M); // не изменилось
-    }
-
-    [Fact]
-    public void UpdateTraderQuantity_ShouldReturnFalse_WhenMappingDoesNotExist()
-    {
-        // Act
-        var updated = _service.UpdateTraderQuantity(_traderWallet, _myWallet, "XRP", Direction.Short, 100M);
-
-        // Assert
-        updated.Should().BeFalse();
-    }
-
-    [Fact]
     public void UpdateMyQuantity_ShouldUpdateQuantity_WhenMappingExists()
     {
         // Arrange
@@ -175,7 +131,6 @@ public class PositionMappingServiceTests
             MyWallet = _myWallet,
             Symbol = "ADA",
             Direction = Direction.Short,
-            TraderQuantity = 1000M,
             MyQuantity = 100M,
             PositionRatio = 0.1M,
             LastUpdate = DateTime.UtcNow
@@ -190,7 +145,6 @@ public class PositionMappingServiceTests
         updated.Should().BeTrue();
         var retrieved = _service.GetMapping(_traderWallet, _myWallet, "ADA", Direction.Short);
         retrieved!.MyQuantity.Should().Be(150M);
-        retrieved.TraderQuantity.Should().Be(1000M); // не изменилось
     }
 
     [Fact]
@@ -213,7 +167,6 @@ public class PositionMappingServiceTests
             MyWallet = _myWallet,
             Symbol = "BTC",
             Direction = Direction.Long,
-            TraderQuantity = 1M,
             MyQuantity = 0.1M,
             PositionRatio = 0.1M,
             LastUpdate = DateTime.UtcNow
@@ -225,7 +178,6 @@ public class PositionMappingServiceTests
             MyWallet = _myWallet,
             Symbol = "ETH",
             Direction = Direction.Short,
-            TraderQuantity = 10M,
             MyQuantity = 1M,
             PositionRatio = 0.1M,
             LastUpdate = DateTime.UtcNow
@@ -237,7 +189,6 @@ public class PositionMappingServiceTests
             MyWallet = _myWallet,
             Symbol = "BTC",
             Direction = Direction.Short, // Другое направление
-            TraderQuantity = 0.5M,
             MyQuantity = 0.05M,
             PositionRatio = 0.1M,
             LastUpdate = DateTime.UtcNow
@@ -279,7 +230,6 @@ public class PositionMappingServiceTests
             MyWallet = _myWallet,
             Symbol = "BTC",
             Direction = Direction.Long,
-            TraderQuantity = 1M,
             MyQuantity = 0.1M,
             PositionRatio = 0.1M,
             LastUpdate = DateTime.UtcNow
@@ -291,7 +241,6 @@ public class PositionMappingServiceTests
             MyWallet = _myWallet,
             Symbol = "ETH",
             Direction = Direction.Long,
-            TraderQuantity = 10M,
             MyQuantity = 1M,
             PositionRatio = 0.1M,
             LastUpdate = DateTime.UtcNow
@@ -317,7 +266,6 @@ public class PositionMappingServiceTests
             MyWallet = _myWallet,
             Symbol = "BTC",
             Direction = Direction.Long,
-            TraderQuantity = 1M,
             MyQuantity = 0.1M,
             PositionRatio = 0.1M,
             LastUpdate = DateTime.UtcNow
@@ -329,7 +277,6 @@ public class PositionMappingServiceTests
             MyWallet = _myWallet,
             Symbol = "ETH",
             Direction = Direction.Short,
-            TraderQuantity = 10M,
             MyQuantity = 1M,
             PositionRatio = 0.1M,
             LastUpdate = DateTime.UtcNow
@@ -357,7 +304,6 @@ public class PositionMappingServiceTests
             MyWallet = _myWallet,
             Symbol = "BTC",
             Direction = Direction.Long,
-            TraderQuantity = 1M,
             MyQuantity = 0.1M,
             PositionRatio = 0.1M,
             LastUpdate = DateTime.UtcNow
@@ -369,7 +315,6 @@ public class PositionMappingServiceTests
             MyWallet = _myWallet,
             Symbol = "ETH",
             Direction = Direction.Long,
-            TraderQuantity = 10M,
             MyQuantity = 1M,
             PositionRatio = 0.1M,
             LastUpdate = DateTime.UtcNow
@@ -398,7 +343,6 @@ public class PositionMappingServiceTests
             MyWallet = _myWallet,
             Symbol = "BTC",
             Direction = Direction.Long,
-            TraderQuantity = 1M,
             MyQuantity = 0.1M,
             PositionRatio = 0.1M,
             LastUpdate = DateTime.UtcNow
@@ -410,7 +354,6 @@ public class PositionMappingServiceTests
             MyWallet = _myWallet,
             Symbol = "BTC",
             Direction = Direction.Short,
-            TraderQuantity = 0.5M,
             MyQuantity = 0.05M,
             PositionRatio = 0.1M,
             LastUpdate = DateTime.UtcNow
@@ -427,8 +370,8 @@ public class PositionMappingServiceTests
         longRetrieved.Should().NotBeNull();
         shortRetrieved.Should().NotBeNull();
 
-        longRetrieved!.TraderQuantity.Should().Be(1M);
-        shortRetrieved!.TraderQuantity.Should().Be(0.5M);
+        longRetrieved!.MyQuantity.Should().Be(0.1M);
+        shortRetrieved!.MyQuantity.Should().Be(0.05M);
 
         // Удаление Long не должно влиять на Short
         _service.DeleteMapping(_traderWallet, _myWallet, "BTC", Direction.Long);
@@ -450,7 +393,6 @@ public class PositionMappingServiceTests
             MyWallet = _myWallet,
             Symbol = "LINK",
             Direction = Direction.Long,
-            TraderQuantity = 100M,
             MyQuantity = 10M,
             PositionRatio = 0.1M,
             LastUpdate = DateTime.UtcNow.AddHours(-1) // Старая дата
@@ -462,7 +404,7 @@ public class PositionMappingServiceTests
 
         // Act - небольшая задержка чтобы время точно изменилось
         System.Threading.Thread.Sleep(10);
-        mapping.TraderQuantity = 150M;
+        mapping.MyQuantity = 15M;
         _service.SaveOrUpdateMapping(mapping);
 
         // Assert
