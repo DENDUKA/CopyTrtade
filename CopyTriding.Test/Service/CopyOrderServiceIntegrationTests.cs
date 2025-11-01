@@ -324,25 +324,6 @@ public class CopyOrderServiceIntegrationTests
             IsFuture = true,
         };
 
-        // Snapshot ПОСЛЕ increase показывает 130 (80 + 50)
-        var snapshotAfterIncrease2 = new WalletPositionsSnapshot
-        {
-            Wallet = _traderWallet,
-            TimeStamp = DateTime.UtcNow,
-            Positions =
-            [
-                new Position
-                {
-                    Symbol = symbol,
-                    Quantity = 130m, // 80 + 50 = 130
-                    AverageEntryPrice = 300m,
-                    Leverage = 5
-                }
-            ]
-        };
-
-        _currentWalletPositionService.UpdateSnapshot(snapshotAfterIncrease2);
-
         DataBusEvents.NewOrders?.Invoke([increaseOrder2]);
         DataBusEvents.NewTrades?.Invoke(([increaseTrade2], false));
         await Task.Delay(200);
