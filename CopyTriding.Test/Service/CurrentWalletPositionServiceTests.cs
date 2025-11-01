@@ -351,6 +351,28 @@ public class CurrentWalletPositionServiceTests
         // Arrange
         var wallet = new Wallet("0x7bde2b9240a2ee352108c6823a9fa20f225b83a0");
 
+        // Mock для GetInfo - возвращаем WalletInfoModel с позицией BNB
+        var walletInfo = new WalletInfoModel
+        {
+            Wallet = wallet,
+            AccountVolume = 10000M,
+            TotalMarginUsed = 0M,
+            Positions = new Dictionary<string, Position>
+            {
+                ["BNB"] = new Position
+                {
+                    Symbol = "BNB",
+                    Quantity = 10M,
+                    AverageEntryPrice = 300M,
+                    VolumeUsd = 3000M
+                }
+            }
+        };
+
+        _walletInfoProvider
+            .Setup(x => x.GetInfo(wallet, false))
+            .ReturnsAsync(walletInfo);
+
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
             _logger.Object);
@@ -678,6 +700,30 @@ public class CurrentWalletPositionServiceTests
 
         // Setup mock для случаев когда нужно получить позицию из provider (Open и Flip)
         var currentPrice = 50000M;
+        var currentBtcPosition = 0M;
+        var currentBtcAvgPrice = 50000M;
+
+        // Динамический mock для GetInfo - возвращает актуальную позицию
+        _walletInfoProvider
+            .Setup(x => x.GetInfo(wallet, false))
+            .ReturnsAsync(() => new WalletInfoModel
+            {
+                Wallet = wallet,
+                AccountVolume = 100000M,
+                TotalMarginUsed = 0M,
+                Positions = currentBtcPosition != 0M
+                    ? new Dictionary<string, Position>
+                    {
+                        ["BTC"] = new Position
+                        {
+                            Symbol = "BTC",
+                            Quantity = currentBtcPosition,
+                            AverageEntryPrice = currentBtcAvgPrice,
+                            VolumeUsd = currentBtcPosition * currentBtcAvgPrice
+                        }
+                    }
+                    : new Dictionary<string, Position>()
+            });
 
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
@@ -697,6 +743,8 @@ public class CurrentWalletPositionServiceTests
         // ==================== PHASE 1: OPEN & INCREASE LONG ====================
         // Trade 1: Open BTC Long 0.1 @ 50000
         currentPrice = 50000M;
+        currentBtcPosition = 0.1M; // Устанавливаем начальную позицию для первого трейда
+        currentBtcAvgPrice = 50000M;
         tradeLog.Add((1, Direction.Long, 0.1M, currentPrice, OrderSubType.Open, 0.1M, "Open BTC Long"));
 
         // Trade 2-10: Increase BTC Long постепенно (9 трейдов)
@@ -829,6 +877,13 @@ public class CurrentWalletPositionServiceTests
             var debugSnapshot = await service.GetSnapshot(wallet);
             var debugPosition = debugSnapshot.Positions.FirstOrDefault(p => p.Symbol == "BTC");
             var actualQty = debugPosition?.Quantity ?? 0M;
+
+            // Обновляем позицию для mock
+            currentBtcPosition = actualQty;
+            if (debugPosition != null)
+            {
+                currentBtcAvgPrice = debugPosition.AverageEntryPrice;
+            }
 
             // Assert OrderSubType
             result.Should().Be(expected,

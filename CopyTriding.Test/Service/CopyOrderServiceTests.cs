@@ -83,11 +83,12 @@ public class CopyOrderServiceTests
 
         // Используем рефлексию для тестирования приватного метода
         var service = new TestableCopyOrderService(
-            null!,  // OrderService не используется в CreateCopyOrder
             _walletInfoProvider.Object,
             _exchangeInfoProvider.Object,
             null!,  // CurrentWalletPositionService не используется в CreateCopyOrder
             null!,  // PositionMappingService не используется в CreateCopyOrder
+            null!,  // CopyOrderResultService не используется в CreateCopyOrder
+            null!,  // FillsOrderService не используется в CreateCopyOrder
             _logger.Object,
             myWallet);
 
@@ -165,11 +166,12 @@ public class CopyOrderServiceTests
             .ReturnsAsync(exchangeInfo);
 
         var service = new TestableCopyOrderService(
-            null!,  // OrderService не используется в CreateCopyOrder
             _walletInfoProvider.Object,
             _exchangeInfoProvider.Object,
             null!,  // CurrentWalletPositionService не используется в CreateCopyOrder
             null!,  // PositionMappingService не используется в CreateCopyOrder
+            null!,  // CopyOrderResultService не используется в CreateCopyOrder
+            null!,  // FillsOrderService не используется в CreateCopyOrder
             _logger.Object,
             myWallet);
 
@@ -246,11 +248,12 @@ public class CopyOrderServiceTests
             .ReturnsAsync(exchangeInfo);
 
         var service = new TestableCopyOrderService(
-            null!,  // OrderService не используется в CreateCopyOrder
             _walletInfoProvider.Object,
             _exchangeInfoProvider.Object,
             null!,  // CurrentWalletPositionService не используется в CreateCopyOrder
             null!,  // PositionMappingService не используется в CreateCopyOrder
+            null!,  // CopyOrderResultService не используется в CreateCopyOrder
+            null!,  // FillsOrderService не используется в CreateCopyOrder
             _logger.Object,
             myWallet);
 
@@ -327,11 +330,12 @@ public class CopyOrderServiceTests
             .ReturnsAsync(exchangeInfo);
 
         var service = new TestableCopyOrderService(
-            null!,  // OrderService не используется в CreateCopyOrder
             _walletInfoProvider.Object,
             _exchangeInfoProvider.Object,
             null!,  // CurrentWalletPositionService не используется в CreateCopyOrder
             null!,  // PositionMappingService не используется в CreateCopyOrder
+            null!,  // CopyOrderResultService не используется в CreateCopyOrder
+            null!,  // FillsOrderService не используется в CreateCopyOrder
             _logger.Object,
             myWallet);
 
@@ -356,14 +360,15 @@ public class TestableCopyOrderService : CopyOrderService
     private readonly Wallet _testMyWallet;
 
     public TestableCopyOrderService(
-        OrderService orderService,
         IWalletInfoProvider walletProvider,
         IExchangeInfoProvider exchangeInfoProvider,
         CurrentWalletPositionService currentWalletPositionService,
         PositionMappingService positionMappingService,
+        CopyOrderResultService resultService,
+        FillsOrderService fillsOrderService,
         ILogger<CopyOrderService> logger,
         Wallet myWallet)
-        : base(orderService, walletProvider, exchangeInfoProvider, currentWalletPositionService, positionMappingService, logger)
+        : base(walletProvider, exchangeInfoProvider, currentWalletPositionService, positionMappingService, resultService, fillsOrderService, logger)
     {
         _testMyWallet = myWallet;
         // Используем рефлексию чтобы подменить _myWallet

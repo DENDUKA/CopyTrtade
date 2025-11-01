@@ -18,7 +18,10 @@
       "Bash(dotnet test CopyTriding.TestCopyTriding.Test.csproj --filter \"FullyQualifiedName~CurrentWalletPositionServiceTests\" --verbosity normal)",
       "Bash(dotnet test \"CopyTriding.Test/CopyTriding.Test.csproj\" --filter \"FullyQualifiedName~CurrentWalletPositionServiceTests\" --verbosity normal)",
       "Bash(dotnet test \"C:\\Programs\\CopyTrtade\\CopyTriding.Test\\CopyTriding.Test.csproj\" --filter \"FullyQualifiedName~PositionMappingServiceTests\")",
-      "Bash(dotnet test \"C:\\Programs\\CopyTrtade\\CopyTriding.Test\\CopyTriding.Test.csproj\" --filter \"FullyQualifiedName~PositionMappingServiceTests\" --no-build)"
+      "Bash(dotnet test \"C:\\Programs\\CopyTrtade\\CopyTriding.Test\\CopyTriding.Test.csproj\" --filter \"FullyQualifiedName~PositionMappingServiceTests\" --no-build)",
+      "Bash(dotnet build:*)",
+      "Bash(dotnet test:*)",
+      "Bash(Select-String -Pattern \"(Expected|CopyOrderService|GetOrderSubType|Snapshot|Mapping)\" -Context 1)"
     ],
     "deny": [],
     "ask": []

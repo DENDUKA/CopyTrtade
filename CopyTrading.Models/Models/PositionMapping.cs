@@ -42,6 +42,13 @@ public class PositionMapping
     public decimal PositionRatio { get; set; }
 
     /// <summary>
+    /// "Базовая линия" - позиция трейдера ДО первого increase, который мы скопировали.
+    /// Устанавливается при первом входе (IncreasePosition без маппинга) и НЕ меняется.
+    /// Используется для определения: когда трейдер уходит ниже этой линии → закрываем ВСЮ позицию.
+    /// </summary>
+    public decimal TraderQuantityAtEntry { get; set; }
+
+    /// <summary>
     /// Время последнего обновления
     /// </summary>
     public DateTime LastUpdate { get; set; }
@@ -49,7 +56,7 @@ public class PositionMapping
     public override string ToString()
     {
         return $"{TraderWallet} -> {MyWallet} | {Symbol} {Direction} | " +
-               $"My: {MyQuantity}, Ratio: {PositionRatio:F6}";
+               $"My: {MyQuantity}, Ratio: {PositionRatio:F6}, BaselineAt: {TraderQuantityAtEntry}";
     }
 
     /// <summary>

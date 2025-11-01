@@ -25,7 +25,32 @@ public class FillsOrderService
 
     public OrderFills[] GetAllOrderFills()
     {
-        return _orders.Values.ToArray();
+        return [.. _orders.Values];
+    }
+
+    /// <summary>
+    /// Получает все трейды для указанного orderId
+    /// </summary>
+    /// <param name="orderId">ID ордера</param>
+    /// <returns>Массив трейдов или пустой массив если ордер не найден</returns>
+    public OriginalTrade[] GetTradesByOrderId(long orderId)
+    {
+        if (_orders.TryGetValue(orderId, out var orderFills))
+        {
+            return [.. orderFills.Trades];
+        }
+
+        return [];
+    }
+
+    /// <summary>
+    /// Получает OrderFills для указанного orderId
+    /// </summary>
+    /// <param name="orderId">ID ордера</param>
+    /// <returns>OrderFills или null если ордер не найден</returns>
+    public OrderFills? GetOrderFillsByOrderId(long orderId)
+    {
+        return _orders.TryGetValue(orderId, out var orderFills) ? orderFills : null;
     }
 
     public void OnNewOrders(OriginalOrder[] orders)

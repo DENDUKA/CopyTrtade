@@ -1,4 +1,6 @@
-﻿using CopyTrading.DataEvents;
+﻿using CopyTrading.BlazorUI.Pages;
+using CopyTrading.DataEvents;
+using CopyTrading.Extensions;
 using CopyTrading.Models.Models.Enums.Order;
 using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Values;
@@ -17,6 +19,8 @@ public class CopyOrderService
     private readonly IExchangeInfoProvider _exchangeInfoProvider;
     private readonly CurrentWalletPositionService _currentWalletPositionService;
     private readonly PositionMappingService _positionMappingService;
+    private readonly CopyOrderResultService _resultService;
+    private readonly FillsOrderService _fillsOrderService;
     private readonly ILogger<CopyOrderService> _logger;
     //TODO вынести в конструктор , задаваться должен для каждого экземпляра ( поменять singleton )
     private readonly Wallet _myWallet = WalletSettings.MyWallet;
@@ -26,12 +30,16 @@ public class CopyOrderService
         IExchangeInfoProvider exchangeInfoProvider,
         CurrentWalletPositionService currentWalletPositionService,
         PositionMappingService positionMappingService,
+        CopyOrderResultService resultService,
+        FillsOrderService fillsOrderService,
         ILogger<CopyOrderService> logger)
     {
         _walletProvider = walletProvider;
         _exchangeInfoProvider = exchangeInfoProvider;
         _currentWalletPositionService = currentWalletPositionService;
         _positionMappingService = positionMappingService;
+        _resultService = resultService;
+        _fillsOrderService = fillsOrderService;
         _logger = logger;
 
         DataBusEvents.NewOrders += OnNewOrders;
@@ -214,6 +222,7 @@ public class CopyOrderService
                 Direction = order.Direction,
                 MyQuantity = copyOrder.Quantity,
                 PositionRatio = copyOrder.Quantity / order.Quantity,  // Сохраняем пропорцию!
+                TraderQuantityAtEntry = 0,  // При обычном Open трейдер открывает позицию с нуля
                 LastUpdate = DateTime.UtcNow
             };
 
@@ -221,12 +230,16 @@ public class CopyOrderService
 
             _logger.LogInformation($"OpenNewPosition создан маппинг: {mapping}");
 
+            // Сохраняем результат успешного копирования
+            _resultService.SaveSuccess(order.OrderId.ToString(), order.Wallet, order.Symbol, copyOrder.OrderId.ToString());
+
             // TODO: Разместить ордер на бирже через OrdersProvider
             _logger.LogInformation($"OpenNewPosition SUCCESS: создан копируемый ордер для {order.OrderId}, CopyOrderId={copyOrder.OrderId}");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, $"OpenNewPosition ОШИБКА при создании копируемого ордера для {order.OrderId}");
+            _resultService.SaveFailure(order.OrderId.ToString(), order.Wallet, order.Symbol, ex.Message);
             throw;
         }
     }
@@ -246,15 +259,56 @@ public class CopyOrderService
 
             if (mapping == null)
             {
-                _logger.LogWarning($"IncreasePosition: Маппинг не найден для {order.OrderId} {order.Symbol} {order.Direction}. Открываем как новую позицию.");
-                await OpenNewPosition(order);
+                _logger.LogWarning($"IncreasePosition: Маппинг не найден для {order.OrderId} {order.Symbol} {order.Direction}. Синхронизируем с текущей позицией трейдера.");
+
+                // Получаем базовую линию - позицию трейдера ДО increase
+                var traderQuantityBeforeIncrease = await GetTraderQuantityBeforeOrder(order.Wallet, order.Symbol, order.OrderId, order.Quantity);
+
+                if (traderQuantityBeforeIncrease < 0)
+                {
+                    var errorMsg = "Позиция трейдера не найдена в snapshot или некорректна";
+                    _logger.LogError($"IncreasePosition: OrderId={order.OrderId} {errorMsg}. CopyOrder НЕ БУДЕТ СОЗДАН!");
+                    _resultService.SaveFailure(order.OrderId.ToString(), order.Wallet, order.Symbol, errorMsg);
+                    return;
+                }
+
+                // Создаем "синтетический" ордер на открытие позиции
+                // ВАЖНО: Открываем только на величину INCREASE (order.Quantity), а не на всю позицию!
+                var syntheticOrder = new OriginalOrder
+                {
+                    OrderId = order.OrderId,
+                    Wallet = order.Wallet,
+                    Symbol = order.Symbol,
+                    Direction = order.Direction,
+                    Quantity = order.Quantity,  // Только величина увеличения, не вся позиция!
+                    Price = order.Price,
+                    Leverage = order.Leverage,
+                    SubType = OrderSubType.Open,  // Для нас это открытие новой позиции
+                    Status = order.Status,
+                    Time = order.Time
+                };
+
+                _logger.LogInformation($"IncreasePosition: OrderId={order.OrderId} Открываем синхронизированную позицию с количеством {syntheticOrder.Quantity}");
+                await OpenNewPosition(syntheticOrder);
+
+                // Устанавливаем базовую линию - позицию трейдера ДО increase
+                var createdMapping = _positionMappingService.GetMapping(order.Wallet, _myWallet, order.Symbol, order.Direction);
+                if (createdMapping != null)
+                {
+                    createdMapping.TraderQuantityAtEntry = traderQuantityBeforeIncrease;
+                    _positionMappingService.SaveOrUpdateMapping(createdMapping);
+                    _logger.LogInformation($"IncreasePosition: OrderId={order.OrderId} Установлена базовая линия TraderQuantityAtEntry={createdMapping.TraderQuantityAtEntry}");
+                }
+
                 return;
             }
 
             // Проверяем что у нас есть открытая позиция с валидной пропорцией
             if (mapping.PositionRatio == 0)
             {
-                _logger.LogError($"IncreasePosition: OrderId={order.OrderId} mapping.PositionRatio = 0 для {order.Symbol} {order.Direction} - позиция была открыта с Quantity=0. CopyOrder НЕ БУДЕТ СОЗДАН!");
+                var errorMsg = "mapping.PositionRatio = 0 - позиция была открыта с Quantity=0";
+                _logger.LogError($"IncreasePosition: OrderId={order.OrderId} {errorMsg}. CopyOrder НЕ БУДЕТ СОЗДАН!");
+                _resultService.SaveFailure(order.OrderId.ToString(), order.Wallet, order.Symbol, errorMsg);
                 return;
             }
 
@@ -267,7 +321,9 @@ public class CopyOrderService
 
             if (exchangeInfo == null)
             {
-                _logger.LogError($"IncreasePosition: OrderId={order.OrderId} Не удалось получить ExchangeInfo для {order.Symbol} - CopyOrder НЕ БУДЕТ СОЗДАН!");
+                var errorMsg = $"Не удалось получить ExchangeInfo для {order.Symbol}";
+                _logger.LogError($"IncreasePosition: OrderId={order.OrderId} {errorMsg} - CopyOrder НЕ БУДЕТ СОЗДАН!");
+                _resultService.SaveFailure(order.OrderId.ToString(), order.Wallet, order.Symbol, errorMsg);
                 return;
             }
 
@@ -290,31 +346,67 @@ public class CopyOrderService
 
             _logger.LogInformation($"IncreasePosition SUCCESS: {order.OrderId} Увеличиваем на {myIncreaseQuantity}, новая позиция: {mapping.MyQuantity}");
 
+            // Сохраняем результат успешного копирования
+            _resultService.SaveSuccess(order.OrderId.ToString(), order.Wallet, order.Symbol, copyOrder.OrderId.ToString());
+
             // TODO: Разместить ордер на увеличение через OrdersProvider
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, $"IncreasePosition ОШИБКА при увеличении позиции для {order.OrderId}");
+            _resultService.SaveFailure(order.OrderId.ToString(), order.Wallet, order.Symbol, ex.Message);
             throw;
         }
     }
 
-    /// <summary>
-    /// Частичное закрытие позиции (Decrease)
-    /// Закрываем ту же ДОЛЮ от нашей позиции, что и трейдер
-    /// ВАЖНО: Используем snapshot как единственный источник истины для позиции трейдера
-    /// </summary>
-    private async Task DecreasePosition(OriginalOrder order)
+    private async Task<decimal> GetTraderQuantityBeforeOrder(Wallet wallet, string symbol, long orderId, decimal orderQuantity)
+    {
+        var snapshot = await _currentWalletPositionService.GetSnapshot(wallet);
+        var traderPosition = snapshot.Positions.FirstOrDefault(p => p.Symbol == symbol);
+
+		if (traderPosition == null)
+		{
+			_logger.LogError($"GetTraderQuantityBeforeOrderAsync: OrderId={orderId} Позиция трейдера не найдена в snapshot для символа {symbol}");
+			return 0;
+		}
+
+		var orderFills = _fillsOrderService.GetOrderFillsByOrderId(orderId);
+
+        if (orderFills is null)
+        {
+			return traderPosition.Quantity;
+		}
+
+        var fillQuantityInOrder = orderFills.Trades.Sum(x => x.Quantity);
+
+        var traderTotalQuantity = Math.Abs(traderPosition.Quantity);
+        _logger.LogInformation($"GetTraderQuantityBeforeOrderAsync: OrderId={orderId} Итоговая позиция трейдера из snapshot: {traderTotalQuantity}");
+
+        // Вычисляем базовую линию - позицию трейдера ДО increase
+        var traderQuantityBeforeIncrease = traderTotalQuantity - Math.Abs(fillQuantityInOrder);
+        _logger.LogInformation($"GetTraderQuantityBeforeOrderAsync: OrderId={orderId} Позиция трейдера ДО increase: {traderQuantityBeforeIncrease}, увеличение на: {orderQuantity}");
+
+        return traderQuantityBeforeIncrease;
+    }
+
+	/// <summary>
+	/// Частичное закрытие позиции (Decrease)
+	/// Закрываем ту же ДОЛЮ от нашей позиции, что и трейдер
+	/// ВАЖНО: Используем snapshot как единственный источник истины для позиции трейдера
+	/// </summary>
+	private async Task DecreasePosition(OriginalOrder order)
     {
         _logger.LogInformation($"DecreasePosition START: {order.Symbol} {order.Direction}, Quantity={order.Quantity}, OrderId={order.OrderId}");
 
         try
         {
-            var mapping = _positionMappingService.GetMapping(order.Wallet, _myWallet, order.Symbol, order.Direction);
+            var mapping = _positionMappingService.GetMapping(order.Wallet, _myWallet, order.Symbol, order.Direction.Opposite());
 
             if (mapping == null)
             {
-                _logger.LogError($"DecreasePosition: Маппинг не найден для {order.OrderId} {order.Symbol} {order.Direction} - CopyOrder НЕ БУДЕТ СОЗДАН!");
+                var errorMsg = "Невозможно скопировать decrease - у нас нет открытой позиции (маппинг не найден)";
+                _logger.LogError($"DecreasePosition: OrderId={order.OrderId} {errorMsg}. CopyOrder НЕ БУДЕТ СОЗДАН!");
+                _resultService.SaveFailure(order.OrderId.ToString(), order.Wallet, order.Symbol, errorMsg);
                 return;
             }
 
@@ -325,40 +417,52 @@ public class CopyOrderService
 
             if (traderPosition == null)
             {
-                _logger.LogError($"DecreasePosition: OrderId{order.OrderId} Позиция трейдера не найдена в snapshot для {order.Symbol} - CopyOrder НЕ БУДЕТ СОЗДАН!");
+                var errorMsg = "Позиция трейдера не найдена в snapshot";
+                _logger.LogError($"DecreasePosition: OrderId{order.OrderId} {errorMsg} для {order.Symbol} - CopyOrder НЕ БУДЕТ СОЗДАН!");
+                _resultService.SaveFailure(order.OrderId.ToString(), order.Wallet, order.Symbol, errorMsg);
                 return;
             }
 
             // Реальное количество позиции трейдера (всегда положительное)
             var actualTraderQuantity = Math.Abs(traderPosition.Quantity);
-            _logger.LogInformation($"DecreasePosition: OrderId{order.OrderId} Реальная позиция трейдера из snapshot: {actualTraderQuantity}");
-
-            if (actualTraderQuantity == 0)
-            {
-                _logger.LogError($"DecreasePosition: Реальная позиция трейдера = 0 для {order.Symbol} - возможно уже закрыта. CopyOrder НЕ БУДЕТ СОЗДАН! OrderId{order.OrderId}");
-                return;
-            }
+            _logger.LogInformation($"DecreasePosition: OrderId={order.OrderId} Реальная позиция трейдера из snapshot: {actualTraderQuantity}, Базовая линия: {mapping.TraderQuantityAtEntry}");
 
             // Проверяем что у нас есть открытая позиция
             if (mapping.MyQuantity == 0)
             {
-                _logger.LogError($"DecreasePosition: OrderId={order.OrderId} mapping.MyQuantity = 0 для {order.Symbol} {order.Direction} - позиция не была открыта или уже закрыта. CopyOrder НЕ БУДЕТ СОЗДАН!");
+                var errorMsg = "mapping.MyQuantity = 0 - позиция не была открыта или уже закрыта";
+                _logger.LogError($"DecreasePosition: OrderId={order.OrderId} {errorMsg}. CopyOrder НЕ БУДЕТ СОЗДАН!");
+                _resultService.SaveFailure(order.OrderId.ToString(), order.Wallet, order.Symbol, errorMsg);
                 return;
             }
 
-            // Рассчитываем какую долю закрывает трейдер (теперь деление на 0 невозможно!)
-            var closeRatio = order.Quantity / actualTraderQuantity;
-            _logger.LogInformation($"DecreasePosition: OrderId={order.OrderId} Трейдер закрывает {closeRatio:P2} позиции ({order.Quantity} из {actualTraderQuantity})");
+            decimal myCloseQuantity;
 
-            // Закрываем ту же долю от НАШЕЙ позиции
-            var myCloseQuantity = mapping.MyQuantity * closeRatio;
+            // Проверяем: трейдер ушел ниже базовой линии?
+            if (actualTraderQuantity <= mapping.TraderQuantityAtEntry)
+            {
+                // Трейдер закрыл всё что было после нашего входа (и даже больше) - закрываем ВСЮ позицию
+                _logger.LogWarning($"DecreasePosition: OrderId={order.OrderId} Трейдер ушел ниже базовой линии ({actualTraderQuantity} <= {mapping.TraderQuantityAtEntry}). Закрываем ВСЮ позицию {mapping.MyQuantity}!");
+                myCloseQuantity = mapping.MyQuantity;
+            }
+            else
+            {
+                // Трейдер выше базовой линии - закрываем пропорционально от "позиции над базовой"
+                var traderAboveBaseline = actualTraderQuantity - mapping.TraderQuantityAtEntry;
+                var closeRatio = order.Quantity / traderAboveBaseline;
+                _logger.LogInformation($"DecreasePosition: OrderId={order.OrderId} Трейдер закрывает {closeRatio:P2} от позиции над базовой ({order.Quantity} из {traderAboveBaseline})");
+
+                myCloseQuantity = mapping.MyQuantity * closeRatio;
+            }
 
             _logger.LogInformation($"DecreasePosition: OrderId={order.OrderId} Получаем ExchangeInfo для {order.Symbol}");
             var exchangeInfo = await _exchangeInfoProvider.GetExchangeInfo(order.Symbol);
 
             if (exchangeInfo == null)
             {
-                _logger.LogError($"DecreasePosition: OrderId={order.OrderId} Не удалось получить ExchangeInfo для {order.Symbol} - CopyOrder НЕ БУДЕТ СОЗДАН!");
+                var errorMsg = $"Не удалось получить ExchangeInfo для {order.Symbol}";
+                _logger.LogError($"DecreasePosition: OrderId={order.OrderId} {errorMsg} - CopyOrder НЕ БУДЕТ СОЗДАН!");
+                _resultService.SaveFailure(order.OrderId.ToString(), order.Wallet, order.Symbol, errorMsg);
                 return;
             }
 
@@ -375,17 +479,30 @@ public class CopyOrderService
             DataBusEvents.CopyOrderCreated?.Invoke(copyOrder);
             _logger.LogInformation($"DecreasePosition: CopyOrderCreated опубликован для {order.OrderId}");
 
-            // Обновляем только MyQuantity в маппинге (TraderQuantity берем из snapshot, не храним)
-            mapping.MyQuantity -= myCloseQuantity;
-            _positionMappingService.SaveOrUpdateMapping(mapping);
+            // Проверяем: закрыли всю позицию или частично?
+            if (myCloseQuantity >= mapping.MyQuantity)
+            {
+                // Закрыли ВСЁ - удаляем маппинг
+                _logger.LogInformation($"DecreasePosition SUCCESS: {order.OrderId} Закрываем ВСЮ позицию {myCloseQuantity}. Удаляем маппинг.");
+                _positionMappingService.DeleteMapping(order.Wallet, _myWallet, order.Symbol, order.Direction);
+            }
+            else
+            {
+                // Частично закрыли - обновляем маппинг
+                mapping.MyQuantity -= myCloseQuantity;
+                _positionMappingService.SaveOrUpdateMapping(mapping);
+                _logger.LogInformation($"DecreasePosition SUCCESS: {order.OrderId} Закрываем {myCloseQuantity}, осталось: {mapping.MyQuantity}");
+            }
 
-            _logger.LogInformation($"DecreasePosition SUCCESS: {order.OrderId} Закрываем {myCloseQuantity} (closeRatio={closeRatio:P2}), осталось: {mapping.MyQuantity}");
+            // Сохраняем результат успешного копирования
+            _resultService.SaveSuccess(order.OrderId.ToString(), order.Wallet, order.Symbol, copyOrder.OrderId.ToString());
 
             // TODO: Разместить ордер на частичное закрытие через OrdersProvider
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, $"DecreasePosition ОШИБКА при частичном закрытии позиции для {order.OrderId}");
+            _resultService.SaveFailure(order.OrderId.ToString(), order.Wallet, order.Symbol, ex.Message);
             throw;
         }
     }
@@ -404,7 +521,9 @@ public class CopyOrderService
 
             if (mapping == null)
             {
-                _logger.LogError($"ClosePosition: Маппинг не найден для {order.OrderId} {order.Symbol} {order.Direction} - CopyOrder НЕ БУДЕТ СОЗДАН!");
+                var errorMsg = "Невозможно скопировать close - у нас нет открытой позиции (маппинг не найден)";
+                _logger.LogError($"ClosePosition: OrderId={order.OrderId} {errorMsg}. CopyOrder НЕ БУДЕТ СОЗДАН!");
+                _resultService.SaveFailure(order.OrderId.ToString(), order.Wallet, order.Symbol, errorMsg);
                 return;
             }
 
@@ -414,8 +533,10 @@ public class CopyOrderService
             // Проверяем что у нас есть открытая позиция
             if (myCloseQuantity == 0)
             {
-                _logger.LogWarning($"ClosePosition: OrderId={order.OrderId} mapping.MyQuantity = 0 для {order.Symbol} {order.Direction} - позиция не была открыта. Удаляем маппинг без создания CopyOrder.");
+                var errorMsg = "mapping.MyQuantity = 0 - позиция не была открыта";
+                _logger.LogWarning($"ClosePosition: OrderId={order.OrderId} {errorMsg}. Удаляем маппинг без создания CopyOrder.");
                 _positionMappingService.DeleteMapping(order.Wallet, _myWallet, order.Symbol, order.Direction);
+                _resultService.SaveFailure(order.OrderId.ToString(), order.Wallet, order.Symbol, errorMsg);
                 return;
             }
 
@@ -434,11 +555,15 @@ public class CopyOrderService
             // Удаляем маппинг (позиция полностью закрыта)
             _positionMappingService.DeleteMapping(order.Wallet, _myWallet, order.Symbol, order.Direction);
 
+            // Сохраняем результат успешного копирования
+            _resultService.SaveSuccess(order.OrderId.ToString(), order.Wallet, order.Symbol, copyOrder.OrderId.ToString());
+
             // TODO: Разместить ордер на полное закрытие через OrdersProvider
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, $"ClosePosition ОШИБКА при полном закрытии позиции для {order.OrderId}");
+            _resultService.SaveFailure(order.OrderId.ToString(), order.Wallet, order.Symbol, ex.Message);
             throw;
         }
     }

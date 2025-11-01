@@ -57,6 +57,7 @@ public class Startup
         services.AddSingleton<OrderService>();
         services.AddSingleton<TradeService>();
         services.AddSingleton<CopyOrderService>();
+        services.AddSingleton<CopyOrderResultService>();
         services.AddSingleton<FillsOrderService>();
         services.AddSingleton<CandleService>();
         services.AddSingleton<InformationService>();

@@ -1,14 +1,12 @@
-﻿using CopyTrading.DataEvents;
+﻿using System.Collections.Concurrent;
+using CopyTrading.DataEvents;
 using CopyTrading.Mappers;
 using CopyTrading.Models.Models;
 using CopyTrading.Models.Models.Enums.Order;
 using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Models.Trade;
 using CopyTrading.Models.Values;
-using CopyTrading.Repository.SQLite;
-using CopyTrading.Repository.SQLite.Dto;
 using CopyTrading.Services.Interfaces;
-using System.Collections.Concurrent;
 
 namespace CopyTrading.Services;
 
@@ -97,6 +95,15 @@ public class CurrentWalletPositionService
         {
             _logger.LogError($"CurrentWalletPositionService Initialize не получилось инициализировать Snapshot для {snapshot.Wallet}");
         }
+    }
+
+    /// <summary>
+    /// Обновляет существующий snapshot для кошелька (или создает новый если не существует)
+    /// Используется в тестах для симуляции изменений позиций
+    /// </summary>
+    public void UpdateSnapshot(WalletPositionsSnapshot snapshot)
+    {
+        _walletPositionSnapshot[snapshot.Wallet] = snapshot;
     }
 
     public async Task<OrderSubType> AddTrade(OriginalTrade trade)

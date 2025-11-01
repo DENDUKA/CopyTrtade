@@ -1,0 +1,245 @@
+@page "/copy-order-results"
+@using CopyTrading.Models.Models
+@using CopyTrading.Models.Values
+@using CopyTrading.Services
+@inject CopyOrderResultService ResultService
+
+<h3>Результаты копирования ордеров</h3>
+
+<div class="row mb-3">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="stat-card stat-total">
+                            <h6>Всего попыток</h6>
+                            <h3>@statistics.Total</h3>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card stat-success">
+                            <h6>Успешно</h6>
+                            <h3 class="text-success">@statistics.Success</h3>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card stat-failed">
+                            <h6>Ошибок</h6>
+                            <h3 class="text-danger">@statistics.Failed</h3>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card stat-rate">
+                            <h6>Процент успеха</h6>
+                            <h3 class="@GetSuccessRateClass(statistics.SuccessRate)">@statistics.SuccessRate.ToString("F1")%</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <h5>Фильтры</h5>
+                <div class="row">
+                    <div class="col-md-3">
+                        <input type="text" class="form-control" placeholder="Поиск по символу..." @bind="searchSymbol" @bind:event="oninput" />
+                    </div>
+                    <div class="col-md-9">
+                        <label class="me-3">
+                            <input type="checkbox" @bind="filterSuccess" /> Успешные
+                        </label>
+                        <label class="me-3">
+                            <input type="checkbox" @bind="filterFailed" /> Ошибки
+                        </label>
+                        <button class="btn btn-sm btn-secondary ms-3" @onclick="RefreshData">
+                            <i class="fas fa-sync"></i> Обновить
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Время</th>
+                            <th>Original Order ID</th>
+                            <th>Symbol</th>
+                            <th>Трейдер</th>
+                            <th>Статус</th>
+                            <th>Copy Order ID</th>
+                            <th>Сообщение</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var result in GetFilteredResults())
+                        {
+                            <tr class="@GetRowClass(result.IsSuccess)">
+                                <td>@result.Timestamp.ToLocalTime().ToString("HH:mm:ss")</td>
+                                <td>@result.OriginalOrderId</td>
+                                <td><strong>@result.Symbol</strong></td>
+                                <td>@GetShortWallet(result.TraderWallet)</td>
+                                <td>
+                                    @if (result.IsSuccess)
+                                    {
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check"></i> Success
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-danger">
+                                            <i class="fas fa-times"></i> Failed
+                                        </span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(result.CopyOrderId))
+                                    {
+                                        <span class="text-muted">@result.CopyOrderId</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">-</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (result.IsSuccess)
+                                    {
+                                        <span class="text-success">@result.Message</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-danger">@result.Message</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                @if (!GetFilteredResults().Any())
+                {
+                    <div class="alert alert-info text-center">
+                        Нет результатов копирования ордеров
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private (int Total, int Success, int Failed, double SuccessRate) statistics;
+    private string searchSymbol = "";
+    private bool filterSuccess = false;
+    private bool filterFailed = false;
+
+    protected override void OnInitialized()
+    {
+        UpdateStatistics();
+    }
+
+    private void UpdateStatistics()
+    {
+        statistics = ResultService.GetStatistics();
+    }
+
+    private void RefreshData()
+    {
+        UpdateStatistics();
+        StateHasChanged();
+    }
+
+    private IEnumerable<CopyOrderResult> GetFilteredResults()
+    {
+        var results = ResultService.GetAllResults();
+
+        // Фильтр по символу
+        if (!string.IsNullOrWhiteSpace(searchSymbol))
+        {
+            results = results.Where(r => r.Symbol.Contains(searchSymbol, StringComparison.OrdinalIgnoreCase));
+        }
+
+        // Фильтр по успешности
+        if (filterSuccess || filterFailed)
+        {
+            results = results.Where(r =>
+                (filterSuccess && r.IsSuccess) ||
+                (filterFailed && !r.IsSuccess)
+            );
+        }
+
+        return results;
+    }
+
+    private string GetSuccessRateClass(double rate)
+    {
+        if (rate >= 80) return "text-success";
+        if (rate >= 50) return "text-warning";
+        return "text-danger";
+    }
+
+    private string GetRowClass(bool isSuccess)
+    {
+        return isSuccess ? "" : "table-danger";
+    }
+
+    private string GetShortWallet(Wallet? wallet)
+    {
+        if (wallet == null || string.IsNullOrEmpty(wallet.Value) || wallet.Value.Length < 6)
+            return wallet?.Value ?? "";
+        return wallet.Value.Substring(wallet.Value.Length - 6);
+    }
+}
+
+<style>
+    .stat-card {
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+    }
+
+    .stat-total {
+        border-left: 4px solid #007bff;
+    }
+
+    .stat-success {
+        border-left: 4px solid #28a745;
+    }
+
+    .stat-failed {
+        border-left: 4px solid #dc3545;
+    }
+
+    .stat-rate {
+        border-left: 4px solid #ffc107;
+    }
+
+    .stat-card h6 {
+        margin-bottom: 5px;
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+
+    .stat-card h3 {
+        margin: 0;
+        font-weight: bold;
+    }
+
+    .table-danger {
+        background-color: #f8d7da;
+    }
+</style>
