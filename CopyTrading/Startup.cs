@@ -1,12 +1,10 @@
 ﻿using CopyTrading.Providers.Hyperliquid.Interfaces;
 using CopyTrading.Providers.Hyperliquid.Providers;
 using CopyTrading.Providers.Hyperliquid.Subscribers;
-using CopyTrading.QuartzJobs;
 using CopyTrading.Repository.Influx;
 using CopyTrading.Services;
 using CopyTrading.Services.Interfaces;
 using CopyTrading.Settings;
-using Quartz;
 using Serilog;
 using Serilog.Ui.Core.Extensions;
 using Serilog.Ui.SqliteDataProvider.Extensions;
@@ -84,29 +82,6 @@ public class Startup
         services.AddSingleton<Repository.SQLite.OrderRepository>();
         services.AddSingleton<Repository.SQLite.TradeRepository>();
         services.AddSingleton<Repository.SQLite.WalletInfoRepository>();
-
-        // Quartz
-        services.AddQuartz(q =>
-        {
-            q.UseMicrosoftDependencyInjectionJobFactory();
-
-            var jobKey = new JobKey("CollectTradeInfo");
-            q.AddJob<CollectTradeInfoJob>(opts => opts.WithIdentity(jobKey));
-
-            // Триггер для запуска каждые 20 минут
-            q.AddTrigger(opts => opts
-                .ForJob(jobKey)
-                .WithIdentity("CollectTradeInfo-trigger")
-                .WithCronSchedule("0 0/20 * * * ?"));
-
-            // Отдельный триггер для немедленного запуска при старте
-            q.AddTrigger(opts => opts
-                .ForJob(jobKey)
-                .WithIdentity("CollectTradeInfo-startup-trigger")
-                .StartNow());
-        });
-
-        services.AddQuartzHostedService(q => q.WaitForJobsToComplete = false);
 
         services.AddSerilogUi(options =>
         {

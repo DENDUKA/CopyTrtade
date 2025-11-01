@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using CopyTrading.Models.Models;
 using CopyTrading.Models.Values;
-using Microsoft.Extensions.Logging;
 
 namespace CopyTrading.Services;
 

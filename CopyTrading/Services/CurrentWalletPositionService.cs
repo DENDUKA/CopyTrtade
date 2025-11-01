@@ -110,124 +110,41 @@ public class CurrentWalletPositionService
     {
         if (!_walletPositionSnapshot.ContainsKey(trade.Wallet))
         {
-            _logger.LogError($"CurrentWalletPositionService Snapshot для {trade.Wallet} не инициализирован");
+            _logger.LogError($"AddTrade: Snapshot для {trade.Wallet} не инициализирован");
+            return OrderSubType.None;
         }
 
         var semaphore = _walletSemaphores.GetOrAdd(trade.Wallet, _ => new SemaphoreSlim(1, 1));
         await semaphore.WaitAsync();
         try
         {
-            var openPos = _walletPositionSnapshot[trade.Wallet].Positions.Where(p => p.Symbol == trade.Symbol).ToArray();
+            var openPos = GetPositionsFromSnapshot(trade.Wallet, trade.Symbol);
 
+            // Нет открытых позиций - открываем новую
             if (openPos.Length == 0)
             {
-                var walletInfo = await _walletInfoProvider.GetInfo(trade.Wallet, false);
-
-                if (!walletInfo.Positions.TryGetValue(trade.Symbol, out var position))
-                {
-                    _logger.LogError($"CurrentWalletPositionService AddTrade не удалось найти позицию {trade.Symbol} у кошелька {trade.Wallet}");
-                    return OrderSubType.None;
-                }
-
-                _walletPositionSnapshot[trade.Wallet].Positions.Add(position);
-
-                return OrderSubType.Open;
+                return await HandleOpenPosition(trade);
             }
+
+            // Одна открытая позиция - обрабатываем
             if (openPos.Length == 1)
             {
-                if (openPos[0].Direction == trade.Direction)
-                {
-                    // INCREASE: Увеличение позиции в том же направлении
-
-                    // Рассчитываем новое среднее
-                    var newQuantity = openPos[0].Quantity + trade.RealQuantity;
-                    var newVolumeUsd = openPos[0].VolumeUsd + trade.VolumeUsd;
-
-                    try
-                    {
-                        openPos[0].AverageEntryPrice = newVolumeUsd / newQuantity;
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError($"CurrentWalletPositionService AddTrade Деление на ноль при расчете AverageEntryPrice! Quantity: {newQuantity}, Volume: {newVolumeUsd}");
-                    }
-
-                    // ✅ ОБНОВЛЯЕМ И Quantity И VolumeUsd!
-                    openPos[0].Quantity = newQuantity;
-                    openPos[0].VolumeUsd = newVolumeUsd;
-
-                    return OrderSubType.Increase;
-                }
-                else
-                {
-                    // Противоположное направление - закрытие или уменьшение
-                    var newQuantity = openPos[0].Quantity + trade.RealQuantity;
-
-                    if (newQuantity == 0)
-                    {
-                        // CLOSE: Полное закрытие позиции
-                        _walletPositionSnapshot[trade.Wallet].Positions.Remove(openPos[0]);
-                        return OrderSubType.Close;
-                    }
-
-                    if (Math.Sign(openPos[0].Quantity) == Math.Sign(newQuantity))
-                    {
-                        // DECREASE: Частичное закрытие (направление не изменилось)
-                        var newVolumeUsd = openPos[0].VolumeUsd - trade.VolumeUsd;
-
-                        try
-                        {
-                            openPos[0].AverageEntryPrice = newVolumeUsd / newQuantity;
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError($"CurrentWalletPositionService AddTrade Деление на ноль при Decrease! Quantity: {newQuantity}, Volume: {newVolumeUsd}");
-                        }
-
-                        // ✅ ОБНОВЛЯЕМ И Quantity И VolumeUsd!
-                        openPos[0].Quantity = newQuantity;
-                        openPos[0].VolumeUsd = newVolumeUsd;
-
-                        return OrderSubType.Decrease;
-                    }
-                    else
-                    {
-                        // FLIP: Переворот позиции (Close + Open в противоположном направлении)
-                        // Например: SHORT -0.3 + LONG 0.5 = LONG +0.2
-                        _logger.LogWarning($"CurrentWalletPositionService AddTrade ПЕРЕВОРОТ позиции {trade.Symbol} у {trade.Wallet}! " +
-                                         $"Было: {openPos[0].Direction} {openPos[0].Quantity}, " +
-                                         $"Trade: {trade.Direction} {trade.RealQuantity}, " +
-                                         $"Результат: {newQuantity}");
-
-                        // Для переворота нужно:
-                        // 1. Удалить старую позицию
-                        _walletPositionSnapshot[trade.Wallet].Positions.Remove(openPos[0]);
-
-                        // 2. Запросить новую позицию у провайдера
-                        var walletInfo = await _walletInfoProvider.GetInfo(trade.Wallet, false);
-                        if (walletInfo.Positions.TryGetValue(trade.Symbol, out var newPosition))
-                        {
-                            _walletPositionSnapshot[trade.Wallet].Positions.Add(newPosition);
-                            _logger.LogInformation($"CurrentWalletPositionService AddTrade После переворота добавлена новая позиция: {newPosition}");
-                        }
-
-                        // Возвращаем Close (так как текущая позиция закрылась)
-                        return OrderSubType.Close;
-                    }
-                }
+                return await ProcessTradeWithPosition(openPos[0], trade);
             }
+
+            // Больше одной позиции - ошибка
             if (openPos.Length > 1)
             {
-                _logger.LogError($"CurrentWalletPositionService AddTrade обнаружено две открытые позиции (разнонаправленные) для {trade.Symbol} у кошелька {trade.Wallet}");
+                _logger.LogError($"AddTrade: Обнаружено {openPos.Length} открытых позиций (разнонаправленные) для {trade.Symbol} у кошелька {trade.Wallet}");
                 return OrderSubType.None;
             }
+
+            return OrderSubType.None;
         }
         finally
         {
             semaphore.Release();
         }
-
-        return OrderSubType.None;
     }
 
     /// <summary>
@@ -281,46 +198,29 @@ public class CurrentWalletPositionService
     {
         if (!_walletPositionSnapshot.TryGetValue(order.Wallet, out var snapshot))
         {
-            _logger.LogError($"GetOrderSubType walletPositionSnapshot для {order.Wallet} не инициализирован - возвращаем OrderSubType.None");
+            _logger.LogError($"GetOrderSubType: walletPositionSnapshot для {order.Wallet} не инициализирован - возвращаем OrderSubType.None");
             return OrderSubType.None;
         }
 
-        var openPos = snapshot.Positions.Where(p => p.Symbol == order.Symbol).ToArray();
+        var openPos = GetPositionsFromSnapshot(order.Wallet, order.Symbol);
 
+        // Нет открытых позиций - это Open
         if (openPos.Length == 0)
         {
             _logger.LogInformation($"GetOrderSubType: Нет открытых позиций для {order.Symbol} у {order.Wallet} - возвращаем OrderSubType.Open");
             return OrderSubType.Open;
         }
+
+        // Одна открытая позиция - определяем тип
         if (openPos.Length == 1)
         {
-            if (openPos[0].Direction == order.Direction)
-            {
-                _logger.LogInformation($"GetOrderSubType: Позиция {order.Symbol} в том же направлении {order.Direction} - возвращаем OrderSubType.Increase");
-                return OrderSubType.Increase;
-            }
-            else
-            {
-                if (openPos[0].Quantity + order.RealQuantity == 0)
-                {
-                    _logger.LogInformation($"GetOrderSubType: Позиция {order.Symbol} будет полностью закрыта - возвращаем OrderSubType.Close");
-                    return OrderSubType.Close;
-                }
-
-                if (Math.Abs(openPos[0].Quantity) > Math.Abs(order.Quantity))
-                {
-                    _logger.LogInformation($"GetOrderSubType: Позиция {order.Symbol} будет частично закрыта - возвращаем OrderSubType.Decrease");
-                    return OrderSubType.Decrease;
-                }
-                //else это закрытие текущей позиции и сразу открытие позиции в противоположную сторону (Long > Short) (Short > Long)
-
-                _logger.LogError($"CurrentWalletPositionService GetOrderSubType не удалось уменьшить позицию {order.Symbol} у кошелька {order.Wallet} TradeVolume больше чем открытая позиция - возвращаем OrderSubType.None OrderId {order.OrderId}");
-                return OrderSubType.None;
-            }
+            return DetermineOrderSubType(openPos[0], order);
         }
+
+        // Больше одной позиции - ошибка
         if (openPos.Length > 1)
         {
-            _logger.LogError($"CurrentWalletPositionService GetOrderSubType обнаружено две открытые позиции (разнонаправленные) для {order.Symbol} у кошелька {order.Wallet} - возвращаем OrderSubType.None");
+            _logger.LogError($"GetOrderSubType: Обнаружено {openPos.Length} открытых позиций (разнонаправленные) для {order.Symbol} у кошелька {order.Wallet} - возвращаем OrderSubType.None");
             return OrderSubType.None;
         }
 
@@ -347,4 +247,251 @@ public class CurrentWalletPositionService
     {
         return _walletPositionSnapshot.Keys.ToList();
     }
+
+    #region Helper Methods
+
+    /// <summary>
+    /// Получает позицию из snapshot
+    /// </summary>
+    private Position[] GetPositionsFromSnapshot(Wallet wallet, string symbol)
+    {
+        return _walletPositionSnapshot[wallet].Positions.Where(p => p.Symbol == symbol).ToArray();
+    }
+
+    /// <summary>
+    /// Рассчитывает новую среднюю цену входа
+    /// </summary>
+    private decimal CalculateNewAverageEntryPrice(decimal currentQuantity, decimal currentVolumeUsd, decimal tradeQuantity, decimal tradeVolumeUsd)
+    {
+        var newQuantity = currentQuantity + tradeQuantity;
+        var newVolumeUsd = currentVolumeUsd + tradeVolumeUsd;
+
+        if (newQuantity == 0)
+        {
+            _logger.LogError($"CalculateNewAverageEntryPrice: Деление на ноль! Quantity: {newQuantity}");
+            return 0;
+        }
+
+        return newVolumeUsd / newQuantity;
+    }
+
+    /// <summary>
+    /// Обновляет позицию при увеличении (Increase)
+    /// </summary>
+    private void UpdatePositionForIncrease(Position position, OriginalTrade trade)
+    {
+        var newQuantity = position.Quantity + trade.RealQuantity;
+        var newVolumeUsd = position.VolumeUsd + trade.VolumeUsd;
+
+        try
+        {
+            position.AverageEntryPrice = CalculateNewAverageEntryPrice(position.Quantity, position.VolumeUsd, trade.RealQuantity, trade.VolumeUsd);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"UpdatePositionForIncrease: Ошибка расчета AverageEntryPrice для {trade.Symbol}: {ex.Message}");
+        }
+
+        position.Quantity = newQuantity;
+        position.VolumeUsd = newVolumeUsd;
+
+        _logger.LogInformation($"UpdatePositionForIncrease: {trade.Symbol} обновлена, новая Quantity={newQuantity}, VolumeUsd={newVolumeUsd}");
+    }
+
+    /// <summary>
+    /// Обновляет позицию при уменьшении (Decrease)
+    /// </summary>
+    private void UpdatePositionForDecrease(Position position, OriginalTrade trade)
+    {
+        var newQuantity = position.Quantity + trade.RealQuantity;
+        var newVolumeUsd = position.VolumeUsd - trade.VolumeUsd;
+
+        try
+        {
+            position.AverageEntryPrice = newVolumeUsd / newQuantity;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"UpdatePositionForDecrease: Деление на ноль при Decrease! Quantity: {newQuantity}, Volume: {newVolumeUsd}");
+        }
+
+        position.Quantity = newQuantity;
+        position.VolumeUsd = newVolumeUsd;
+
+        _logger.LogInformation($"UpdatePositionForDecrease: {trade.Symbol} уменьшена, новая Quantity={newQuantity}, VolumeUsd={newVolumeUsd}");
+    }
+
+    /// <summary>
+    /// Удаляет позицию из snapshot
+    /// </summary>
+    private void RemovePositionFromSnapshot(Wallet wallet, Position position)
+    {
+        _walletPositionSnapshot[wallet].Positions.Remove(position);
+        _logger.LogInformation($"RemovePositionFromSnapshot: Позиция {position.Symbol} удалена из snapshot для {wallet}");
+    }
+
+    /// <summary>
+    /// Добавляет позицию в snapshot из провайдера
+    /// </summary>
+    private async Task<Position?> AddPositionToSnapshotFromProvider(Wallet wallet, string symbol)
+    {
+        var walletInfo = await _walletInfoProvider.GetInfo(wallet, false);
+
+        if (!walletInfo.Positions.TryGetValue(symbol, out var position))
+        {
+            _logger.LogError($"AddPositionToSnapshotFromProvider: Не удалось найти позицию {symbol} у кошелька {wallet}");
+            return null;
+        }
+
+        _walletPositionSnapshot[wallet].Positions.Add(position);
+        _logger.LogInformation($"AddPositionToSnapshotFromProvider: Позиция {symbol} добавлена в snapshot для {wallet}");
+
+        return position;
+    }
+
+    /// <summary>
+    /// Определяет тип операции на основе текущей позиции и ордера
+    /// </summary>
+    private OrderSubType DetermineOrderSubType(Position position, OriginalOrder order)
+    {
+        // Одинаковое направление = INCREASE
+        if (position.Direction == order.Direction)
+        {
+            _logger.LogInformation($"DetermineOrderSubType: Позиция {order.Symbol} в том же направлении {order.Direction} - возвращаем OrderSubType.Increase");
+            return OrderSubType.Increase;
+        }
+
+        // Противоположное направление - определяем Close, Decrease или Flip
+        var newQuantity = position.Quantity + order.RealQuantity;
+
+        if (newQuantity == 0)
+        {
+            _logger.LogInformation($"DetermineOrderSubType: Позиция {order.Symbol} будет полностью закрыта - возвращаем OrderSubType.Close");
+            return OrderSubType.Close;
+        }
+
+        if (Math.Abs(position.Quantity) > Math.Abs(order.Quantity))
+        {
+            _logger.LogInformation($"DetermineOrderSubType: Позиция {order.Symbol} будет частично закрыта - возвращаем OrderSubType.Decrease");
+            return OrderSubType.Decrease;
+        }
+
+        // Переворот позиции (Close текущей + Open противоположной)
+        _logger.LogError($"DetermineOrderSubType: Не удалось уменьшить позицию {order.Symbol} у кошелька {order.Wallet} - TradeVolume больше чем открытая позиция. OrderId {order.OrderId}");
+        return OrderSubType.None;
+    }
+
+    #endregion
+
+    #region Position Operation Handlers
+
+    /// <summary>
+    /// Обрабатывает открытие новой позиции (Open)
+    /// </summary>
+    private async Task<OrderSubType> HandleOpenPosition(OriginalTrade trade)
+    {
+        var position = await AddPositionToSnapshotFromProvider(trade.Wallet, trade.Symbol);
+
+        if (position == null)
+        {
+            return OrderSubType.None;
+        }
+
+        _logger.LogInformation($"HandleOpenPosition: Открыта новая позиция {trade.Symbol} для {trade.Wallet}");
+        return OrderSubType.Open;
+    }
+
+    /// <summary>
+    /// Обрабатывает увеличение существующей позиции (Increase)
+    /// </summary>
+    private OrderSubType HandleIncreasePosition(Position position, OriginalTrade trade)
+    {
+        _logger.LogInformation($"HandleIncreasePosition: Увеличение позиции {trade.Symbol}, Direction={trade.Direction}");
+
+        UpdatePositionForIncrease(position, trade);
+
+        return OrderSubType.Increase;
+    }
+
+    /// <summary>
+    /// Обрабатывает уменьшение существующей позиции (Decrease)
+    /// </summary>
+    private OrderSubType HandleDecreasePosition(Position position, OriginalTrade trade)
+    {
+        _logger.LogInformation($"HandleDecreasePosition: Уменьшение позиции {trade.Symbol}, Direction={trade.Direction}");
+
+        UpdatePositionForDecrease(position, trade);
+
+        return OrderSubType.Decrease;
+    }
+
+    /// <summary>
+    /// Обрабатывает полное закрытие позиции (Close)
+    /// </summary>
+    private OrderSubType HandleClosePosition(Wallet wallet, Position position, OriginalTrade trade)
+    {
+        _logger.LogInformation($"HandleClosePosition: Полное закрытие позиции {trade.Symbol} для {wallet}");
+
+        RemovePositionFromSnapshot(wallet, position);
+
+        return OrderSubType.Close;
+    }
+
+    /// <summary>
+    /// Обрабатывает переворот позиции (Close текущей + Open противоположной)
+    /// </summary>
+    private async Task<OrderSubType> HandleFlipPosition(Wallet wallet, Position position, OriginalTrade trade)
+    {
+        _logger.LogWarning($"HandleFlipPosition: ПЕРЕВОРОТ позиции {trade.Symbol} у {wallet}! " +
+                         $"Было: {position.Direction} {position.Quantity}, " +
+                         $"Trade: {trade.Direction} {trade.RealQuantity}");
+
+        // Удаляем старую позицию
+        RemovePositionFromSnapshot(wallet, position);
+
+        // Запрашиваем новую позицию у провайдера
+        var newPosition = await AddPositionToSnapshotFromProvider(wallet, trade.Symbol);
+
+        if (newPosition != null)
+        {
+            _logger.LogInformation($"HandleFlipPosition: После переворота добавлена новая позиция: {newPosition}");
+        }
+
+        // Возвращаем Close (так как текущая позиция закрылась)
+        return OrderSubType.Close;
+    }
+
+    /// <summary>
+    /// Определяет тип операции и направляет обработку в соответствующий handler
+    /// </summary>
+    private async Task<OrderSubType> ProcessTradeWithPosition(Position position, OriginalTrade trade)
+    {
+        // Одинаковое направление = INCREASE
+        if (position.Direction == trade.Direction)
+        {
+            return HandleIncreasePosition(position, trade);
+        }
+
+        // Противоположное направление - определяем Close, Decrease или Flip
+        var newQuantity = position.Quantity + trade.RealQuantity;
+
+        if (newQuantity == 0)
+        {
+            // Полное закрытие
+            return HandleClosePosition(trade.Wallet, position, trade);
+        }
+
+        if (Math.Sign(position.Quantity) == Math.Sign(newQuantity))
+        {
+            // Частичное закрытие (направление не изменилось)
+            return HandleDecreasePosition(position, trade);
+        }
+        else
+        {
+            // Переворот позиции
+            return await HandleFlipPosition(trade.Wallet, position, trade);
+        }
+    }
+
+    #endregion
 }

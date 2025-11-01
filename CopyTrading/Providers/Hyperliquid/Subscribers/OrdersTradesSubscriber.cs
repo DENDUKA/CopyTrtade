@@ -1,9 +1,6 @@
 ﻿using CopyTrading.DataEvents;
 using CopyTrading.Mappers;
 using CopyTrading.Models.Values;
-using CopyTrading.Repository.SQLite;
-using CopyTrading.Repository.SQLite.Dto;
-using CopyTrading.Services;
 using CryptoExchange.Net.Objects;
 using HyperLiquid.Net.Clients;
 

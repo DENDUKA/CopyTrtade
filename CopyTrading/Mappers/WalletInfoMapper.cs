@@ -29,7 +29,7 @@ public static class WalletInfoMapper
             Leverage = data.Position.Leverage.Value,
             LiquidationPrice = data.Position.LiquidationPrice,
             MarginUsage = data.Position.MarginUsed.Value,
-            Quantity = data.Position.PositionQuantity.Value,
+            Quantity = Math.Abs(data.Position.PositionQuantity.Value),
             VolumeUsd = data.Position.PositionValue.Value,
         };
     }
