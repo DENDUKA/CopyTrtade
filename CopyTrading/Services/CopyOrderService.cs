@@ -439,7 +439,7 @@ public class CopyOrderService
             decimal myCloseQuantity;
 
             // Проверяем: трейдер ушел ниже базовой линии?
-            if (actualTraderQuantity <= mapping.TraderQuantityAtEntry)
+            if (actualTraderQuantity - order.Quantity <= mapping.TraderQuantityAtEntry)
             {
                 // Трейдер закрыл всё что было после нашего входа (и даже больше) - закрываем ВСЮ позицию
                 _logger.LogWarning($"DecreasePosition: OrderId={order.OrderId} Трейдер ушел ниже базовой линии ({actualTraderQuantity} <= {mapping.TraderQuantityAtEntry}). Закрываем ВСЮ позицию {mapping.MyQuantity}!");
@@ -484,7 +484,7 @@ public class CopyOrderService
             {
                 // Закрыли ВСЁ - удаляем маппинг
                 _logger.LogInformation($"DecreasePosition SUCCESS: {order.OrderId} Закрываем ВСЮ позицию {myCloseQuantity}. Удаляем маппинг.");
-                _positionMappingService.DeleteMapping(order.Wallet, _myWallet, order.Symbol, order.Direction);
+                _positionMappingService.DeleteMapping(order.Wallet, _myWallet, order.Symbol, order.Direction.Opposite());
             }
             else
             {
