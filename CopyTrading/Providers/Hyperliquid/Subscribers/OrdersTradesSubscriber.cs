@@ -14,8 +14,8 @@ public class OrdersTradesSubscriber(ILogger<OrdersTradesSubscriber> _logger)
     private static readonly HashSet<Wallet> _tradeSubscribes = [];
     private static readonly HashSet<Wallet> _pendingTradeSubscribes = [];
 
-    public (Wallet, bool)[] OrdersSubscriptionStatus => _orderSubscribes.Select(x => (x, true)).Concat(_pendingOrderSubscribes.Select(x => (x, false))).ToArray();
-    public (Wallet, bool)[] TradesSubscriptionStatus => _tradeSubscribes.Select(x => (x, true)).Concat(_pendingTradeSubscribes.Select(x => (x, false))).ToArray();
+    public (Wallet, bool)[] OrdersSubscriptionStatus => [.. _orderSubscribes.Select(x => (x, true)), .. _pendingOrderSubscribes.Select(x => (x, false))];
+    public (Wallet, bool)[] TradesSubscriptionStatus => [.. _tradeSubscribes.Select(x => (x, true)), .. _pendingTradeSubscribes.Select(x => (x, false))];
 
     public void GetSubscribeStatus(Wallet wallet, out bool ordersSubscribed, out bool tradesSubscribed)
     {
@@ -65,10 +65,9 @@ public class OrdersTradesSubscriber(ILogger<OrdersTradesSubscriber> _logger)
         var response = await _socketClient.FuturesApi.SubscribeToOrderUpdatesAsync(wallet.Value,
             (newOrders) =>
             {
-                DataBusEvents.NewOrders.Invoke(newOrders.Data
+                DataBusEvents.NewOrders.Invoke([.. newOrders.Data
                     .Where(x => x.Order.Quantity != 0)
-                    .Select(x => x.ToBll(wallet))
-                    .ToArray());
+                    .Select(x => x.ToBll(wallet))]);
             });
 
         _pendingOrderSubscribes.Remove(wallet);

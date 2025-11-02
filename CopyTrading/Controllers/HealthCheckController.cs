@@ -13,16 +13,19 @@ public class HealthCheckController(
     [HttpGet("GetErrorsInFillsOrderService")]
     public async Task<string[]> GetErrorsInFillsOrderService()
     {
-        return _fillsOrderService._ordersWithError.Select(x => $"{x.Key} {x.Value}").ToArray();
+        return [.. _fillsOrderService._ordersWithError.Select(x => $"{x.Key} {x.Value}")];
     }
 
     [HttpGet("SubscribersStatus")]
     public async Task<string[]> SubscribersStatus()
     {
-        return _subscribers.OrdersSubscriptionStatus
-                .Select(x => $"order {x.Item1} {x.Item2}")
-            .Concat(_subscribers.TradesSubscriptionStatus
-                .Select(x => $"task {x.Item1} {x.Item2}"))
-            .ToArray();
+        return
+        [
+            .. _subscribers.OrdersSubscriptionStatus
+                            .Select(x => $"order {x.Item1} {x.Item2}")
+,
+            .. _subscribers.TradesSubscriptionStatus
+                    .Select(x => $"task {x.Item1} {x.Item2}"),
+        ];
     }
 }

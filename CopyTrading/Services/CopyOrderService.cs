@@ -1,5 +1,6 @@
 ﻿using CopyTrading.DataEvents;
 using CopyTrading.Extensions;
+using CopyTrading.Models.Models;
 using CopyTrading.Models.Models.Enums.Order;
 using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Values;
@@ -110,7 +111,7 @@ public class CopyOrderService
         _logger.LogInformation($"HandleOpenOrder START: {order.Symbol} {order.Direction}, OrderId={order.OrderId}");
 
         // Определяем тип ордера через CurrentWalletPositionService
-        var orderSubType = await _currentWalletPositionService.GetOrderSubType(order);
+        var orderSubType = _currentWalletPositionService.GetOrderSubType(order);
 
         _logger.LogInformation($"CopyOrderService HandleOpenOrder: OrderId={order.OrderId} {order.Symbol} {order.Direction} SubType={orderSubType}");
 
@@ -158,6 +159,8 @@ public class CopyOrderService
     private async Task HandleFilledOrder(OriginalOrder order)
     {
         _logger.LogInformation($"HandleFilledOrder: {order.Symbol} {order.Direction}, OrderId={order.OrderId}");
+
+        DataBusEvents.CopyOrderFilled?.Invoke((order, OrderStatus.Filled));
 
         // TODO: Проверить статус нашего копируемого ордера
         // Если наш ордер не исполнен полностью - залогировать ошибку или предпринять действия
@@ -274,8 +277,6 @@ public class CopyOrderService
             _logger.LogInformation($"IncreasePosition SUCCESS: {order.OrderId} Увеличиваем на {myIncreaseQuantity}, новая позиция: {mapping.MyQuantity}");
 
             SaveSuccessResult(order, copyOrder);
-
-            // TODO: Разместить ордер на увеличение через OrdersProvider
         }
         catch (Exception ex)
         {
@@ -387,7 +388,7 @@ public class CopyOrderService
     /// <summary>
     /// Получить маппинг для decrease (используя противоположное direction)
     /// </summary>
-    private Models.Models.PositionMapping? GetMappingForDecrease(OriginalOrder order)
+    private PositionMapping? GetMappingForDecrease(OriginalOrder order)
     {
         return _positionMappingService.GetMapping(order.Wallet, _myWallet, order.Symbol, order.Direction.Opposite());
     }

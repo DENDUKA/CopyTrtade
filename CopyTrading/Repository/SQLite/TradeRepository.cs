@@ -158,7 +158,7 @@ public class TradeRepository(ILogger<TradeRepository> _logger)
                         : Enum.Parse<OrderSubType>(reader.GetString(reader.GetOrdinal("SubType"))),
                 });
             }
-            return result.ToArray();
+            return [.. result];
         }
         catch (Exception ex)
         {

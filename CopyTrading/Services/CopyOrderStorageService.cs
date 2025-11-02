@@ -2,6 +2,7 @@ using CopyTrading.DataEvents;
 using CopyTrading.Models.Models.Enums.Order;
 using CopyTrading.Models.Models.Orders;
 using System.Collections.Concurrent;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace CopyTrading.Services;
 
@@ -21,6 +22,7 @@ public class CopyOrderStorageService
         // Подписываемся на события создания и закрытия копируемых ордеров
         DataBusEvents.CopyOrderCreated += OnCopyOrderCreated;
         DataBusEvents.CopyOrderClosed += OnCopyOrderClosed;
+        DataBusEvents.CopyOrderFilled += OnCopyOrderFilled;
     }
 
     /// <summary>
@@ -30,6 +32,12 @@ public class CopyOrderStorageService
     {
         _logger.LogInformation($"CopyOrderStorageService OnCopyOrderCreated {copyOrder.ToString()}");
         AddOrder(copyOrder);
+    }
+
+    private void OnCopyOrderFilled((OriginalOrder Order, OrderStatus Status) data)
+    {
+        _logger.LogInformation($"CopyOrderStorageService OnCopyOrderFilled {data.Order.ToString()}");
+        CloseOrder(data.Order, data.Status);
     }
 
     /// <summary>
@@ -46,7 +54,7 @@ public class CopyOrderStorageService
     /// </summary>
     public CopyOrderV2[] GetAllOrders()
     {
-        return _copyOrders.Values.ToArray();
+        return [.. _copyOrders.Values];
     }
 
     /// <summary>
@@ -63,9 +71,7 @@ public class CopyOrderStorageService
     /// </summary>
     public CopyOrderV2[] GetOrdersByStatus(OrderStatus status)
     {
-        return _copyOrders.Values
-            .Where(o => o.OriginalOrder.Status == status)
-            .ToArray();
+        return [.. _copyOrders.Values.Where(o => o.OriginalOrder.Status == status)];
     }
 
     /// <summary>
@@ -73,9 +79,7 @@ public class CopyOrderStorageService
     /// </summary>
     public CopyOrderV2[] GetActiveOrders()
     {
-        return _copyOrders.Values
-            .Where(o => o.OriginalOrder.Status == OrderStatus.Open || o.OriginalOrder.Status == OrderStatus.Triggered)
-            .ToArray();
+        return [.. _copyOrders.Values.Where(o => o.OriginalOrder.Status == OrderStatus.Open || o.OriginalOrder.Status == OrderStatus.Triggered)];
     }
 
     /// <summary>
@@ -83,9 +87,7 @@ public class CopyOrderStorageService
     /// </summary>
     public CopyOrderV2[] GetOrdersByOriginalOrderId(long originalOrderId)
     {
-        return _copyOrders.Values
-            .Where(o => o.OriginalOrderId == originalOrderId)
-            .ToArray();
+        return [.. _copyOrders.Values.Where(o => o.OriginalOrderId == originalOrderId)];
     }
 
     /// <summary>
@@ -93,9 +95,7 @@ public class CopyOrderStorageService
     /// </summary>
     public CopyOrderV2[] GetOrdersBySymbol(string symbol)
     {
-        return _copyOrders.Values
-            .Where(o => o.OriginalOrder.Symbol == symbol)
-            .ToArray();
+        return [.. _copyOrders.Values.Where(o => o.OriginalOrder.Symbol == symbol)];
     }
 
     /// <summary>
@@ -169,6 +169,7 @@ public class CopyOrderStorageService
                 _logger.LogWarning(
                     $"Копируемые ордера не найдены для оригинального ордера ID={originalOrder.OrderId}, " +
                     $"Symbol={originalOrder.Symbol}, Direction={originalOrder.Direction}");
+
                 return;
             }
 

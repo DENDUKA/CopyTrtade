@@ -40,7 +40,7 @@ public static class WalletInfoMapper
         {
             Wallet = info.Wallet,
             TimeStamp = info.TimeStamp,
-            Positions = info.Positions.Values.ToList(),
+            Positions = [.. info.Positions.Values],
         };
     }
 }

@@ -24,9 +24,163 @@ public class CurrentWalletPositionService
         _walletInfoProvider = walletInfoProvider;
         _logger = logger;
 
-        // Подписываемся на события новых трейдов
         DataBusEvents.NewTrades += OnNewTrades;
     }
+
+    /// <summary>
+    /// Инициализирует snapshot для кошелька из готового объекта
+    /// </summary>
+    public void InitializeWalletSnapshot(WalletPositionsSnapshot snapshot)
+    {
+        if (_walletPositionSnapshot.ContainsKey(snapshot.Wallet)) return;
+
+        if (!_walletPositionSnapshot.TryAdd(snapshot.Wallet, snapshot))
+        {
+            _logger.LogError($"CurrentWalletPositionService Initialize не получилось инициализировать Snapshot для {snapshot.Wallet}");
+        }
+    }
+
+    public async Task<OrderSubType> AddTrade(OriginalTrade trade)
+    {
+        if (!_walletPositionSnapshot.ContainsKey(trade.Wallet))
+        {
+            _logger.LogError($"AddTrade: Snapshot для {trade.Wallet} не инициализирован");
+            return OrderSubType.None;
+        }
+
+        var semaphore = _walletSemaphores.GetOrAdd(trade.Wallet, _ => new SemaphoreSlim(1, 1));
+        await semaphore.WaitAsync();
+        try
+        {
+            var openPos = GetPositionsFromSnapshot(trade.Wallet, trade.Symbol);
+
+            // Нет открытых позиций - открываем новую
+            if (openPos.Length == 0)
+            {
+                return await HandleOpenPosition(trade);
+            }
+
+            // Одна открытая позиция - обрабатываем
+            if (openPos.Length == 1)
+            {
+                return await ProcessTradeWithPosition(openPos[0], trade);
+            }
+
+            // Больше одной позиции - ошибка
+            if (openPos.Length > 1)
+            {
+                _logger.LogError($"AddTrade: Обнаружено {openPos.Length} открытых позиций (разнонаправленные) для {trade.Symbol} у кошелька {trade.Wallet}");
+                return OrderSubType.None;
+            }
+
+            return OrderSubType.None;
+        }
+        finally
+        {
+            semaphore.Release();
+        }
+    }
+
+    /// <summary>
+    /// Пытаемся получить snapshot по кошельку из MemoryCache , если нет, то запрашиваем у провайдера
+    /// </summary>
+    public async Task<WalletPositionsSnapshot> GetSnapshot(Wallet wallet)
+    {
+        // Быстрая проверка без блокировки
+        if (_walletPositionSnapshot.TryGetValue(wallet, out WalletPositionsSnapshot snapshot))
+        {
+            return snapshot;
+        }
+
+        // Получаем семафор для этого кошелька (создаем если нет)
+        var semaphore = _walletSemaphores.GetOrAdd(wallet, _ => new SemaphoreSlim(1, 1));
+        await semaphore.WaitAsync();
+        try
+        {
+            // Double-check: проверяем снова после получения блокировки
+            // (другой поток мог добавить пока мы ждали)
+            if (_walletPositionSnapshot.TryGetValue(wallet, out snapshot))
+            {
+                return snapshot;
+            }
+
+            // Теперь точно нужно создать snapshot
+            var walletInfo = await _walletInfoProvider.GetInfo(wallet);
+            var walletSnapshot = walletInfo.ToWalletSnapshot();
+
+            // Добавляем в dictionary
+            if (_walletPositionSnapshot.TryAdd(wallet, walletSnapshot))
+            {
+                _logger.LogInformation($"CurrentWalletPositionService GetSnapshot создан новый snapshot для {wallet}");
+                return walletSnapshot;
+            }
+
+            // Если TryAdd вернул false (другой поток успел добавить между проверкой и добавлением)
+            // возвращаем ту версию что в dictionary
+            _logger.LogWarning($"CurrentWalletPositionService GetSnapshot snapshot для {wallet} уже был добавлен другим потоком");
+            return _walletPositionSnapshot[wallet];
+        }
+        finally
+        {
+            semaphore.Release();
+        }
+    }
+
+    public OrderSubType GetOrderSubType(OriginalOrder order)
+    {
+        if (!_walletPositionSnapshot.TryGetValue(order.Wallet, out var snapshot))
+        {
+            _logger.LogError($"GetOrderSubType: Для OrderId {order.OrderId} walletPositionSnapshot для {order.Wallet} не инициализирован - возвращаем OrderSubType.None");
+            return OrderSubType.None;
+        }
+
+        var openPos = GetPositionsFromSnapshot(order.Wallet, order.Symbol);
+
+        // Нет открытых позиций - это Open
+        if (openPos.Length == 0)
+        {
+            _logger.LogInformation($"GetOrderSubType: Для OrderId {order.OrderId} Нет открытых позиций для {order.Symbol} у {order.Wallet} - возвращаем OrderSubType.Open");
+            return OrderSubType.Open;
+        }
+
+        // Одна открытая позиция - определяем тип
+        if (openPos.Length == 1)
+        {
+            return DetermineOrderSubType(openPos[0], order);
+        }
+
+        // Больше одной позиции - ошибка
+        if (openPos.Length > 1)
+        {
+            _logger.LogError($"GetOrderSubType: Для OrderId {order.OrderId} Обнаружено {openPos.Length} открытых позиций (разнонаправленные) для {order.Symbol} у кошелька {order.Wallet} - возвращаем OrderSubType.None");
+            return OrderSubType.None;
+        }
+
+        return OrderSubType.None;
+    }
+
+    /// <summary>
+    /// Получаем из snapshot текущее значение плеча для кошелька и символа
+    /// </summary>
+    public async Task<int?> TryGetLeverage(Wallet wallet, string symbol)
+    {
+        var snapshot = await GetSnapshot(wallet);
+        var position = snapshot.Positions.FirstOrDefault(p => p.Symbol == symbol);
+
+        if(position is null) return null;
+
+        return position.Leverage;
+    }
+
+    /// <summary>
+    /// Получить все отслеживаемые кошельки
+    /// </summary>
+    public IEnumerable<Wallet> GetAllWallets()
+    {
+        return [.. _walletPositionSnapshot.Keys];
+    }
+
+    #region Private Event Handlers
 
     private async void OnNewTrades((OriginalTrade[] Trades, bool IsSnapshot) newTrades)
     {
@@ -84,169 +238,7 @@ public class CurrentWalletPositionService
         }
     }
 
-    /// <summary>
-    /// Инициализирует snapshot для кошелька из готового объекта
-    /// </summary>
-    public void InitializeWalletSnapshot(WalletPositionsSnapshot snapshot)
-    {
-        if (_walletPositionSnapshot.ContainsKey(snapshot.Wallet)) return;
-
-        if (!_walletPositionSnapshot.TryAdd(snapshot.Wallet, snapshot))
-        {
-            _logger.LogError($"CurrentWalletPositionService Initialize не получилось инициализировать Snapshot для {snapshot.Wallet}");
-        }
-    }
-
-    /// <summary>
-    /// Обновляет существующий snapshot для кошелька (или создает новый если не существует)
-    /// Используется в тестах для симуляции изменений позиций
-    /// </summary>
-    public void UpdateSnapshot(WalletPositionsSnapshot snapshot)
-    {
-        _walletPositionSnapshot[snapshot.Wallet] = snapshot;
-    }
-
-    public async Task<OrderSubType> AddTrade(OriginalTrade trade)
-    {
-        if (!_walletPositionSnapshot.ContainsKey(trade.Wallet))
-        {
-            _logger.LogError($"AddTrade: Snapshot для {trade.Wallet} не инициализирован");
-            return OrderSubType.None;
-        }
-
-        var semaphore = _walletSemaphores.GetOrAdd(trade.Wallet, _ => new SemaphoreSlim(1, 1));
-        await semaphore.WaitAsync();
-        try
-        {
-            var openPos = GetPositionsFromSnapshot(trade.Wallet, trade.Symbol);
-
-            // Нет открытых позиций - открываем новую
-            if (openPos.Length == 0)
-            {
-                return await HandleOpenPosition(trade);
-            }
-
-            // Одна открытая позиция - обрабатываем
-            if (openPos.Length == 1)
-            {
-                return await ProcessTradeWithPosition(openPos[0], trade);
-            }
-
-            // Больше одной позиции - ошибка
-            if (openPos.Length > 1)
-            {
-                _logger.LogError($"AddTrade: Обнаружено {openPos.Length} открытых позиций (разнонаправленные) для {trade.Symbol} у кошелька {trade.Wallet}");
-                return OrderSubType.None;
-            }
-
-            return OrderSubType.None;
-        }
-        finally
-        {
-            semaphore.Release();
-        }
-    }
-
-    /// <summary>
-    /// Пытаемся получить snapshot по кошельку из MemoryCache , если нет, то запрашиваем у провайдера
-    /// </summary>
-    /// <param name="wallet"></param>
-    /// <returns></returns>
-    public async Task<WalletPositionsSnapshot> GetSnapshot(Wallet wallet)
-    {
-        // Быстрая проверка без блокировки
-        if (_walletPositionSnapshot.TryGetValue(wallet, out WalletPositionsSnapshot snapshot))
-        {
-            return snapshot;
-        }
-
-        // Получаем семафор для этого кошелька (создаем если нет)
-        var semaphore = _walletSemaphores.GetOrAdd(wallet, _ => new SemaphoreSlim(1, 1));
-        await semaphore.WaitAsync();
-        try
-        {
-            // Double-check: проверяем снова после получения блокировки
-            // (другой поток мог добавить пока мы ждали)
-            if (_walletPositionSnapshot.TryGetValue(wallet, out snapshot))
-            {
-                return snapshot;
-            }
-
-            // Теперь точно нужно создать snapshot
-            var walletInfo = await _walletInfoProvider.GetInfo(wallet);
-            var walletSnapshot = walletInfo.ToWalletSnapshot();
-
-            // Добавляем в dictionary
-            if (_walletPositionSnapshot.TryAdd(wallet, walletSnapshot))
-            {
-                _logger.LogInformation($"CurrentWalletPositionService GetSnapshot создан новый snapshot для {wallet}");
-                return walletSnapshot;
-            }
-
-            // Если TryAdd вернул false (другой поток успел добавить между проверкой и добавлением)
-            // возвращаем ту версию что в dictionary
-            _logger.LogWarning($"CurrentWalletPositionService GetSnapshot snapshot для {wallet} уже был добавлен другим потоком");
-            return _walletPositionSnapshot[wallet];
-        }
-        finally
-        {
-            semaphore.Release();
-        }
-    }
-
-    public async Task<OrderSubType> GetOrderSubType(OriginalOrder order)
-    {
-        if (!_walletPositionSnapshot.TryGetValue(order.Wallet, out var snapshot))
-        {
-            _logger.LogError($"GetOrderSubType: walletPositionSnapshot для {order.Wallet} не инициализирован - возвращаем OrderSubType.None");
-            return OrderSubType.None;
-        }
-
-        var openPos = GetPositionsFromSnapshot(order.Wallet, order.Symbol);
-
-        // Нет открытых позиций - это Open
-        if (openPos.Length == 0)
-        {
-            _logger.LogInformation($"GetOrderSubType: Нет открытых позиций для {order.Symbol} у {order.Wallet} - возвращаем OrderSubType.Open");
-            return OrderSubType.Open;
-        }
-
-        // Одна открытая позиция - определяем тип
-        if (openPos.Length == 1)
-        {
-            return DetermineOrderSubType(openPos[0], order);
-        }
-
-        // Больше одной позиции - ошибка
-        if (openPos.Length > 1)
-        {
-            _logger.LogError($"GetOrderSubType: Обнаружено {openPos.Length} открытых позиций (разнонаправленные) для {order.Symbol} у кошелька {order.Wallet} - возвращаем OrderSubType.None");
-            return OrderSubType.None;
-        }
-
-        return OrderSubType.None;
-    }
-
-    /// <summary>
-    /// Получаем из snapshot текущее значение плеча для кошелька и символа
-    /// </summary>
-    public async Task<int?> TryGetLeverage(Wallet wallet, string symbol)
-    {
-        var snapshot = await GetSnapshot(wallet);
-        var position = snapshot.Positions.FirstOrDefault(p => p.Symbol == symbol);
-
-        if(position is null) return null;
-
-        return position.Leverage;
-    }
-
-    /// <summary>
-    /// Получить все отслеживаемые кошельки
-    /// </summary>
-    public IEnumerable<Wallet> GetAllWallets()
-    {
-        return _walletPositionSnapshot.Keys.ToList();
-    }
+    #endregion
 
     #region Helper Methods
 
@@ -255,7 +247,7 @@ public class CurrentWalletPositionService
     /// </summary>
     private Position[] GetPositionsFromSnapshot(Wallet wallet, string symbol)
     {
-        return _walletPositionSnapshot[wallet].Positions.Where(p => p.Symbol == symbol).ToArray();
+        return [.. _walletPositionSnapshot[wallet].Positions.Where(p => p.Symbol == symbol)];
     }
 
     /// <summary>

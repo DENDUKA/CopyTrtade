@@ -201,7 +201,7 @@ public class CurrentWalletPositionServiceTests
 
         // Act
         service.InitializeWalletSnapshot(snapshot);
-        var orderSubType = await service.GetOrderSubType(order);
+        var orderSubType = service.GetOrderSubType(order);
 
         // Assert
         orderSubType.Should().Be(OrderSubType.Open);
@@ -247,7 +247,7 @@ public class CurrentWalletPositionServiceTests
 
         // Act
         service.InitializeWalletSnapshot(snapshot);
-        var orderSubType = await service.GetOrderSubType(order);
+        var orderSubType = service.GetOrderSubType(order);
 
         // Assert
         orderSubType.Should().Be(OrderSubType.Increase);
@@ -293,7 +293,7 @@ public class CurrentWalletPositionServiceTests
 
         // Act
         service.InitializeWalletSnapshot(snapshot);
-        var orderSubType = await service.GetOrderSubType(order);
+        var orderSubType = service.GetOrderSubType(order);
 
         // Assert
         orderSubType.Should().Be(OrderSubType.Decrease);
@@ -339,7 +339,7 @@ public class CurrentWalletPositionServiceTests
 
         // Act
         service.InitializeWalletSnapshot(snapshot);
-        var orderSubType = await service.GetOrderSubType(order);
+        var orderSubType = service.GetOrderSubType(order);
 
         // Assert
         orderSubType.Should().Be(OrderSubType.Close);

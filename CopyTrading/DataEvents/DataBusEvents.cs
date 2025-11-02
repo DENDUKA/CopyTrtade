@@ -20,4 +20,6 @@ public static class DataBusEvents
     /// Параметры: (OriginalOrder, OrderStatus)
     /// </summary>
     public static Action<(OriginalOrder Order, OrderStatus Status)> CopyOrderClosed;
+
+    public static Action<(OriginalOrder Order, OrderStatus Status)> CopyOrderFilled;
 }

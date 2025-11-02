@@ -73,9 +73,7 @@ public class CopyTradingHub : Hub
     public PositionMapping[] GetPositionsBySymbol(string symbol)
     {
         _logger.LogDebug($"GetPositionsBySymbol вызван: {symbol}");
-        return _positionMappingService.GetAllMappings()
-            .Where(p => p.Symbol == symbol)
-            .ToArray();
+        return [.. _positionMappingService.GetAllMappings().Where(p => p.Symbol == symbol)];
     }
 
     /// <summary>

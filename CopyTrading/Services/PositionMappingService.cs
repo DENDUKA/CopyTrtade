@@ -86,9 +86,7 @@ public class PositionMappingService
     /// </summary>
     public IEnumerable<PositionMapping> GetMappingsByTrader(Wallet traderWallet, Wallet myWallet)
     {
-        return _mappings.Values
-            .Where(m => m.TraderWallet.Equals(traderWallet) && m.MyWallet.Equals(myWallet))
-            .ToList();
+        return [.. _mappings.Values.Where(m => m.TraderWallet.Equals(traderWallet) && m.MyWallet.Equals(myWallet))];
     }
 
     /// <summary>
@@ -96,15 +94,16 @@ public class PositionMappingService
     /// </summary>
     public IEnumerable<PositionMapping> GetAllMappings()
     {
-        return _mappings.Values.ToList();
+        return [.. _mappings.Values];
     }
 
     /// <summary>
-    /// Очистить все маппинги (для тестирования или перезапуска)
+    /// Очистить все маппинги (используется для тестирования)
     /// </summary>
     public void ClearAllMappings()
     {
+        var count = _mappings.Count;
         _mappings.Clear();
-        _logger.LogWarning("Все маппинги очищены!");
+        _logger.LogInformation($"Все маппинги очищены (было {count})");
     }
 }

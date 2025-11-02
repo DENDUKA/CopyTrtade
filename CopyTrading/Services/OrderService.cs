@@ -94,7 +94,7 @@ public class OrderService
         var walletInfo = await _walletInfo.GetInfo(order.Wallet);
 
         var minPE = _informationService.CalculateMinPerpEquity(walletInfo.AccountVolume, order.VolumeUsd);
-        var subType = await _currentWalletPositionService.GetOrderSubType(order);
+        var subType = _currentWalletPositionService.GetOrderSubType(order);
 
         return new MinPEForOrder
         {

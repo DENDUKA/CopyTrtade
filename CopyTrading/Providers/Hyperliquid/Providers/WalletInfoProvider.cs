@@ -67,7 +67,7 @@ public class WalletInfoProvider(
         var response = await _restClient.FuturesApi.Trading.GetOrderHistoryAsync(wallet.Value);
         if (response.Success)
         {
-            return response.Data.Select(x => x.ToBll(wallet)).ToArray();
+            return [.. response.Data.Select(x => x.ToBll(wallet))];
         }
 
         _logger.LogError(response.Error!.Message);
@@ -80,7 +80,7 @@ public class WalletInfoProvider(
 
         if (response.Success)
         {
-            return response.Data.Select(x => x.ToBll(wallet)).ToArray();
+            return [.. response.Data.Select(x => x.ToBll(wallet))];
         }
 
         _logger.LogError(response.Error!.Message);

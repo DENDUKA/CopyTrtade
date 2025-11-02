@@ -59,19 +59,11 @@ public class FillsOrderService
         {
             if (_orders.TryGetValue(newOrder.OrderId, out var orderFills))
             {
-                var orderChanges = GetChangesInOrder(newOrder, orderFills.OriginalOrder);
-                orderFills.UpdateOrder(newOrder);
+                ProcessExistingOrder(newOrder, orderFills);
             }
             else
             {
-                var newOrderFills = new OrderFills(newOrder);                
-
-                if (!_orders.TryAdd(newOrder.OrderId, newOrderFills))
-                {
-                    _logger.LogError($"FillsOrderService OnNewOrders: не удалось добавить ордер {newOrder.OrderId}");
-                }
-
-                AddTradesFromPending(newOrderFills);
+                CreateNewOrderFills(newOrder);
             }
 
             OnOrderFinished(newOrder);
@@ -84,22 +76,15 @@ public class FillsOrderService
 
         foreach (var trade in trades.Trades)
         {
-            _logger.LogInformation($"FillsOrderService OnNewTrades: Новый trade {trade.ToString()}");
+            _logger.LogInformation($"FillsOrderService OnNewTrades: Новый trade {trade}");
 
             if (_orders.TryGetValue(trade.OrderId, out var orderFills))
             {
-                if (orderFills.Trades.FirstOrDefault(x => x.TradeId == trade.TradeId) is not null) continue;
-
-                orderFills.Trades.Add(trade);
-
-                _logger.LogInformation($"FillsOrderService OnNewTrades: ордер {trade.OrderId} fillStatus : {orderFills.FillStatus.ToString()}");
-
-                OnOrderFinished(orderFills.OriginalOrder);
+                ProcessTradeForExistingOrder(trade, orderFills);
             }
             else
             {
-                _pendingTrades.TryAdd(trade.TradeId, trade);
-                _logger.LogWarning($"FillsOrderService OnNewTrades: не удалось найти ордер {trade.OrderId}");
+                AddTradeToPending(trade);
             }
         }
     }
@@ -108,48 +93,28 @@ public class FillsOrderService
     {
         _logger.LogInformation($"OnOrderFinished {order.OrderId} status: {order.Status}");
 
-        if (!_orderFinalStatuses.Contains(order.Status)) return;
+        if (!IsFinalStatus(order.Status)) return;
 
-        if (order.Status == OrderStatus.Filled)
+        if (!_orders.TryGetValue(order.OrderId, out var orderFills))
         {
-            _orders.TryGetValue(order.OrderId, out var orderFills);
-
-            if (orderFills.FilledQuantity == order.Quantity)//Успех. весь Order заполнен/выполнен. соответствует статусу
-            {
-                DataBusEvents.OrderFinished?.Invoke(orderFills);
-                _logger.LogInformation($"OnOrderFinished Filled {order.OrderId} Success");
-                _ordersWithError.Remove(order.OrderId, out var _);
-            }
-            else
-            {
-                string error = $"OnOrderFinished Filled {order.OrderId} не сходится сумма всех trades и order.Quantity";
-                _logger.LogError(error);
-                _ordersWithError.TryAdd(order.OrderId, error);
-            }
+            _logger.LogWarning($"OnOrderFinished: OrderFills не найден для ордера {order.OrderId}");
             return;
         }
 
-        if (order.Status == OrderStatus.Canceled)
+        switch (order.Status)
         {
-            _orders.TryGetValue(order.OrderId, out var orderFills);
+            case OrderStatus.Filled:
+                HandleFilledOrder(order, orderFills);
+                break;
 
-            if (orderFills.FilledQuantity == 0)//Закрытие Order. В Order не был выполнен 
-            {
-                DataBusEvents.OrderFinished?.Invoke(orderFills);
-                _logger.LogInformation($"OnOrderFinished Canceled {order.OrderId} Success");
-                _ordersWithError.Remove(order.OrderId, out var _);
-            }
-            else //Закрытие Order. В Order был выполнен частично
-            {
-                DataBusEvents.OrderFinished?.Invoke(orderFills);
-                _logger.LogWarning($"OnOrderFinished Canceled {order.OrderId} Order был выполнен частично");
-                _ordersWithError.Remove(order.OrderId, out var _);
-            }
-            return;
+            case OrderStatus.Canceled:
+                HandleCanceledOrder(order, orderFills);
+                break;
+
+            default:
+                HandleUnknownFinalStatus(order);
+                break;
         }
-
-        _logger.LogWarning($"Неизвестная ошибка OrderId: {order.OrderId}");
-        _ordersWithError.TryAdd(order.OrderId, $"Неизвестная ошибка OrderId: {order.OrderId}");
     }
 
     private OrderChanges GetChangesInOrder(OriginalOrder newOrder, OriginalOrder oldOrder)
@@ -158,43 +123,47 @@ public class FillsOrderService
         string changesString = string.Empty;
 
         // Сравнение всех свойств Order
-        if (newOrder.OrderId != oldOrder.OrderId)
-            changesString += $"OrderId: {oldOrder.OrderId} -> {newOrder.OrderId};\n";
-        if (newOrder.Wallet?.Value != oldOrder.Wallet?.Value)
-            changesString += $"Wallet: {oldOrder.Wallet?.Value} -> {newOrder.Wallet?.Value};\n";
-        if (newOrder.Symbol != oldOrder.Symbol)
-            changesString += $"Symbol: {oldOrder.Symbol} -> {newOrder.Symbol};\n";
-        if (newOrder.Price != oldOrder.Price)
-            changesString += $"Price: {oldOrder.Price} -> {newOrder.Price};\n";
-        if (newOrder.Quantity != oldOrder.Quantity)
-            changesString += $"Size: {oldOrder.Quantity} -> {newOrder.Quantity};\n";
-        if (newOrder.Leverage != oldOrder.Leverage)
-            changesString += $"Leverage: {oldOrder.Leverage} -> {newOrder.Leverage};\n";
-        if (newOrder.SubType != oldOrder.SubType)
-            changesString += $"SubType: {oldOrder.SubType} -> {newOrder.SubType};\n";
+        AppendChangeIfDifferent(ref changesString, "OrderId", oldOrder.OrderId, newOrder.OrderId);
+        AppendChangeIfDifferent(ref changesString, "Wallet", oldOrder.Wallet?.Value, newOrder.Wallet?.Value);
+        AppendChangeIfDifferent(ref changesString, "Symbol", oldOrder.Symbol, newOrder.Symbol);
+        AppendChangeIfDifferent(ref changesString, "Price", oldOrder.Price, newOrder.Price);
+        AppendChangeIfDifferent(ref changesString, "Size", oldOrder.Quantity, newOrder.Quantity);
+        AppendChangeIfDifferent(ref changesString, "Leverage", oldOrder.Leverage, newOrder.Leverage);
+        AppendChangeIfDifferent(ref changesString, "SubType", oldOrder.SubType, newOrder.SubType);
+        AppendChangeIfDifferent(ref changesString, "Value", oldOrder.VolumeUsd, newOrder.VolumeUsd);
+
+        // Direction - требует установки флага
         if (newOrder.Direction != oldOrder.Direction)
         {
-            changesString += $"Direction: {oldOrder.Direction} -> {newOrder.Direction};\n";
+            AppendChangeIfDifferent(ref changesString, "Direction", oldOrder.Direction, newOrder.Direction);
             changes |= OrderChanges.Direction;
         }
-        if (newOrder.VolumeUsd != oldOrder.VolumeUsd)
-            changesString += $"Value: {oldOrder.VolumeUsd} -> {newOrder.VolumeUsd};\n";
+
+        // Status - требует установки флага
         if (newOrder.Status != oldOrder.Status)
         {
-            changesString += $"Status: {oldOrder.Status} -> {newOrder.Status};\n";
+            AppendChangeIfDifferent(ref changesString, "Status", oldOrder.Status, newOrder.Status);
             changes |= OrderChanges.Status;
         }
 
-            if (string.IsNullOrEmpty(changesString))
+        LogOrderChanges(newOrder.OrderId, changesString);
+
+        return changes;
+    }
+
+    /// <summary>
+    /// Логирует изменения в ордере
+    /// </summary>
+    private void LogOrderChanges(long orderId, string changesString)
+    {
+        if (string.IsNullOrEmpty(changesString))
         {
-            _logger.LogInformation($"Изменения в ордере {newOrder.OrderId}: нет");
+            _logger.LogInformation($"Изменения в ордере {orderId}: нет");
         }
         else
         {
-            _logger.LogInformation($"Изменения в ордере {newOrder.OrderId}:\n{changesString}");
+            _logger.LogInformation($"Изменения в ордере {orderId}:\n{changesString}");
         }
-
-        return changes;
     }
 
     private void AddTradesFromPending(OrderFills newOrderFills)
@@ -205,4 +174,173 @@ public class FillsOrderService
             _pendingTrades.TryRemove(pendingTrade.TradeId, out _);
         }
     }
+
+    #region Helper Methods
+
+    /// <summary>
+    /// Проверяет является ли статус финальным
+    /// </summary>
+    private bool IsFinalStatus(OrderStatus status)
+    {
+        return _orderFinalStatuses.Contains(status);
+    }
+
+    /// <summary>
+    /// Обрабатывает существующий ордер при получении обновления
+    /// </summary>
+    private void ProcessExistingOrder(OriginalOrder newOrder, OrderFills orderFills)
+    {
+        var orderChanges = GetChangesInOrder(newOrder, orderFills.OriginalOrder);
+        orderFills.UpdateOrder(newOrder);
+    }
+
+    /// <summary>
+    /// Создает новый OrderFills и добавляет pending трейды
+    /// </summary>
+    private void CreateNewOrderFills(OriginalOrder newOrder)
+    {
+        var newOrderFills = new OrderFills(newOrder);
+
+        if (!_orders.TryAdd(newOrder.OrderId, newOrderFills))
+        {
+            _logger.LogError($"FillsOrderService OnNewOrders: не удалось добавить ордер {newOrder.OrderId}");
+            return;
+        }
+
+        AddTradesFromPending(newOrderFills);
+    }
+
+    /// <summary>
+    /// Обрабатывает трейд для существующего ордера
+    /// </summary>
+    private void ProcessTradeForExistingOrder(OriginalTrade trade, OrderFills orderFills)
+    {
+        if (IsDuplicateTrade(orderFills, trade))
+        {
+            _logger.LogInformation($"FillsOrderService OnNewTrades: Дубликат trade {trade.TradeId} для ордера {trade.OrderId}");
+            return;
+        }
+
+        orderFills.Trades.Add(trade);
+        _logger.LogInformation($"FillsOrderService OnNewTrades: ордер {trade.OrderId} fillStatus : {orderFills.FillStatus}");
+        OnOrderFinished(orderFills.OriginalOrder);
+    }
+
+    /// <summary>
+    /// Добавляет трейд в pending если ордер еще не получен
+    /// </summary>
+    private void AddTradeToPending(OriginalTrade trade)
+    {
+        _pendingTrades.TryAdd(trade.TradeId, trade);
+        _logger.LogWarning($"FillsOrderService OnNewTrades: не удалось найти ордер {trade.OrderId}");
+    }
+
+    /// <summary>
+    /// Проверяет является ли трейд дубликатом
+    /// </summary>
+    private bool IsDuplicateTrade(OrderFills orderFills, OriginalTrade trade)
+    {
+        return orderFills.Trades.Any(x => x.TradeId == trade.TradeId);
+    }
+
+    /// <summary>
+    /// Проверяет соответствует ли заполненное количество ожидаемому
+    /// </summary>
+    private bool IsQuantityMatched(OrderFills orderFills, decimal expectedQuantity)
+    {
+        return orderFills.FilledQuantity == expectedQuantity;
+    }
+
+    /// <summary>
+    /// Удаляет ордер из списка ошибок
+    /// </summary>
+    private void RemoveOrderError(long orderId)
+    {
+        _ordersWithError.Remove(orderId, out var _);
+    }
+
+    /// <summary>
+    /// Добавляет ордер в список ошибок
+    /// </summary>
+    private void AddOrderError(long orderId, string errorMessage)
+    {
+        _ordersWithError.TryAdd(orderId, errorMessage);
+        _logger.LogError(errorMessage);
+    }
+
+    /// <summary>
+    /// Публикует событие завершения ордера
+    /// </summary>
+    private void PublishOrderFinished(OrderFills orderFills)
+    {
+        DataBusEvents.OrderFinished?.Invoke(orderFills);
+    }
+
+    /// <summary>
+    /// Добавляет строку изменения если значения различаются
+    /// </summary>
+    private void AppendChangeIfDifferent<T>(ref string changes, string propertyName, T oldValue, T newValue)
+    {
+        if (!EqualityComparer<T>.Default.Equals(oldValue, newValue))
+        {
+            changes += $"{propertyName}: {oldValue} -> {newValue};\n";
+        }
+    }
+
+    #endregion
+
+    #region Order Status Handlers
+
+    /// <summary>
+    /// Обрабатывает ордер со статусом Filled
+    /// </summary>
+    private void HandleFilledOrder(OriginalOrder order, OrderFills orderFills)
+    {
+        if (IsQuantityMatched(orderFills, order.Quantity))
+        {
+            // Успех: весь Order заполнен/выполнен, соответствует статусу
+            PublishOrderFinished(orderFills);
+            RemoveOrderError(order.OrderId);
+            _logger.LogInformation($"OnOrderFinished Filled {order.OrderId} Success");
+        }
+        else
+        {
+            // Ошибка: сумма всех trades не соответствует order.Quantity
+            string error = $"OnOrderFinished Filled {order.OrderId} не сходится сумма всех trades и order.Quantity";
+            AddOrderError(order.OrderId, error);
+        }
+    }
+
+    /// <summary>
+    /// Обрабатывает ордер со статусом Canceled
+    /// </summary>
+    private void HandleCanceledOrder(OriginalOrder order, OrderFills orderFills)
+    {
+        if (IsQuantityMatched(orderFills, 0))
+        {
+            // Закрытие Order: ордер не был выполнен
+            PublishOrderFinished(orderFills);
+            RemoveOrderError(order.OrderId);
+            _logger.LogInformation($"OnOrderFinished Canceled {order.OrderId} Success");
+        }
+        else
+        {
+            // Закрытие Order: ордер был выполнен частично
+            PublishOrderFinished(orderFills);
+            RemoveOrderError(order.OrderId);
+            _logger.LogWarning($"OnOrderFinished Canceled {order.OrderId} Order был выполнен частично");
+        }
+    }
+
+    /// <summary>
+    /// Обрабатывает ордер с неизвестным финальным статусом (Rejected и др.)
+    /// </summary>
+    private void HandleUnknownFinalStatus(OriginalOrder order)
+    {
+        string error = $"Неизвестная ошибка OrderId: {order.OrderId}";
+        AddOrderError(order.OrderId, error);
+        _logger.LogWarning(error);
+    }
+
+    #endregion
 }

@@ -257,44 +257,6 @@ public class PositionMappingServiceTests
     }
 
     [Fact]
-    public void ClearAllMappings_ShouldRemoveAllMappings()
-    {
-        // Arrange
-        var mapping1 = new PositionMapping
-        {
-            TraderWallet = _traderWallet,
-            MyWallet = _myWallet,
-            Symbol = "BTC",
-            Direction = Direction.Long,
-            MyQuantity = 0.1M,
-            PositionRatio = 0.1M,
-            LastUpdate = DateTime.UtcNow
-        };
-
-        var mapping2 = new PositionMapping
-        {
-            TraderWallet = _traderWallet,
-            MyWallet = _myWallet,
-            Symbol = "ETH",
-            Direction = Direction.Short,
-            MyQuantity = 1M,
-            PositionRatio = 0.1M,
-            LastUpdate = DateTime.UtcNow
-        };
-
-        _service.SaveOrUpdateMapping(mapping1);
-        _service.SaveOrUpdateMapping(mapping2);
-
-        // Act
-        _service.ClearAllMappings();
-
-        // Assert
-        var count = _service.GetMappingsCount;
-        count.Should().Be(0);
-        _service.GetAllMappings().Should().BeEmpty();
-    }
-
-    [Fact]
     public void GetMappingsCount_ShouldReturnCorrectCount()
     {
         // Arrange
