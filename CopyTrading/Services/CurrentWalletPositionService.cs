@@ -40,6 +40,16 @@ public class CurrentWalletPositionService
         }
     }
 
+    /// <summary>
+    /// Очищает все snapshots (используется для тестирования)
+    /// </summary>
+    public void ClearAllSnapshots()
+    {
+        var count = _walletPositionSnapshot.Count;
+        _walletPositionSnapshot.Clear();
+        _logger.LogInformation($"Все snapshots очищены (было {count})");
+    }
+
     public async Task<OrderSubType> AddTrade(OriginalTrade trade)
     {
         if (!_walletPositionSnapshot.ContainsKey(trade.Wallet))

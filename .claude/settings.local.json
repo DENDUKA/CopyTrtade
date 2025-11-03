@@ -24,7 +24,8 @@
       "Bash(Select-String -Pattern \"(Expected|CopyOrderService|GetOrderSubType|Snapshot|Mapping)\" -Context 1)",
       "Bash(Select-String -Pattern \"(Assert\\.|Expected|Should|Actual|Test passed|Test failed)\" -Context 3)",
       "Bash(dotnet clean:*)",
-      "Bash(Select-String -Pattern \"(passed|failed|Passed|Failed|всего|Total)\" -Context 0,1)"
+      "Bash(Select-String -Pattern \"(passed|failed|Passed|Failed|всего|Total)\" -Context 0,1)",
+      "Bash(Select-String -Pattern \"(Failed|Order 3002|MultipleTradersDifferent)\" -Context 2)"
     ],
     "deny": [],
     "ask": []

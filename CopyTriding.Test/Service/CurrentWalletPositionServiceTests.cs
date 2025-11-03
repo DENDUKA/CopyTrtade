@@ -10,7 +10,7 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
 
-namespace CopyTriding.Test.Service;
+namespace CopyTrading.Test.Service;
 
 public class CurrentWalletPositionServiceTests
 {
