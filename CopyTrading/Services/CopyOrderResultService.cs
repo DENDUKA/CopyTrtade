@@ -147,4 +147,14 @@ public class CopyOrderResultService
 
         return (total, success, failed, successRate);
     }
+
+    /// <summary>
+    /// Очистить все результаты (используется для тестирования)
+    /// </summary>
+    public void ClearAllResults()
+    {
+        var count = _results.Count;
+        _results.Clear();
+        _logger.LogInformation($"Все результаты очищены (было {count})");
+    }
 }

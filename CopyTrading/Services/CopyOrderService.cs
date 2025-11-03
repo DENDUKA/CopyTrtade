@@ -538,7 +538,9 @@ public class CopyOrderService
 
         try
         {
-            var mapping = _positionMappingService.GetMapping(order.Wallet, _myWallet, order.Symbol, order.Direction);
+            // FIX: Close ордер имеет противоположное направление (Short закрывает Long),
+            // но маппинг создан с направлением позиции (Long), поэтому используем Opposite()
+            var mapping = _positionMappingService.GetMapping(order.Wallet, _myWallet, order.Symbol, order.Direction.Opposite());
 
             if (mapping == null)
             {
@@ -556,7 +558,8 @@ public class CopyOrderService
             {
                 var errorMsg = "mapping.MyQuantity = 0 - позиция не была открыта";
                 _logger.LogWarning($"ClosePosition: OrderId={order.OrderId} {errorMsg}. Удаляем маппинг без создания CopyOrder.");
-                _positionMappingService.DeleteMapping(order.Wallet, _myWallet, order.Symbol, order.Direction);
+                // FIX: используем Opposite() для корректного удаления маппинга
+                _positionMappingService.DeleteMapping(order.Wallet, _myWallet, order.Symbol, order.Direction.Opposite());
                 SaveFailureResult(order, errorMsg);
                 return;
             }
@@ -572,7 +575,8 @@ public class CopyOrderService
             _logger.LogInformation($"ClosePosition SUCCESS: {order.OrderId} Закрываем полностью {myCloseQuantity}");
 
             // Удаляем маппинг (позиция полностью закрыта)
-            _positionMappingService.DeleteMapping(order.Wallet, _myWallet, order.Symbol, order.Direction);
+            // FIX: используем Opposite() для корректного удаления маппинга
+            _positionMappingService.DeleteMapping(order.Wallet, _myWallet, order.Symbol, order.Direction.Opposite());
 
             // Сохраняем результат
             SaveSuccessResult(order, copyOrder);

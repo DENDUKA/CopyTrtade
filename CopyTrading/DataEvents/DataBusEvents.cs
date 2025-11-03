@@ -22,4 +22,19 @@ public static class DataBusEvents
     public static Action<(OriginalOrder Order, OrderStatus Status)> CopyOrderClosed;
 
     public static Action<(OriginalOrder Order, OrderStatus Status)> CopyOrderFilled;
+
+    /// <summary>
+    /// Очистить все подписки на события (используется для тестирования)
+    /// ВНИМАНИЕ: После вызова этого метода все сервисы должны быть пересозданы
+    /// для повторной подписки на события!
+    /// </summary>
+    public static void ClearAllSubscriptions()
+    {
+        NewTrades = null;
+        NewOrders = null;
+        OrderFinished = null;
+        CopyOrderCreated = null;
+        CopyOrderClosed = null;
+        CopyOrderFilled = null;
+    }
 }
