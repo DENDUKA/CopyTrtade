@@ -1,4 +1,5 @@
 using CopyTrading.DataEvents;
+using CopyTrading.Models.Builders;
 using CopyTrading.Models.Models;
 using CopyTrading.Models.Models.Enums;
 using CopyTrading.Models.Models.Enums.Order;
@@ -507,7 +508,7 @@ public class CopyOrderServiceIntegrationTests
     public async Task CloseLongPosition_ShouldClosePositionAndRemoveMapping()
     {
         // Arrange
-        ResetServices();
+        // ResetServices();
 
         var symbol = "BTC";
         SetupExchangeInfo(symbol);
@@ -516,22 +517,24 @@ public class CopyOrderServiceIntegrationTests
 
         var service = CreateService();
 
-        // Сначала создаем открытую Long позицию
-        var snapshot = CreateSnapshot(_traderWallet, symbol, 0.1m, Direction.Long);
-        _currentWalletPositionService.InitializeWalletSnapshot(snapshot);
+        var order = CreateOrder(2002, _traderWallet, symbol, 3000m, 0.1m, Direction.Long);        
+        var trade = CreateTrade(6002, 2002, _traderWallet, symbol, 3000m, 0.1m, Direction.Long, OrderSubType.Open);
 
-        // Создаем маппинг вручную (симулируем уже открытую позицию)
-        var mapping = new PositionMapping
-        {
-            TraderWallet = _traderWallet,
-            MyWallet = _myWallet,
-            Symbol = symbol,
-            Direction = Direction.Long,
-            MyQuantity = 0.05m,
-            TraderQuantityAtEntry = 0m,
-            PositionRatio = 0.5m
-        };
-        _positionMappingService.SaveOrUpdateMapping(mapping);
+        // Инициализация пустой Snapshot
+        DataBusEvents.NewTrades?.Invoke(([trade], true));
+
+        var positions = new PositionBuilder()
+            .WithLeverage(5)
+            .WithQuantity(0.1m)
+            .WithAverageEntryPrice(3000m)
+            .WithSymbol(symbol)
+            .BuildDictionary();
+
+        SetupWalletInfo(_traderWallet, 20000m, positions);
+
+        // Act
+        DataBusEvents.NewOrders?.Invoke([order]);
+        DataBusEvents.NewTrades?.Invoke(([trade], false));
 
         // Трейдер закрывает Long позицию через Short ордер (правильно с точки зрения трейдинга)
         var closeOrder = CreateOrder(2003, _traderWallet, symbol, 50000m, 0.1m, Direction.Short);
@@ -560,8 +563,6 @@ public class CopyOrderServiceIntegrationTests
     public async Task CloseShortPosition_ShouldClosePositionAndRemoveMapping()
     {
         // Arrange
-        ResetServices();
-
         var symbol = "ETH";
         SetupExchangeInfo(symbol);
         SetupWalletInfo(_traderWallet, 15000m);
@@ -569,21 +570,22 @@ public class CopyOrderServiceIntegrationTests
 
         var service = CreateService();
 
-        // Создаем открытую Short позицию
-        var snapshot = CreateSnapshot(_traderWallet, symbol, 2m, Direction.Short);
-        _currentWalletPositionService.InitializeWalletSnapshot(snapshot);
+        var order = CreateOrder(2002, _traderWallet, symbol, 3000m, 2m, Direction.Short);
+        var trade = CreateTrade(6002, 2002, _traderWallet, symbol, 3000m, 2m, Direction.Short, OrderSubType.Open);
 
-        var mapping = new PositionMapping
-        {
-            TraderWallet = _traderWallet,
-            MyWallet = _myWallet,
-            Symbol = symbol,
-            Direction = Direction.Short,
-            MyQuantity = 1m,
-            TraderQuantityAtEntry = 0m,
-            PositionRatio = 0.5m
-        };
-        _positionMappingService.SaveOrUpdateMapping(mapping);
+        // Инициализация пустой Snapshot
+        DataBusEvents.NewTrades?.Invoke(([trade], true));
+
+        var positions = new PositionBuilder()
+            .WithLeverage(5)
+            .WithQuantity(-2m)
+            .WithAverageEntryPrice(3000m)
+            .WithSymbol(symbol)
+            .BuildDictionary();
+        SetupWalletInfo(_traderWallet, 20000m, positions);
+
+        DataBusEvents.NewOrders?.Invoke([order]);
+        DataBusEvents.NewTrades?.Invoke(([trade], false));
 
         // Трейдер закрывает Short позицию через Long ордер (правильно с точки зрения трейдинга)
         var closeOrder = CreateOrder(2004, _traderWallet, symbol, 3000m, 2m, Direction.Long);
@@ -1288,7 +1290,7 @@ public class CopyOrderServiceIntegrationTests
         {
             Wallet = wallet,
             AccountVolume = accountVolume,
-            Positions = positions ?? new Dictionary<string, Position>()
+            Positions = positions ?? []
         };
 
         _walletInfoProvider
