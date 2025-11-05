@@ -1,5 +1,4 @@
 ﻿using CopyTrading.Models.Models;
-using CopyTrading.Models.Models.Enums;
 
 namespace CopyTrading.Models.Builders;
 

@@ -2,7 +2,6 @@ using CopyTrading.DataEvents;
 using CopyTrading.Models.Models.Enums.Order;
 using CopyTrading.Models.Models.Orders;
 using System.Collections.Concurrent;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace CopyTrading.Services;
 
@@ -41,64 +40,6 @@ public class CopyOrderStorageService
     }
 
     /// <summary>
-    /// Обработчик события закрытия копируемого ордера
-    /// </summary>
-    private void OnCopyOrderClosed((OriginalOrder Order, OrderStatus Status) data)
-    {
-        _logger.LogInformation($"CopyOrderStorageService OnCopyOrderClosed {data.Order.ToString()}");
-        CloseOrder(data.Order, data.Status);
-    }
-
-    /// <summary>
-    /// Получить все копируемые ордера
-    /// </summary>
-    public CopyOrderV2[] GetAllOrders()
-    {
-        return [.. _copyOrders.Values];
-    }
-
-    /// <summary>
-    /// Получить копируемый ордер по ID
-    /// </summary>
-    public CopyOrderV2? GetOrderById(long orderId)
-    {
-        _copyOrders.TryGetValue(orderId, out var order);
-        return order;
-    }
-
-    /// <summary>
-    /// Получить копируемые ордера по статусу
-    /// </summary>
-    public CopyOrderV2[] GetOrdersByStatus(OrderStatus status)
-    {
-        return [.. _copyOrders.Values.Where(o => o.OriginalOrder.Status == status)];
-    }
-
-    /// <summary>
-    /// Получить активные копируемые ордера (Open, Triggered)
-    /// </summary>
-    public CopyOrderV2[] GetActiveOrders()
-    {
-        return [.. _copyOrders.Values.Where(o => o.OriginalOrder.Status == OrderStatus.Open || o.OriginalOrder.Status == OrderStatus.Triggered)];
-    }
-
-    /// <summary>
-    /// Получить копируемые ордера по OriginalOrderId (ID ордера трейдера)
-    /// </summary>
-    public CopyOrderV2[] GetOrdersByOriginalOrderId(long originalOrderId)
-    {
-        return [.. _copyOrders.Values.Where(o => o.OriginalOrderId == originalOrderId)];
-    }
-
-    /// <summary>
-    /// Получить копируемые ордера по символу
-    /// </summary>
-    public CopyOrderV2[] GetOrdersBySymbol(string symbol)
-    {
-        return [.. _copyOrders.Values.Where(o => o.OriginalOrder.Symbol == symbol)];
-    }
-
-    /// <summary>
     /// Добавить копируемый ордер в хранилище
     /// </summary>
     public bool AddOrder(CopyOrderV2 order)
@@ -127,30 +68,36 @@ public class CopyOrderStorageService
     }
 
     /// <summary>
-    /// Обновить статус копируемого ордера
+    /// Обработчик события закрытия копируемого ордера
     /// </summary>
-    public bool UpdateOrderStatus(long orderId, OrderStatus newStatus)
+    private void OnCopyOrderClosed((OriginalOrder Order, OrderStatus Status) data)
     {
-        try
-        {
-            if (_copyOrders.TryGetValue(orderId, out var order))
-            {
-                var oldStatus = order.OriginalOrder.Status;
-                order.OriginalOrder.Status = newStatus;
-                _logger.LogInformation($"Статус копируемого ордера обновлен: ID={orderId}, {oldStatus} -> {newStatus}");
-                return true;
-            }
-            else
-            {
-                _logger.LogWarning($"Копируемый ордер с ID={orderId} не найден для обновления статуса");
-                return false;
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, $"Ошибка при обновлении статуса копируемого ордера ID={orderId}");
-            return false;
-        }
+        _logger.LogInformation($"CopyOrderStorageService OnCopyOrderClosed {data.Order.ToString()}");
+        CloseOrder(data.Order, data.Status);
+    }
+
+    /// <summary>
+    /// Получить все копируемые ордера
+    /// </summary>
+    public CopyOrderV2[] GetAllOrders()
+    {
+        return [.. _copyOrders.Values];
+    }
+
+    /// <summary>
+    /// Получить копируемые ордера по статусу
+    /// </summary>
+    public CopyOrderV2[] GetOrdersByStatus(OrderStatus status)
+    {
+        return [.. _copyOrders.Values.Where(o => o.OriginalOrder.Status == status)];
+    }
+
+    /// <summary>
+    /// Получить копируемые ордера по OriginalOrderId (ID ордера трейдера)
+    /// </summary>
+    public CopyOrderV2[] GetOrdersByOriginalOrderId(long originalOrderId)
+    {
+        return [.. _copyOrders.Values.Where(o => o.OriginalOrderId == originalOrderId)];
     }
 
     /// <summary>
@@ -193,41 +140,6 @@ public class CopyOrderStorageService
     }
 
     /// <summary>
-    /// Обновить копируемый ордер
-    /// </summary>
-    public bool UpdateOrder(CopyOrderV2 order)
-    {
-        try
-        {
-            _copyOrders[order.OrderId] = order;
-            _logger.LogInformation($"Копируемый ордер обновлен: ID={order.OrderId}");
-            return true;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, $"Ошибка при обновлении копируемого ордера ID={order.OrderId}");
-            return false;
-        }
-    }
-
-    /// <summary>
-    /// Удалить копируемый ордер из хранилища
-    /// </summary>
-    public bool RemoveOrder(long orderId)
-    {
-        if (_copyOrders.TryRemove(orderId, out var order))
-        {
-            _logger.LogInformation($"Копируемый ордер удален из хранилища: ID={orderId}");
-            return true;
-        }
-        else
-        {
-            _logger.LogWarning($"Не удалось удалить копируемый ордер ID={orderId} - не найден");
-            return false;
-        }
-    }
-
-    /// <summary>
     /// Очистить все копируемые ордера
     /// </summary>
     public void ClearAllOrders()
@@ -253,17 +165,4 @@ public class CopyOrderStorageService
             ["MarginCanceled"] = _copyOrders.Values.Count(o => o.OriginalOrder.Status == OrderStatus.MarginCanceled)
         };
     }
-
-    /// <summary>
-    /// Проверить существует ли ордер
-    /// </summary>
-    public bool OrderExists(long orderId)
-    {
-        return _copyOrders.ContainsKey(orderId);
-    }
-
-    /// <summary>
-    /// Получить количество всех копируемых ордеров
-    /// </summary>
-    public int Count => _copyOrders.Count;
 }

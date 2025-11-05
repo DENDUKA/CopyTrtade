@@ -7,4 +7,5 @@ public enum OrderSubType
     Decrease,
     Open,
     Close,
+    Flip,
 }

@@ -335,7 +335,7 @@ public class CurrentWalletPositionService
     /// <summary>
     /// Добавляет позицию в snapshot из провайдера
     /// </summary>
-    private async Task<Position?> AddPositionToSnapshotFromProvider(Wallet wallet, string symbol)
+    private async Task<Position?> AddPositionToSnapshotFromServer(Wallet wallet, string symbol)
     {
         var walletInfo = await _walletInfoProvider.GetInfo(wallet, false);
 
@@ -380,7 +380,7 @@ public class CurrentWalletPositionService
 
         // Переворот позиции (Close текущей + Open противоположной)
         _logger.LogError($"DetermineOrderSubType: Не удалось уменьшить позицию {order.Symbol} у кошелька {order.Wallet} - TradeVolume больше чем открытая позиция. OrderId {order.OrderId}");
-        return OrderSubType.None;
+        return OrderSubType.Flip;
     }
 
     #endregion
@@ -392,7 +392,7 @@ public class CurrentWalletPositionService
     /// </summary>
     private async Task<OrderSubType> HandleOpenPosition(OriginalTrade trade)
     {
-        var position = await AddPositionToSnapshotFromProvider(trade.Wallet, trade.Symbol);
+        var position = await AddPositionToSnapshotFromServer(trade.Wallet, trade.Symbol);
 
         if (position == null)
         {
@@ -452,7 +452,7 @@ public class CurrentWalletPositionService
         RemovePositionFromSnapshot(wallet, position);
 
         // Запрашиваем новую позицию у провайдера
-        var newPosition = await AddPositionToSnapshotFromProvider(wallet, trade.Symbol);
+        var newPosition = await AddPositionToSnapshotFromServer(wallet, trade.Symbol);
 
         if (newPosition != null)
         {
