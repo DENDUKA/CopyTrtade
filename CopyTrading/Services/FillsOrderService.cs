@@ -7,40 +7,18 @@ using System.Collections.Concurrent;
 
 namespace CopyTrading.Services;
 
-public class FillsOrderService
+public class FillsOrderService(ILogger<FillsOrderService> _logger)
 {
     private readonly ConcurrentDictionary<long, OrderFills> _orders = [];
     private readonly ConcurrentDictionary<long, OriginalTrade> _pendingTrades = [];
 
     internal readonly ConcurrentDictionary<long, string> _ordersWithError = [];
 
-    private readonly ILogger<FillsOrderService> _logger;
-
     private readonly OrderStatus[] _orderFinalStatuses = [OrderStatus.Canceled, OrderStatus.Filled, OrderStatus.Rejected];
-
-    public FillsOrderService(ILogger<FillsOrderService> logger)
-    {
-        _logger = logger;
-    }
 
     public OrderFills[] GetAllOrderFills()
     {
         return [.. _orders.Values];
-    }
-
-    /// <summary>
-    /// Получает все трейды для указанного orderId
-    /// </summary>
-    /// <param name="orderId">ID ордера</param>
-    /// <returns>Массив трейдов или пустой массив если ордер не найден</returns>
-    public OriginalTrade[] GetTradesByOrderId(long orderId)
-    {
-        if (_orders.TryGetValue(orderId, out var orderFills))
-        {
-            return [.. orderFills.Trades];
-        }
-
-        return [];
     }
 
     /// <summary>
@@ -238,7 +216,7 @@ public class FillsOrderService
     /// <summary>
     /// Проверяет является ли трейд дубликатом
     /// </summary>
-    private bool IsDuplicateTrade(OrderFills orderFills, OriginalTrade trade)
+    private static bool IsDuplicateTrade(OrderFills orderFills, OriginalTrade trade)
     {
         return orderFills.Trades.Any(x => x.TradeId == trade.TradeId);
     }
@@ -246,7 +224,7 @@ public class FillsOrderService
     /// <summary>
     /// Проверяет соответствует ли заполненное количество ожидаемому
     /// </summary>
-    private bool IsQuantityMatched(OrderFills orderFills, decimal expectedQuantity)
+    private static bool IsQuantityMatched(OrderFills orderFills, decimal expectedQuantity)
     {
         return orderFills.FilledQuantity == expectedQuantity;
     }
@@ -271,7 +249,7 @@ public class FillsOrderService
     /// <summary>
     /// Публикует событие завершения ордера
     /// </summary>
-    private void PublishOrderFinished(OrderFills orderFills)
+    private static void PublishOrderFinished(OrderFills orderFills)
     {
         DataBusEvents.OrderFinished?.Invoke(orderFills);
     }
@@ -279,7 +257,7 @@ public class FillsOrderService
     /// <summary>
     /// Добавляет строку изменения если значения различаются
     /// </summary>
-    private void AppendChangeIfDifferent<T>(ref string changes, string propertyName, T oldValue, T newValue)
+    private static void AppendChangeIfDifferent<T>(ref string changes, string propertyName, T oldValue, T newValue)
     {
         if (!EqualityComparer<T>.Default.Equals(oldValue, newValue))
         {

@@ -10,14 +10,11 @@ namespace CopyTrading.Controllers;
 public class WalletInfoController : ControllerBase
 {
     private readonly IWalletInfoProvider _walletProvider;
-    private readonly InformationService _informationService;
 
     public WalletInfoController(
-        IWalletInfoProvider walletProvider,
-        InformationService informationService)
+        IWalletInfoProvider walletProvider)
     {
         _walletProvider = walletProvider;
-        _informationService = informationService;
     }
 
     [HttpGet(Name = "GetWalletInfo")]
@@ -27,13 +24,6 @@ public class WalletInfoController : ControllerBase
         if (info == null)
             return NotFound();
         return info;
-    }
-
-    [HttpGet("CalculateMinPerpEquityForCopyWallet")]
-    public async Task<ActionResult<decimal>> CalculateMinPerpEquityForCopyWallet(string wallet)
-    {
-        var result = await _informationService.CalculateMinPerpEquityForHystoryTrades(new Wallet(wallet));
-        return result;
     }
 
     [HttpGet("QueryPortfolio")]

@@ -58,7 +58,6 @@ public class Startup
         services.AddSingleton<CopyOrderResultService>();
         services.AddSingleton<FillsOrderService>();
         services.AddSingleton<CandleService>();
-        services.AddSingleton<InformationService>();
         services.AddSingleton<CurrentWalletPositionService>();
         services.AddSingleton<PositionMappingService>();
         services.AddSingleton<CopyOrderStorageService>();

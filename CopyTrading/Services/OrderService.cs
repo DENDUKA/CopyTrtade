@@ -21,7 +21,6 @@ public class OrderService
     private readonly IExchangeInfoProvider _exchangeInfoProvider;
     private readonly SQLLiteOrderRepository _orderSQLLiteRepository;
     private readonly TradeRepositorySQL _tradeRepositorySQL;
-    private readonly InformationService _informationService;
     private readonly CurrentWalletPositionService _currentWalletPositionService;
     private readonly FillsOrderService _fillsOrderService;
     private readonly ILogger<OrderService> _logger;
@@ -33,7 +32,6 @@ public class OrderService
         IExchangeInfoProvider exchangeInfoProvider,
         SQLLiteOrderRepository orderSQLLiteProvider,
         TradeRepositorySQL tradeRepositorySQL,
-        InformationService informationService,
         CurrentWalletPositionService currentWalletPositionService,
         FillsOrderService fillsOrderService,
         ILogger<OrderService> logger)
@@ -43,7 +41,6 @@ public class OrderService
         _orderDBProvider = orderDBProvider;
         _exchangeInfoProvider = exchangeInfoProvider;
         _orderSQLLiteRepository = orderSQLLiteProvider;
-        _informationService = informationService;
         _currentWalletPositionService = currentWalletPositionService;
         _tradeRepositorySQL = tradeRepositorySQL;
         _fillsOrderService = fillsOrderService;
@@ -93,7 +90,7 @@ public class OrderService
     {
         var walletInfo = await _walletInfo.GetInfo(order.Wallet);
 
-        var minPE = _informationService.CalculateMinPerpEquity(walletInfo.AccountVolume, order.VolumeUsd);
+        var minPE = CalculateMinPerpEquity(walletInfo.AccountVolume, order.VolumeUsd);
         var subType = _currentWalletPositionService.GetOrderSubType(order);
 
         return new MinPEForOrder
@@ -105,24 +102,27 @@ public class OrderService
         };
     }
 
-
-
-    private static OrderSubType GetOrderType(Dictionary<string, Position> positions, OriginalOrder order)
+    public async Task<decimal> CalculateMinPerpEquityForHystoryTrades(Wallet wallet)
     {
-        if (positions.ContainsKey(order.Symbol))
+        var trades = await _walletInfo.GetHistoricalTrades(wallet);
+        var walletInfo = await _walletInfo.GetInfo(wallet);
+
+        var minPerpE = decimal.MinValue;
+        //Тут надо получать Value Wallet в определенный момент времени ( трейда ) и вычислять исходя из него
+        foreach (var t in trades.Take(100))
         {
-            if (positions[order.Symbol].Direction == order.Direction)
+            var tradeEquity = 100 / (t.VolumeUsd / walletInfo.AccountVolume * 100) * 10;
+            if (tradeEquity > minPerpE)
             {
-                return OrderSubType.Increase;
-            }
-            else
-            {
-                return OrderSubType.Decrease;
+                minPerpE = tradeEquity;
             }
         }
-        else
-        {
-            return OrderSubType.Open;
-        }
+
+        return minPerpE;
+    }
+
+    public decimal CalculateMinPerpEquity(decimal walletVolume, decimal tradeVolume)
+    {
+        return 100 / (tradeVolume / walletVolume * 100);
     }
 }
