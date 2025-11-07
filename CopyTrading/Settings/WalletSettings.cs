@@ -30,6 +30,7 @@ public static class WalletSettings
         new Wallet("0xb48cd87a34e4a756f03bc3d0f78ef470937ec9a6"),
         new Wallet("0x685feceec46dd4e5c9b5b726f5d7550fd0eda526"),
         new Wallet("0x33c3b8bcd758f511b350374a63e1f880f40e0282"),
+        new Wallet("0xb5418352d0a149c36964d56ae6ece340cacb842b"),
 
 
 
