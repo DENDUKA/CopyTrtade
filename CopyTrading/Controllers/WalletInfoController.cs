@@ -1,5 +1,4 @@
 ﻿using CopyTrading.Models.Values;
-using CopyTrading.Services;
 using CopyTrading.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 

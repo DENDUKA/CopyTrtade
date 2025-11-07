@@ -1,3 +1,4 @@
+using CopyTrading.BlazorUI.Services;
 using CopyTrading.DataEvents;
 using CopyTrading.Models.Builders;
 using CopyTrading.Models.Models;
@@ -7,12 +8,15 @@ using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Models.Trade;
 using CopyTrading.Models.Values;
 using CopyTrading.Providers.Hyperliquid.Interfaces;
+using CopyTrading.Providers.Hyperliquid.Subscribers;
 using CopyTrading.Services;
 using CopyTrading.Services.Interfaces;
 using CryptoExchange.Net.SharedApis;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
+using TradeRepositoreySQL = CopyTrading.Repository.SQLite.TradeRepository;
+using TradeRepositoryInflux = CopyTrading.Repository.Influx.TradeRepository;
 
 namespace CopyTrading.Test.Service;
 
@@ -29,11 +33,22 @@ public class CopyOrderServiceIntegrationTests
     private readonly PositionMappingService _positionMappingService;
     private readonly CopyOrderResultService _copyOrderResultService;
     private CopyOrderStorageService _storageService;  // Не readonly - будет пересоздаваться в ResetServices
+
+    // Loggers
     private readonly Mock<ILogger<CopyOrderService>> _logger;
     private readonly Mock<ILogger<CopyOrderResultService>> _resultLogger;
     private readonly Mock<ILogger<CopyOrderStorageService>> _storageLogger;
     private readonly Mock<ILogger<PositionMappingService>> _mappingLogger;
     private readonly Mock<ILogger<CurrentWalletPositionService>> _positionLogger;
+    private readonly Mock<ILogger<TradeService>> _tradeServiceLogger;
+
+    // Mocks для TradeService
+    private readonly Mock<FillsOrderService> _fillsOrderServiceMock;
+    private readonly Mock<OrdersTradesSubscriber> _orderProviderMock;
+    private readonly Mock<OrderBookSubscriber> _orderBookProviderMock;
+    private readonly Mock<TradeRepositoryInflux> _tradeRepositoryInfluxMock;
+    private readonly Mock<TradeRepositoreySQL> _tradeRepositorySQLMock;
+    private readonly Mock<RealtimeUpdateService> _realtimeUpdateServiceMock;
 
     private readonly Wallet _traderWallet = new("0x7bde2b9240a2ee352108c6823a9fa20f225b83a0");
     private readonly Wallet _myWallet = new("0x1234567890abcdef1234567890abcdef12345678");
@@ -43,11 +58,23 @@ public class CopyOrderServiceIntegrationTests
         _walletInfoProvider = new Mock<IWalletInfoProvider>(MockBehavior.Strict);
         _exchangeInfoProvider = new Mock<IExchangeInfoProvider>(MockBehavior.Strict);
 
+        // Инициализация логгеров
         _logger = new Mock<ILogger<CopyOrderService>>();
         _resultLogger = new Mock<ILogger<CopyOrderResultService>>();
         _storageLogger = new Mock<ILogger<CopyOrderStorageService>>();
         _mappingLogger = new Mock<ILogger<PositionMappingService>>();
         _positionLogger = new Mock<ILogger<CurrentWalletPositionService>>();
+        _tradeServiceLogger = new Mock<ILogger<TradeService>>();
+
+        // Инициализация моков для TradeService
+        _fillsOrderServiceMock = new Mock<FillsOrderService>(Mock.Of<ILogger<FillsOrderService>>());
+        _orderProviderMock = new Mock<OrdersTradesSubscriber>(MockBehavior.Loose, Mock.Of<ILogger<OrdersTradesSubscriber>>());
+        _orderBookProviderMock = new Mock<OrderBookSubscriber>(MockBehavior.Loose, Mock.Of<ILogger<OrderBookSubscriber>>());
+        _tradeRepositoryInfluxMock = new Mock<TradeRepositoryInflux>(MockBehavior.Loose, Mock.Of<ILogger<TradeRepositoryInflux>>());
+        _tradeRepositorySQLMock = new Mock<TradeRepositoreySQL>(MockBehavior.Loose, Mock.Of<ILogger<TradeRepositoreySQL>>());
+        _realtimeUpdateServiceMock = new Mock<RealtimeUpdateService>(MockBehavior.Loose,
+            Mock.Of<Microsoft.AspNetCore.SignalR.IHubContext<CopyTrading.BlazorUI.Hubs.CopyTradingHub>>(),
+            Mock.Of<ILogger<RealtimeUpdateService>>());
 
         // Создаем реальные сервисы для проверки
         _copyOrderResultService = new CopyOrderResultService(_resultLogger.Object);
@@ -105,19 +132,8 @@ public class CopyOrderServiceIntegrationTests
             .Setup(x => x.GetInfo(_myWallet, false))
             .ReturnsAsync(myWalletInfo);
 
-        // Mock для FillsOrderService (не используется в этом тесте)
-        var fillsOrderServiceMock = new Mock<FillsOrderService>(Mock.Of<ILogger<FillsOrderService>>());
-
         // Создаем тестируемый сервис
-        var service = new IntegrationTestableCopyOrderService(
-            _walletInfoProvider.Object,
-            _exchangeInfoProvider.Object,
-            _currentWalletPositionService,
-            _positionMappingService,
-            _copyOrderResultService,
-            fillsOrderServiceMock.Object,
-            _logger.Object,
-            _myWallet);
+        var service = CreateService();
 
         // ACT & ASSERT
 
@@ -1358,7 +1374,17 @@ public class CopyOrderServiceIntegrationTests
 
     private IntegrationTestableCopyOrderService CreateService()
     {
-        var fillsOrderServiceMock = new Mock<FillsOrderService>(Mock.Of<ILogger<FillsOrderService>>());
+        // Создаем TradeService, который подписывается на DataBusEvents.NewTrades
+        var tradeService = new TradeService(
+            _orderProviderMock.Object,
+            _orderBookProviderMock.Object,
+            _walletInfoProvider.Object,
+            _tradeRepositoryInfluxMock.Object,
+            _tradeRepositorySQLMock.Object,
+            _fillsOrderServiceMock.Object,
+            _currentWalletPositionService,
+            _realtimeUpdateServiceMock.Object,
+            _tradeServiceLogger.Object);
 
         return new IntegrationTestableCopyOrderService(
             _walletInfoProvider.Object,
@@ -1366,7 +1392,7 @@ public class CopyOrderServiceIntegrationTests
             _currentWalletPositionService,
             _positionMappingService,
             _copyOrderResultService,
-            fillsOrderServiceMock.Object,
+            _fillsOrderServiceMock.Object,
             _logger.Object,
             _myWallet);
     }
@@ -1388,75 +1414,6 @@ public class CopyOrderServiceIntegrationTests
 
         // Пересоздаем _storageService чтобы он снова подписался на события
         _storageService = new CopyOrderStorageService(_storageLogger.Object);
-    }
-
-    /// <summary>
-    /// Инициализирует snapshot через механизм приложения (NewTrades с IsSnapshot=true)
-    /// </summary>
-    private void InitializeSnapshotViaTradesEvent(Wallet wallet, Dictionary<string, Position> positions)
-    {
-        // Создаем trades на основе позиций
-        var trades = positions.Select((kvp, index) => new OriginalTrade
-        {
-            TradeId = 90000 + index, // Уникальные ID для snapshot trades
-            Wallet = wallet,
-            Symbol = kvp.Value.Symbol,
-            Price = kvp.Value.AverageEntryPrice,
-            Quantity = Math.Abs(kvp.Value.Quantity),
-            Direction = kvp.Value.Direction,
-            OrderId = 90000 + index,
-            SubType = OrderSubType.Open,
-            IsFuture = true
-        }).ToArray();
-
-        // Вызываем событие с флагом IsSnapshot = true
-        DataBusEvents.NewTrades?.Invoke((trades, true));
-    }
-
-    /// <summary>
-    /// Инициализирует пустой snapshot (без позиций)
-    /// </summary>
-    private void InitializeEmptySnapshotViaTradesEvent(Wallet wallet)
-    {
-        // Пустой массив trades означает отсутствие позиций
-        DataBusEvents.NewTrades?.Invoke((Array.Empty<OriginalTrade>(), true));
-
-        // Но нужно убедиться что wallet зарегистрирован, поэтому создаем snapshot вручную
-        var emptySnapshot = new WalletPositionsSnapshot
-        {
-            Wallet = wallet,
-            TimeStamp = DateTime.UtcNow,
-            Positions = []
-        };
-        _currentWalletPositionService.InitializeWalletSnapshot(emptySnapshot);
-    }
-
-    /// <summary>
-    /// Инициализирует snapshot с одной позицией через механизм приложения
-    /// </summary>
-    private void InitializeSinglePositionSnapshotViaTradesEvent(
-        Wallet wallet,
-        string symbol,
-        decimal quantity,
-        Direction direction,
-        decimal averageEntryPrice = 50000m,
-        int leverage = 5)
-    {
-        var trade = new OriginalTrade
-        {
-            TradeId = 90001,
-            Wallet = wallet,
-            Symbol = symbol,
-            Price = averageEntryPrice,
-            Quantity = Math.Abs(quantity),
-            Direction = direction,
-            OrderId = 90001,
-            SubType = OrderSubType.Open,
-            IsFuture = true
-        };
-
-        // Вызываем событие с флагом IsSnapshot = true
-        DataBusEvents.NewTrades?.Invoke(([trade], true));
     }
 
     /// <summary>

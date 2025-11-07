@@ -11,7 +11,7 @@ namespace CopyTrading.BlazorUI.Services;
 /// Сервис для отправки real-time обновлений в Blazor UI через SignalR
 /// Подписывается на DataBusEvents и транслирует данные всем подключенным клиентам
 /// </summary>
-public class RealtimeUpdateService : IDisposable
+public class RealtimeUpdateService
 {
     private readonly IHubContext<CopyTradingHub> _hubContext;
     private readonly ILogger<RealtimeUpdateService> _logger;
@@ -29,40 +29,11 @@ public class RealtimeUpdateService : IDisposable
         _logger.LogInformation("RealtimeUpdateService запущен и подписан на DataBusEvents");
     }
 
-    /// <summary>
-    /// Подписка на все события DataBusEvents
-    /// </summary>
-    private void SubscribeToEvents()
-    {
-        DataBusEvents.NewOrders += OnNewOrders;
-        DataBusEvents.NewTrades += OnNewTrades;
-        DataBusEvents.OrderFinished += OnOrderFinished;
-    }
-
-    /// <summary>
-    /// Обработчик новых ордеров
-    /// </summary>
-    private async void OnNewOrders(OriginalOrder[] orders)
-    {
-        try
-        {
-            _logger.LogInformation($"RealtimeUpdateService: Получено {orders.Length} новых ордеров");
-
-            // Отправляем всем подключенным клиентам
-            await _hubContext.Clients.All.SendAsync("ReceiveOrders", orders);
-
-            _logger.LogDebug($"Отправлено {orders.Length} ордеров всем клиентам");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Ошибка при отправке ордеров через SignalR");
-        }
-    }
 
     /// <summary>
     /// Обработчик новых трейдов
     /// </summary>
-    private async void OnNewTrades((OriginalTrade[] Trades, bool IsSnapshot) tradesData)
+    public async Task OnNewTrades((OriginalTrade[] Trades, bool IsSnapshot) tradesData)
     {
         try
         {
@@ -83,6 +54,35 @@ public class RealtimeUpdateService : IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Ошибка при отправке трейдов через SignalR");
+        }
+    }
+
+    /// <summary>
+    /// Подписка на все события DataBusEvents
+    /// </summary>
+    private void SubscribeToEvents()
+    {
+        DataBusEvents.NewOrders += OnNewOrders;
+        DataBusEvents.OrderFinished += OnOrderFinished;
+    }
+
+    /// <summary>
+    /// Обработчик новых ордеров
+    /// </summary>
+    private async void OnNewOrders(OriginalOrder[] orders)
+    {
+        try
+        {
+            _logger.LogInformation($"RealtimeUpdateService: Получено {orders.Length} новых ордеров");
+
+            // Отправляем всем подключенным клиентам
+            await _hubContext.Clients.All.SendAsync("ReceiveOrders", orders);
+
+            _logger.LogDebug($"Отправлено {orders.Length} ордеров всем клиентам");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка при отправке ордеров через SignalR");
         }
     }
 
@@ -122,18 +122,5 @@ public class RealtimeUpdateService : IDisposable
         {
             _logger.LogError(ex, "Ошибка при отправке обновления позиций");
         }
-    }
-
-    /// <summary>
-    /// Освобождение ресурсов
-    /// </summary>
-    public void Dispose()
-    {
-        // Отписываемся от событий
-        DataBusEvents.NewOrders -= OnNewOrders;
-        DataBusEvents.NewTrades -= OnNewTrades;
-        DataBusEvents.OrderFinished -= OnOrderFinished;
-
-        _logger.LogInformation("RealtimeUpdateService остановлен");
     }
 }

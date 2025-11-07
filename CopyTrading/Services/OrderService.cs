@@ -1,6 +1,4 @@
 ﻿using CopyTrading.DataEvents;
-using CopyTrading.Models.Models;
-using CopyTrading.Models.Models.Enums.Order;
 using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Values;
 using CopyTrading.Providers.Hyperliquid.Interfaces;

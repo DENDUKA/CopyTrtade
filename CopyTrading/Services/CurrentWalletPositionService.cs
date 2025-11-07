@@ -1,5 +1,4 @@
 ﻿using System.Collections.Concurrent;
-using CopyTrading.DataEvents;
 using CopyTrading.Mappers;
 using CopyTrading.Models.Models;
 using CopyTrading.Models.Models.Enums.Order;
@@ -10,21 +9,40 @@ using CopyTrading.Services.Interfaces;
 
 namespace CopyTrading.Services;
 
-public class CurrentWalletPositionService
+public class CurrentWalletPositionService(
+    IWalletInfoProvider _walletInfoProvider,
+    ILogger<CurrentWalletPositionService> _logger)
 {
-    private readonly IWalletInfoProvider _walletInfoProvider;
-    private readonly ILogger<CurrentWalletPositionService> _logger;
     private readonly ConcurrentDictionary<Wallet, WalletPositionsSnapshot> _walletPositionSnapshot = [];
     private readonly ConcurrentDictionary<Wallet, SemaphoreSlim> _walletSemaphores = [];
 
-    public CurrentWalletPositionService(
-        IWalletInfoProvider walletInfoProvider,
-        ILogger<CurrentWalletPositionService> logger)
+    public async Task OnNewTrades((OriginalTrade[] Trades, bool IsSnapshot) newTrades)
     {
-        _walletInfoProvider = walletInfoProvider;
-        _logger = logger;
+        // Если это snapshot - инициализируем кошельки из данных трейдов
+        if (newTrades.IsSnapshot)
+        {
+            await CreateSnapshotByTradesSnapshot(newTrades);
+            return;
+        }
 
-        DataBusEvents.NewTrades += OnNewTrades;
+        // Обрабатываем обычные трейды
+        foreach (var trade in newTrades.Trades)
+        {
+            // Пропускаем не-фьючерсные трейды
+            if (!trade.IsFuture)
+            {
+                continue;
+            }
+
+            try
+            {
+                await AddTrade(trade);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"CurrentWalletPositionService OnNewTrades ошибка обработки трейда {trade.TradeId}: {ex.Message}");
+            }
+        }
     }
 
     /// <summary>
@@ -191,35 +209,6 @@ public class CurrentWalletPositionService
     }
 
     #region Private Event Handlers
-
-    private async void OnNewTrades((OriginalTrade[] Trades, bool IsSnapshot) newTrades)
-    {
-        // Если это snapshot - инициализируем кошельки из данных трейдов
-        if (newTrades.IsSnapshot)
-        {
-            await CreateSnapshotByTradesSnapshot(newTrades);
-            return;
-        }
-
-        // Обрабатываем обычные трейды
-        foreach (var trade in newTrades.Trades)
-        {
-            // Пропускаем не-фьючерсные трейды
-            if (!trade.IsFuture)
-            {
-                continue;
-            }
-
-            try
-            {
-                await AddTrade(trade);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"CurrentWalletPositionService OnNewTrades ошибка обработки трейда {trade.TradeId}: {ex.Message}");
-            }
-        }
-    }
 
     private async Task CreateSnapshotByTradesSnapshot((OriginalTrade[] Trades, bool IsSnapshot) newTrades)
     {

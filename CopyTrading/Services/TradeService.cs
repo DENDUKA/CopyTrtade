@@ -1,4 +1,5 @@
-﻿using CopyTrading.DataEvents;
+﻿using CopyTrading.BlazorUI.Services;
+using CopyTrading.DataEvents;
 using CopyTrading.Models.Models.Enums;
 using CopyTrading.Models.Models.Trade;
 using CopyTrading.Models.Values;
@@ -18,6 +19,8 @@ public class TradeService
     private readonly TradeRepositoryInflux _tradeRepositoryInflux;
     private readonly TradeRepositoreySQL _tradeRepositorySQL;
     private readonly FillsOrderService _fillsOrderService;
+    private readonly CurrentWalletPositionService _currentWalletPositionService;
+    private readonly RealtimeUpdateService _realtimeUpdateService;
     private readonly ILogger<TradeService> _logger;
 
     public TradeService(
@@ -27,6 +30,8 @@ public class TradeService
         TradeRepositoryInflux tradeRepositoryInflux,
         TradeRepositoreySQL tradeRepositorySQL,
         FillsOrderService fillsOrderService,
+        CurrentWalletPositionService currentWalletPositionService,
+        RealtimeUpdateService realtimeUpdateService,
         ILogger<TradeService> logger)
     {
         _orderProvider = orderProvider;
@@ -35,6 +40,8 @@ public class TradeService
         _tradeRepositoryInflux = tradeRepositoryInflux;
         _tradeRepositorySQL = tradeRepositorySQL;
         _fillsOrderService = fillsOrderService;
+        _currentWalletPositionService = currentWalletPositionService;
+        _realtimeUpdateService = realtimeUpdateService;
         _logger = logger;
 
         DataBusEvents.NewTrades += OnNewTrades;
@@ -78,7 +85,13 @@ public class TradeService
             _logger.LogInformation($"Новый trade : {trade.ToString()}");
         }
 
+
+        await _realtimeUpdateService.OnNewTrades(newTrades);
         _fillsOrderService.OnNewTrades(newTrades);
+        await _currentWalletPositionService.OnNewTrades(newTrades);
+
+
+
     }
 
 
