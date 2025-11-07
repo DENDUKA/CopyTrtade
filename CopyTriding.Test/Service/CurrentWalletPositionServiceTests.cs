@@ -188,7 +188,7 @@ public class CurrentWalletPositionServiceTests
             Positions = new List<Position>()
         };
 
-        var order = new CopyTrading.Models.Models.Orders.OriginalOrder
+        var order = new OriginalOrder
         {
             Wallet = wallet,
             Symbol = "ETH",
@@ -234,7 +234,7 @@ public class CurrentWalletPositionServiceTests
             }
         };
 
-        var order = new CopyTrading.Models.Models.Orders.OriginalOrder
+        var order = new OriginalOrder
         {
             Wallet = wallet,
             Symbol = "SOL",

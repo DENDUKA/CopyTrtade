@@ -88,13 +88,32 @@ public class CopyOrderService
                 case OrderStatus.Triggered:
                     // Triggered ордер уже размещен на бирже, ждем когда станет Open или Filled
                     _logger.LogInformation($"CopyOrderService: Ордер {order.OrderId} триггернулся, ждем исполнения");
+                    // Для Triggered не записываем результат, так как это промежуточный статус
                     break;
 
                 case OrderStatus.Unknown:
+                    {
+                        var errorMsg = "Неизвестный статус ордера (Unknown)";
+                        _logger.LogWarning($"CopyOrderService OnNewOrder: OrderId={order.OrderId} {errorMsg}");
+                        SaveFailureResult(order, errorMsg);
+                        break;
+                    }
+
                 case OrderStatus.MarginCanceled:
+                    {
+                        var errorMsg = "Ордер отменен по марже (MarginCanceled)";
+                        _logger.LogWarning($"CopyOrderService OnNewOrder: OrderId={order.OrderId} {errorMsg}");
+                        SaveFailureResult(order, errorMsg);
+                        break;
+                    }
+
                 default:
-                    _logger.LogWarning($"CopyOrderService OnNewOrder: Необработанный статус {order.Status} для ордера {order.OrderId}");
-                    break;
+                    {
+                        var errorMsg = $"Необработанный статус ордера: {order.Status}";
+                        _logger.LogWarning($"CopyOrderService OnNewOrder: OrderId={order.OrderId} {errorMsg}");
+                        SaveFailureResult(order, errorMsg);
+                        break;
+                    }
             }
         }
         catch (Exception ex)
@@ -142,12 +161,20 @@ public class CopyOrderService
                 break;
 
             case OrderSubType.None:
-                _logger.LogError($"CopyOrderService HandleOpenOrder: OrderSubType.None для ордера {order.OrderId} - CopyOrder НЕ БУДЕТ СОЗДАН!");
-                break;
+                {
+                    var errorMsg = "OrderSubType.None - невозможно определить тип ордера";
+                    _logger.LogError($"CopyOrderService HandleOpenOrder: OrderId={order.OrderId} {errorMsg} - CopyOrder НЕ БУДЕТ СОЗДАН!");
+                    SaveFailureResult(order, errorMsg);
+                    break;
+                }
 
             default:
-                _logger.LogError($"CopyOrderService HandleOpenOrder: Неизвестный OrderSubType {orderSubType} для ордера {order.OrderId} - CopyOrder НЕ БУДЕТ СОЗДАН!");
-                break;
+                {
+                    var errorMsg = $"Неизвестный OrderSubType {orderSubType}";
+                    _logger.LogError($"CopyOrderService HandleOpenOrder: OrderId={order.OrderId} {errorMsg} - CopyOrder НЕ БУДЕТ СОЗДАН!");
+                    SaveFailureResult(order, errorMsg);
+                    break;
+                }
         }
 
         _logger.LogInformation($"HandleOpenOrder END: {order.Symbol} {order.Direction}, OrderId={order.OrderId}");
@@ -159,6 +186,16 @@ public class CopyOrderService
     private async Task HandleFilledOrder(OriginalOrder order)
     {
         _logger.LogInformation($"HandleFilledOrder: {order.Symbol} {order.Direction}, OrderId={order.OrderId}");
+
+        // Проверяем был ли ордер скопирован
+        var existingResult = _resultService.GetResult(order.OrderId.ToString());
+        if (existingResult == null)
+        {
+            var errorMsg = "Ордер не был скопирован - отсутствует открывающий ордер";
+            _logger.LogWarning($"HandleFilledOrder: OrderId={order.OrderId} {errorMsg}");
+            SaveFailureResult(order, errorMsg);
+            return;
+        }
 
         DataBusEvents.CopyOrderFilled?.Invoke((order, OrderStatus.Filled));
 
@@ -176,6 +213,16 @@ public class CopyOrderService
     {
         _logger.LogInformation($"HandleCanceledOrder: {order.Symbol} {order.Direction}, OrderId={order.OrderId}");
 
+        // Проверяем был ли ордер скопирован
+        var existingResult = _resultService.GetResult(order.OrderId.ToString());
+        if (existingResult == null)
+        {
+            var errorMsg = "Ордер не был скопирован - отсутствует открывающий ордер";
+            _logger.LogWarning($"HandleCanceledOrder: OrderId={order.OrderId} {errorMsg}");
+            SaveFailureResult(order, errorMsg);
+            return;
+        }
+
         // Публикуем событие закрытия копируемого ордера
         DataBusEvents.CopyOrderClosed?.Invoke((order, OrderStatus.Canceled));
 
@@ -189,6 +236,16 @@ public class CopyOrderService
     private async Task HandleRejectedOrder(OriginalOrder order)
     {
         _logger.LogInformation($"HandleRejectedOrder: {order.Symbol} {order.Direction}, OrderId={order.OrderId}");
+
+        // Проверяем был ли ордер скопирован
+        var existingResult = _resultService.GetResult(order.OrderId.ToString());
+        if (existingResult == null)
+        {
+            var errorMsg = "Ордер не был скопирован - отсутствует открывающий ордер";
+            _logger.LogWarning($"HandleRejectedOrder: OrderId={order.OrderId} {errorMsg}");
+            SaveFailureResult(order, errorMsg);
+            return;
+        }
 
         // Публикуем событие закрытия копируемого ордера
         DataBusEvents.CopyOrderClosed?.Invoke((order, OrderStatus.Rejected));
@@ -418,7 +475,7 @@ public class CopyOrderService
     /// <summary>
     /// Расчет количества для закрытия позиции
     /// </summary>
-    private decimal CalculateDecreaseQuantity(OriginalOrder order, Models.Models.PositionMapping mapping, decimal actualTraderQuantity)
+    private decimal CalculateDecreaseQuantity(OriginalOrder order, PositionMapping mapping, decimal actualTraderQuantity)
     {
         _logger.LogInformation($"DecreasePosition: OrderId={order.OrderId} Базовая линия: {mapping.TraderQuantityAtEntry}");
 
@@ -441,7 +498,7 @@ public class CopyOrderService
     /// <summary>
     /// Обновить или удалить маппинг после decrease
     /// </summary>
-    private void UpdateOrDeleteMappingAfterDecrease(OriginalOrder order, Models.Models.PositionMapping mapping, decimal myCloseQuantity)
+    private void UpdateOrDeleteMappingAfterDecrease(OriginalOrder order, PositionMapping mapping, decimal myCloseQuantity)
     {
         // Проверяем: закрыли всю позицию или частично?
         if (myCloseQuantity >= mapping.MyQuantity)
@@ -742,7 +799,7 @@ public class CopyOrderService
     private void SaveCopyOrderMapping(OriginalOrder order, CopyOrderV2 copyOrder)
     {
         // Сохраняем маппинг между позициями
-        var mapping = new Models.Models.PositionMapping
+        var mapping = new PositionMapping
         {
             TraderWallet = order.Wallet,
             MyWallet = _myWallet,

@@ -9,17 +9,11 @@ namespace CopyTrading.Services;
 /// Сервис для управления маппингами между позициями трейдера и копируемыми позициями
 /// Хранит данные в памяти (in-memory)
 /// </summary>
-public class PositionMappingService
+public class PositionMappingService(ILogger<PositionMappingService> _logger)
 {
     private readonly ConcurrentDictionary<string, PositionMapping> _mappings = new();
-    private readonly ILogger<PositionMappingService> _logger;
 
     public int GetMappingsCount => _mappings.Count;
-
-    public PositionMappingService(ILogger<PositionMappingService> logger)
-    {
-        _logger = logger;
-    }
 
     /// <summary>
     /// Получить маппинг по параметрам
