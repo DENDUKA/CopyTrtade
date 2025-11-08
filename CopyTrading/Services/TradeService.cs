@@ -86,12 +86,9 @@ public class TradeService
         }
 
 
-        await _realtimeUpdateService.OnNewTrades(newTrades);
+        _realtimeUpdateService.OnNewTrades(newTrades);
         _fillsOrderService.OnNewTrades(newTrades);
         await _currentWalletPositionService.OnNewTrades(newTrades);
-
-
-
     }
 
 

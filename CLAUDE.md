@@ -53,8 +53,20 @@ dotnet clean CopyTrading.sln
 
 #### Ключевые сервисы (Singleton жизненный цикл)
 
+**TradeService** (`CopyTrading/Services/TradeService.cs`)
+- **Центральный медиатор** для распределения событий `NewTrades`
+- Подписывается на событие `DataBusEvents.NewTrades` в конструкторе
+- **НЕ** публикует события напрямую - вместо этого вызывает методы других сервисов:
+  - `_fillsOrderService.OnNewTrades(newTrades)` - передает трейды для корреляции с ордерами
+  - `_currentWalletPositionService.OnNewTrades(newTrades)` - обновляет снапшоты позиций
+  - `_realtimeUpdateService.OnNewTrades(newTrades)` - отправляет в UI через SignalR
+- Сохраняет трейды в репозитории (InfluxDB и SQLite)
+- **ВАЖНО:** `FillsOrderService` и `CurrentWalletPositionService` НЕ подписаны напрямую на `DataBusEvents.NewTrades`, они получают данные через методы `OnNewTrades`, которые вызывает `TradeService`
+- Активируется в `Startup.Configure` через `serviceProvider.GetService<TradeService>()`
+
 **FillsOrderService** (`CopyTrading/Services/FillsOrderService.cs`)
-- Подписывается на события `NewTrades` и `NewOrders`
+- Получает трейды через метод `OnNewTrades`, который вызывает `TradeService` (НЕ подписан напрямую на `DataBusEvents.NewTrades`)
+- Подписывается на событие `NewOrders` через `DataBusEvents`
 - Отслеживает исполнение ордеров путем сопоставления ордеров с их сделками
 - Поддерживает concurrent словари для корреляции сделок с ордерами
 - Обрабатывает pending сделки, которые приходят раньше своих ордеров
@@ -70,7 +82,12 @@ dotnet clean CopyTrading.sln
 - Сейчас настроен с `MyWallet` из `WalletSettings` (захардкожено, отмечено как TODO)
 - Активируется в `Startup.Configure` через `serviceProvider.GetService<CopyOrderService>()`
 
-**OrderService, TradeService, CandleService, InformationService, CurrentWalletPositionService**
+**CurrentWalletPositionService** (`CopyTrading/Services/CurrentWalletPositionService.cs`)
+- Получает трейды через метод `OnNewTrades`, который вызывает `TradeService` (НЕ подписан напрямую на `DataBusEvents.NewTrades`)
+- Поддерживает снапшоты позиций кошельков в реальном времени
+- Используется для умной синхронизации при копировании ордеров
+
+**OrderService, CandleService**
 - Различные сервисы бизнес-логики для обработки специфичных доменных операций
 
 #### Интеграция с HyperLiquid
@@ -156,6 +173,16 @@ Swagger UI доступен в режиме разработки по адрес
 1. Подписывайтесь на события в конструкторах сервисов
 2. Обеспечьте потокобезопасность для конкурентных обработчиков событий
 3. Помните, что события срабатывают синхронно в потоке подписчика
+
+**Важная особенность архитектуры:**
+- `DataBusEvents.NewTrades` → **только TradeService подписан** → TradeService вызывает методы `OnNewTrades()` у FillsOrderService и CurrentWalletPositionService
+- `DataBusEvents.NewOrders` → подписаны напрямую: CopyOrderService, FillsOrderService
+- `DataBusEvents.OrderFinished` → генерируется FillsOrderService
+
+Это сделано для централизации логики обработки трейдов (сохранение в БД, рассылка в UI) в одном месте - TradeService.
+
+**При написании тестов:**
+Необходимо создавать экземпляр `TradeService` в setup методах тестов, даже если он не используется напрямую. TradeService при создании автоматически подписывается на `DataBusEvents.NewTrades` и транслирует их в `FillsOrderService` и `CurrentWalletPositionService` через вызов их методов `OnNewTrades()`. Без TradeService эти сервисы не получат трейды.
 
 ### Управление WebSocket подписками
 
