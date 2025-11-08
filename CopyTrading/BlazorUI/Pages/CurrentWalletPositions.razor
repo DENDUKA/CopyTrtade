@@ -9,7 +9,7 @@
 
 @if (selectedWallet == null)
 {
-    <!-- Список всех кошельков -->
+    <!-- Список всех кошельков с их позициями -->
     <div class="wallets-list">
         @if (wallets == null || !wallets.Any())
         {
@@ -19,21 +19,97 @@
         }
         else
         {
-            <div class="row">
-                @foreach (var wallet in wallets)
-                {
-                    <div class="col-md-6 mb-3">
-                        <div class="card wallet-card" @onclick="() => SelectWallet(wallet)" style="cursor: pointer;">
-                            <div class="card-body">
-                                <h5 class="card-title">@wallet.Value</h5>
-                                <p class="card-text">
-                                    <small class="text-muted">Открытых позиций: @GetPositionCount(wallet)</small>
-                                </p>
-                            </div>
-                        </div>
+            @foreach (var wallet in wallets)
+            {
+                var snapshot = GetSnapshot(wallet);
+                <div class="card mb-4">
+                    <div class="card-header" style="cursor: pointer;" @onclick="() => SelectWallet(wallet)">
+                        <h5 class="mb-0">
+                            <a href="https://app.dextrabot.com/wallet-details/@wallet.Value"
+                               target="_blank"
+                               rel="noopener noreferrer"
+                               class="wallet-link"
+                               @onclick:stopPropagation="true">
+                                @wallet.Value
+                            </a>
+                            <span class="badge bg-secondary ms-2">@GetPositionCount(wallet) позиций</span>
+                        </h5>
                     </div>
-                }
-            </div>
+                    <div class="card-body">
+                        @if (snapshot == null)
+                        {
+                            <p class="text-muted">Загрузка...</p>
+                        }
+                        else if (!snapshot.Positions.Any())
+                        {
+                            <div class="alert alert-info mb-0">
+                                <p class="mb-0">Нет открытых позиций</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Symbol</th>
+                                            <th>Direction</th>
+                                            <th>Quantity</th>
+                                            <th>Entry Price</th>
+                                            <th>Volume USD</th>
+                                            <th>Leverage</th>
+                                            <th>Margin Usage</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var position in GetSortedPositions(snapshot.Positions))
+                                        {
+                                            <tr>
+                                                <td><strong>@position.Symbol</strong></td>
+                                                <td>
+                                                    <span class="badge @(position.Direction == Direction.Long ? "bg-success" : "bg-danger")">
+                                                        @position.Direction
+                                                    </span>
+                                                </td>
+                                                <td>@position.Quantity.ToString("F4")</td>
+                                                <td>$@position.AverageEntryPrice.ToString("F2")</td>
+                                                <td>$@position.VolumeUsd.ToString("F2")</td>
+                                                <td>@position.Leverage x</td>
+                                                <td>$@position.MarginUsage.ToString("F2")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="mt-3">
+                                <div class="row">
+                                    <div class="col-auto">
+                                        <small class="text-muted">
+                                            Long: <span class="badge bg-success">@snapshot.Positions.Count(p => p.Direction == Direction.Long)</span>
+                                        </small>
+                                    </div>
+                                    <div class="col-auto">
+                                        <small class="text-muted">
+                                            Short: <span class="badge bg-danger">@snapshot.Positions.Count(p => p.Direction == Direction.Short)</span>
+                                        </small>
+                                    </div>
+                                    <div class="col-auto">
+                                        <small class="text-muted">
+                                            Total Volume: <strong>${@snapshot.Positions.Sum(p => p.VolumeUsd).ToString("F2")}</strong>
+                                        </small>
+                                    </div>
+                                    <div class="col-auto">
+                                        <small class="text-muted">
+                                            Total Margin: <strong>${@snapshot.Positions.Sum(p => p.MarginUsage).ToString("F2")}</strong>
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
         }
     </div>
 }
@@ -85,7 +161,7 @@ else
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var position in selectedSnapshot.Positions)
+                            @foreach (var position in GetSortedPositions(selectedSnapshot.Positions))
                             {
                                 <tr>
                                     <td><strong>@position.Symbol</strong></td>
@@ -94,11 +170,11 @@ else
                                             @position.Direction
                                         </span>
                                     </td>
-                                    <td>@position.Quantity.ToString()</td>
-                                    <td>$@position.AverageEntryPrice.ToString()</td>
-                                    <td>$@position.VolumeUsd.ToString()</td>
+                                    <td>@position.Quantity.ToString("F4")</td>
+                                    <td>$@position.AverageEntryPrice.ToString("F2")</td>
+                                    <td>$@position.VolumeUsd.ToString("F2")</td>
                                     <td>@position.Leverage x</td>
-                                    <td>$@position.MarginUsage.ToString()</td>
+                                    <td>$@position.MarginUsage.ToString("F2")</td>
                                 </tr>
                             }
                         </tbody>
@@ -143,10 +219,12 @@ else
     private List<Wallet> wallets = new();
     private Wallet? selectedWallet;
     private WalletPositionsSnapshot? selectedSnapshot;
+    private Dictionary<Wallet, WalletPositionsSnapshot?> snapshotsCache = new();
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         LoadWallets();
+        await LoadAllSnapshots();
     }
 
     private void LoadWallets()
@@ -154,10 +232,33 @@ else
         wallets = CurrentWalletPositionService.GetAllWallets().ToList();
     }
 
+    private async Task LoadAllSnapshots()
+    {
+        foreach (var wallet in wallets)
+        {
+            var snapshot = await CurrentWalletPositionService.GetSnapshot(wallet);
+            snapshotsCache[wallet] = snapshot;
+        }
+        StateHasChanged();
+    }
+
+    private WalletPositionsSnapshot? GetSnapshot(Wallet wallet)
+    {
+        return snapshotsCache.TryGetValue(wallet, out var snapshot) ? snapshot : null;
+    }
+
     private int GetPositionCount(Wallet wallet)
     {
-        var snapshot = CurrentWalletPositionService.GetSnapshot(wallet).Result;
+        var snapshot = GetSnapshot(wallet);
         return snapshot?.Positions?.Count ?? 0;
+    }
+
+    private IEnumerable<Position> GetSortedPositions(IEnumerable<Position> positions)
+    {
+        return positions
+            .OrderBy(p => p.Symbol)                    // Сначала по Symbol (алфавитный порядок)
+            .ThenBy(p => p.Direction)                  // Затем по Direction (Long перед Short)
+            .ThenBy(p => p.AverageEntryPrice);         // Затем по Entry Price (по возрастанию)
     }
 
     private async Task SelectWallet(Wallet wallet)
@@ -186,19 +287,42 @@ else
         box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     }
 
+    .card-header {
+        background-color: #f8f9fa;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    .card-header:hover {
+        background-color: #e9ecef;
+    }
+
     .table-responsive {
-        max-height: 600px;
+        max-height: 400px;
         overflow-y: auto;
+    }
+
+    .table-sm {
+        font-size: 0.9rem;
     }
 
     .wallet-link {
         color: #0d6efd;
         text-decoration: none;
         transition: color 0.2s;
+        font-family: monospace;
     }
 
     .wallet-link:hover {
         color: #0a58ca;
         text-decoration: underline;
+    }
+
+    .wallets-list .card {
+        border: 1px solid #dee2e6;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .wallets-list .card:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
     }
 </style>
