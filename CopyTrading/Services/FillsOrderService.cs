@@ -16,6 +16,10 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger)
 
     private readonly OrderStatus[] _orderFinalStatuses = [OrderStatus.Canceled, OrderStatus.Filled, OrderStatus.Rejected];
 
+    // Константы для управления размером кэша
+    private const int MaxOrdersThreshold = 2000;  // Порог для начала очистки
+    private const int TargetOrdersCount = 500;    // Целевое количество после очистки
+
     public OrderFills[] GetAllOrderFills()
     {
         return [.. _orders.Values];
@@ -60,6 +64,9 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger)
 
             OnOrderFinished(newOrder);
         }
+
+        // Проверяем необходимость очистки после обработки ордеров
+        CleanupOldCompletedOrdersIfNeeded();
     }
 
     public void OnNewTrades((OriginalTrade[] Trades, bool IsSnapshot) trades)
@@ -277,6 +284,53 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger)
         {
             changes += $"{propertyName}: {oldValue} -> {newValue};\n";
         }
+    }
+
+    #endregion
+
+    #region Memory Management
+
+    /// <summary>
+    /// Проверяет необходимость очистки старых завершенных ордеров и выполняет её при необходимости
+    /// </summary>
+    private void CleanupOldCompletedOrdersIfNeeded()
+    {
+        // Проверяем, превышен ли порог
+        if (_orders.Count <= MaxOrdersThreshold)
+        {
+            return;
+        }
+
+        _logger.LogInformation($"Начинаем очистку старых ордеров. Текущее количество: {_orders.Count}");
+
+        // Получаем все завершенные ордера, отсортированные по времени (от старых к новым)
+        var completedOrders = _orders.Values
+            .Where(orderFills => IsFinalStatus(orderFills.OriginalOrder.Status))
+            .OrderBy(orderFills => orderFills.OriginalOrder.Time)
+            .ToList();
+
+        _logger.LogInformation($"Найдено {completedOrders.Count} завершенных ордеров");
+
+        // Вычисляем сколько нужно удалить
+        int ordersToRemove = _orders.Count - TargetOrdersCount;
+        int removedCount = 0;
+
+        // Удаляем старые завершенные ордера
+        foreach (var orderFills in completedOrders)
+        {
+            if (removedCount >= ordersToRemove)
+            {
+                break;
+            }
+
+            if (_orders.TryRemove(orderFills.OriginalOrder.OrderId, out _))
+            {
+                removedCount++;
+                _logger.LogDebug($"Удален завершенный ордер {orderFills.OriginalOrder.OrderId} (время: {orderFills.OriginalOrder.Time})");
+            }
+        }
+
+        _logger.LogInformation($"Очистка завершена. Удалено: {removedCount} ордеров. Осталось: {_orders.Count}");
     }
 
     #endregion

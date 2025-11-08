@@ -1,0 +1,160 @@
+using CopyTrading.Models.Models.Enums;
+using CopyTrading.Models.Models.Enums.Order;
+using CopyTrading.Models.Models.Orders;
+using CopyTrading.Models.Values;
+using CopyTrading.Services;
+using FluentAssertions;
+using Microsoft.Extensions.Logging;
+using Moq;
+using System.Reflection;
+using Xunit;
+
+namespace CopyTrading.Test.Service;
+
+public class FillsOrderServiceCleanupTests
+{
+    private readonly Mock<ILogger<FillsOrderService>> _loggerMock;
+    private readonly FillsOrderService _service;
+
+    public FillsOrderServiceCleanupTests()
+    {
+        _loggerMock = new Mock<ILogger<FillsOrderService>>();
+        _service = new FillsOrderService(_loggerMock.Object);
+    }
+
+    [Fact]
+    public void CleanupShouldNotRunWhenOrdersCountBelowThreshold()
+    {
+        // Arrange - добавляем 100 завершенных ордеров (меньше 2000)
+        for (int i = 0; i < 100; i++)
+        {
+            var order = CreateOrder(i, OrderStatus.Filled, DateTime.Now.AddMinutes(-i));
+            _service.OnNewOrders([order]);
+        }
+
+        var ordersCountBefore = _service.GetAllOrderFills().Length;
+
+        // Act - вызываем OnNewOrders для триггера очистки
+        var newOrder = CreateOrder(9999, OrderStatus.Open, DateTime.Now);
+        _service.OnNewOrders([newOrder]);
+
+        // Assert - количество не должно измениться (кроме одного добавленного)
+        var ordersCountAfter = _service.GetAllOrderFills().Length;
+        ordersCountAfter.Should().Be(ordersCountBefore + 1);
+    }
+
+    [Fact]
+    public void CleanupShouldRemoveOldCompletedOrdersWhenThresholdExceeded()
+    {
+        // Arrange - добавляем 2100 завершенных ордеров (больше 2000)
+        for (int i = 0; i < 2100; i++)
+        {
+            var status = i % 2 == 0 ? OrderStatus.Filled : OrderStatus.Canceled;
+            var order = CreateOrder(i, status, DateTime.Now.AddMinutes(-i));
+
+            // Напрямую вызываем обработку без триггера очистки
+            var orders = new[] { order };
+            foreach (var o in orders)
+            {
+                var orderFills = new OrderFills(o);
+                GetOrdersDict().TryAdd(o.OrderId, orderFills);
+            }
+        }
+
+        GetOrdersDict().Count.Should().Be(2100);
+
+        // Act - добавляем новый ордер, который должен запустить очистку
+        var newOrder = CreateOrder(10000, OrderStatus.Open, DateTime.Now);
+        _service.OnNewOrders([newOrder]);
+
+        // Assert - количество должно быть около 500 (целевое значение после очистки)
+        var ordersCount = _service.GetAllOrderFills().Length;
+        ordersCount.Should().BeLessThanOrEqualTo(501); // 500 + 1 новый открытый ордер
+    }
+
+    [Fact]
+    public void CleanupShouldRemoveOldestOrdersFirst()
+    {
+        // Arrange - добавляем 2100 завершенных ордеров с разным временем
+        var oldestOrderId = 100L;
+        var newestOrderId = 2000L;
+
+        for (int i = 0; i < 2100; i++)
+        {
+            var order = CreateOrder(i, OrderStatus.Filled, DateTime.Now.AddMinutes(-2100 + i));
+
+            // Напрямую добавляем в словарь
+            var orderFills = new OrderFills(order);
+            GetOrdersDict().TryAdd(order.OrderId, orderFills);
+        }
+
+        // Act - триггерим очистку
+        var newOrder = CreateOrder(10000, OrderStatus.Open, DateTime.Now);
+        _service.OnNewOrders([newOrder]);
+
+        // Assert - самые старые ордера должны быть удалены
+        _service.GetOrderFillsByOrderId(oldestOrderId).Should().BeNull();
+
+        // Самые новые ордера должны остаться
+        _service.GetOrderFillsByOrderId(newestOrderId).Should().NotBeNull();
+    }
+
+    [Fact]
+    public void CleanupShouldNotRemoveOpenOrders()
+    {
+        // Arrange - добавляем 1500 завершенных и 600 открытых ордеров
+        for (int i = 0; i < 1500; i++)
+        {
+            var order = CreateOrder(i, OrderStatus.Filled, DateTime.Now.AddMinutes(-i));
+            var orderFills = new OrderFills(order);
+            GetOrdersDict().TryAdd(order.OrderId, orderFills);
+        }
+
+        for (int i = 1500; i < 2100; i++)
+        {
+            var order = CreateOrder(i, OrderStatus.Open, DateTime.Now.AddMinutes(-i));
+            var orderFills = new OrderFills(order);
+            GetOrdersDict().TryAdd(order.OrderId, orderFills);
+        }
+
+        var openOrdersBefore = _service.GetAllOrderFills()
+            .Count(o => o.OriginalOrder.Status == OrderStatus.Open);
+
+        openOrdersBefore.Should().Be(600);
+
+        // Act - триггерим очистку
+        var newOrder = CreateOrder(10000, OrderStatus.Open, DateTime.Now);
+        _service.OnNewOrders([newOrder]);
+
+        // Assert - открытые ордера не должны быть удалены
+        var openOrdersAfter = _service.GetAllOrderFills()
+            .Count(o => o.OriginalOrder.Status == OrderStatus.Open);
+
+        openOrdersAfter.Should().Be(601); // 600 + 1 новый
+    }
+
+    // Вспомогательный метод для создания тестового ордера
+    private OriginalOrder CreateOrder(long orderId, OrderStatus status, DateTime time)
+    {
+        return new OriginalOrder
+        {
+            OrderId = orderId,
+            Wallet = new Wallet("0x1234567890123456789012345678901234567890"),
+            Symbol = "BTCUSDT",
+            Price = 50000,
+            Quantity = 0.1m,
+            Leverage = 10,
+            SubType = OrderSubType.Open,
+            Direction = Direction.Long,
+            Time = time,
+            Status = status
+        };
+    }
+
+    // Используем рефлексию для доступа к приватному полю _orders
+    private System.Collections.Concurrent.ConcurrentDictionary<long, OrderFills> GetOrdersDict()
+    {
+        var field = typeof(FillsOrderService).GetField("_orders", BindingFlags.NonPublic | BindingFlags.Instance);
+        return (System.Collections.Concurrent.ConcurrentDictionary<long, OrderFills>)field!.GetValue(_service)!;
+    }
+}

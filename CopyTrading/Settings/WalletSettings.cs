@@ -22,7 +22,7 @@ public static class WalletSettings
 
         new Wallet("0x1e37a337ed460039d1b15bd3bc489de789768d5e"),
         new Wallet("0xc2d4ff17906940004b25884779c74aecda24fb83"),
-        new Wallet("0xdb6995164092fc54a0c33fdf032450d1f6f558a6"),
+
         new Wallet("0xa844d7ac9fa3424c4fd38a25baa23e460ec3e802"),
         new Wallet("0xff9152cce6fbd30988b1aef70df6f086c99e2c55"),
         new Wallet("0xbb088e9852e18b1df8890d8d0f48bdcec0ab0964"),
@@ -31,6 +31,10 @@ public static class WalletSettings
         new Wallet("0x685feceec46dd4e5c9b5b726f5d7550fd0eda526"),
         new Wallet("0x33c3b8bcd758f511b350374a63e1f880f40e0282"),
         new Wallet("0xb5418352d0a149c36964d56ae6ece340cacb842b"),
+
+
+       //использую для тестов (сеточник)
+       //new Wallet("0xdb6995164092fc54a0c33fdf032450d1f6f558a6"),
 
 
 
