@@ -41,6 +41,7 @@ public class CopyOrderServiceIntegrationTests
     private readonly Mock<ILogger<PositionMappingService>> _mappingLogger;
     private readonly Mock<ILogger<CurrentWalletPositionService>> _positionLogger;
     private readonly Mock<ILogger<TradeService>> _tradeServiceLogger;
+    private readonly Mock<ILogger<OrderService>> _orderServiceLogger;
 
     // Mocks для TradeService
     private readonly Mock<FillsOrderService> _fillsOrderServiceMock;
@@ -49,6 +50,10 @@ public class CopyOrderServiceIntegrationTests
     private readonly Mock<TradeRepositoryInflux> _tradeRepositoryInfluxMock;
     private readonly Mock<TradeRepositoreySQL> _tradeRepositorySQLMock;
     private readonly Mock<RealtimeUpdateService> _realtimeUpdateServiceMock;
+
+    // Mocks для OrderService
+    private readonly Mock<CopyTrading.Repository.Influx.OrderRepository> _orderRepositoryInfluxMock;
+    private readonly Mock<CopyTrading.Repository.SQLite.OrderRepository> _orderRepositorySQLiteMock;
 
     private readonly Wallet _traderWallet = new("0x7bde2b9240a2ee352108c6823a9fa20f225b83a0");
     private readonly Wallet _myWallet = new("0x1234567890abcdef1234567890abcdef12345678");
@@ -65,6 +70,7 @@ public class CopyOrderServiceIntegrationTests
         _mappingLogger = new Mock<ILogger<PositionMappingService>>();
         _positionLogger = new Mock<ILogger<CurrentWalletPositionService>>();
         _tradeServiceLogger = new Mock<ILogger<TradeService>>();
+        _orderServiceLogger = new Mock<ILogger<OrderService>>();
 
         // Инициализация моков для TradeService
         _fillsOrderServiceMock = new Mock<FillsOrderService>(Mock.Of<ILogger<FillsOrderService>>());
@@ -75,6 +81,10 @@ public class CopyOrderServiceIntegrationTests
         _realtimeUpdateServiceMock = new Mock<RealtimeUpdateService>(MockBehavior.Loose,
             Mock.Of<Microsoft.AspNetCore.SignalR.IHubContext<CopyTrading.BlazorUI.Hubs.CopyTradingHub>>(),
             Mock.Of<ILogger<RealtimeUpdateService>>());
+
+        // Инициализация моков для OrderService
+        _orderRepositoryInfluxMock = new Mock<CopyTrading.Repository.Influx.OrderRepository>(MockBehavior.Loose, Mock.Of<ILogger<CopyTrading.Repository.Influx.OrderRepository>>());
+        _orderRepositorySQLiteMock = new Mock<CopyTrading.Repository.SQLite.OrderRepository>(MockBehavior.Loose, Mock.Of<ILogger<CopyTrading.Repository.SQLite.OrderRepository>>());
 
         // Создаем реальные сервисы для проверки
         _copyOrderResultService = new CopyOrderResultService(_resultLogger.Object);
@@ -1386,7 +1396,8 @@ public class CopyOrderServiceIntegrationTests
             _realtimeUpdateServiceMock.Object,
             _tradeServiceLogger.Object);
 
-        return new IntegrationTestableCopyOrderService(
+        // Создаем CopyOrderService
+        var copyOrderService = new IntegrationTestableCopyOrderService(
             _walletInfoProvider.Object,
             _exchangeInfoProvider.Object,
             _currentWalletPositionService,
@@ -1395,6 +1406,22 @@ public class CopyOrderServiceIntegrationTests
             _fillsOrderServiceMock.Object,
             _logger.Object,
             _myWallet);
+
+        // Создаем OrderService, который подписывается на DataBusEvents.NewOrders
+        var orderService = new OrderService(
+            _orderProviderMock.Object,
+            _walletInfoProvider.Object,
+            _orderRepositoryInfluxMock.Object,
+            _exchangeInfoProvider.Object,
+            _orderRepositorySQLiteMock.Object,
+            _tradeRepositorySQLMock.Object,
+            _currentWalletPositionService,
+            _fillsOrderServiceMock.Object,
+            copyOrderService,
+            _realtimeUpdateServiceMock.Object,
+            _orderServiceLogger.Object);
+
+        return copyOrderService;
     }
 
     private void ResetServices()

@@ -21,6 +21,8 @@ public class OrderService
     private readonly TradeRepositorySQL _tradeRepositorySQL;
     private readonly CurrentWalletPositionService _currentWalletPositionService;
     private readonly FillsOrderService _fillsOrderService;
+    private readonly CopyOrderService _copyOrderService;
+    private readonly BlazorUI.Services.RealtimeUpdateService _realtimeUpdateService;
     private readonly ILogger<OrderService> _logger;
 
     public OrderService(
@@ -32,6 +34,8 @@ public class OrderService
         TradeRepositorySQL tradeRepositorySQL,
         CurrentWalletPositionService currentWalletPositionService,
         FillsOrderService fillsOrderService,
+        CopyOrderService copyOrderService,
+        BlazorUI.Services.RealtimeUpdateService realtimeUpdateService,
         ILogger<OrderService> logger)
     {
         _orderProvider = orderProvider;
@@ -42,6 +46,8 @@ public class OrderService
         _currentWalletPositionService = currentWalletPositionService;
         _tradeRepositorySQL = tradeRepositorySQL;
         _fillsOrderService = fillsOrderService;
+        _copyOrderService = copyOrderService;
+        _realtimeUpdateService = realtimeUpdateService;
         _logger = logger;
 
         DataBusEvents.NewOrders += OnNewOrders;
@@ -81,7 +87,10 @@ public class OrderService
             _tradeRepositorySQL.WriteMinPeForOrder(minPeForOrder);
         }
 
+        _realtimeUpdateService.OnNewOrders(orders);
+
         _fillsOrderService.OnNewOrders(orders);
+        await _copyOrderService.OnNewOrders(orders);
     }
 
     public async Task<MinPEForOrder> CalculateMinPerpEquityForOrder(OriginalOrder order)

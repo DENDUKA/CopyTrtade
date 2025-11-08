@@ -62,14 +62,14 @@ public class RealtimeUpdateService
     /// </summary>
     private void SubscribeToEvents()
     {
-        DataBusEvents.NewOrders += OnNewOrders;
         DataBusEvents.OrderFinished += OnOrderFinished;
     }
 
     /// <summary>
     /// Обработчик новых ордеров
+    /// Вызывается из OrderService
     /// </summary>
-    private async void OnNewOrders(OriginalOrder[] orders)
+    public async Task OnNewOrders(OriginalOrder[] orders)
     {
         try
         {

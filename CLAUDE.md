@@ -64,9 +64,21 @@ dotnet clean CopyTrading.sln
 - **ВАЖНО:** `FillsOrderService` и `CurrentWalletPositionService` НЕ подписаны напрямую на `DataBusEvents.NewTrades`, они получают данные через методы `OnNewTrades`, которые вызывает `TradeService`
 - Активируется в `Startup.Configure` через `serviceProvider.GetService<TradeService>()`
 
+**OrderService** (`CopyTrading/Services/OrderService.cs`)
+- **Центральный медиатор** для распределения событий `NewOrders`
+- Подписывается на событие `DataBusEvents.NewOrders` в конструкторе
+- **НЕ** публикует события напрямую - вместо этого вызывает методы других сервисов:
+  - `_fillsOrderService.OnNewOrders(orders)` - передает ордера для корреляции со сделками
+  - `_copyOrderService.OnNewOrders(orders)` - запускает процесс копирования ордеров
+  - `_realtimeUpdateService.OnNewOrders(orders)` - отправляет в UI через SignalR
+- Сохраняет ордера в репозитории (InfluxDB и SQLite)
+- Рассчитывает минимальный Perpetual Equity для каждого ордера
+- **ВАЖНО:** `FillsOrderService`, `CopyOrderService` и `RealtimeUpdateService` НЕ подписаны напрямую на `DataBusEvents.NewOrders`, они получают данные через методы `OnNewOrders`, которые вызывает `OrderService`
+- Активируется в `Startup.Configure` через `serviceProvider.GetService<OrderService>()`
+
 **FillsOrderService** (`CopyTrading/Services/FillsOrderService.cs`)
 - Получает трейды через метод `OnNewTrades`, который вызывает `TradeService` (НЕ подписан напрямую на `DataBusEvents.NewTrades`)
-- Подписывается на событие `NewOrders` через `DataBusEvents`
+- Получает ордера через метод `OnNewOrders`, который вызывает `OrderService` (НЕ подписан напрямую на `DataBusEvents.NewOrders`)
 - Отслеживает исполнение ордеров путем сопоставления ордеров с их сделками
 - Поддерживает concurrent словари для корреляции сделок с ордерами
 - Обрабатывает pending сделки, которые приходят раньше своих ордеров
@@ -74,7 +86,7 @@ dotnet clean CopyTrading.sln
 - Активируется в `Startup.Configure` через `serviceProvider.GetService<FillsOrderService>()`
 
 **CopyOrderService** (`CopyTrading/Services/CopyOrderService.cs`)
-- Подписывается на события `NewOrders` через `DataBusEvents`
+- Получает ордера через метод `OnNewOrders`, который вызывает `OrderService` (НЕ подписан напрямую на `DataBusEvents.NewOrders`)
 - Автоматически реплицирует ордера из отслеживаемых кошельков
 - Рассчитывает коэффициенты ордеров на основе размеров счетов
 - Проверяет ордера на соответствие минимальным требованиям биржи (min notional value, min quantity)
@@ -174,15 +186,17 @@ Swagger UI доступен в режиме разработки по адрес
 2. Обеспечьте потокобезопасность для конкурентных обработчиков событий
 3. Помните, что события срабатывают синхронно в потоке подписчика
 
-**Важная особенность архитектуры:**
-- `DataBusEvents.NewTrades` → **только TradeService подписан** → TradeService вызывает методы `OnNewTrades()` у FillsOrderService и CurrentWalletPositionService
-- `DataBusEvents.NewOrders` → подписаны напрямую: CopyOrderService, FillsOrderService
+**Важная особенность архитектуры (Паттерн "Медиатор"):**
+- `DataBusEvents.NewTrades` → **только TradeService подписан** → TradeService вызывает методы `OnNewTrades()` у FillsOrderService, CurrentWalletPositionService и RealtimeUpdateService
+- `DataBusEvents.NewOrders` → **только OrderService подписан** → OrderService вызывает методы `OnNewOrders()` у FillsOrderService, CopyOrderService и RealtimeUpdateService
 - `DataBusEvents.OrderFinished` → генерируется FillsOrderService
 
-Это сделано для централизации логики обработки трейдов (сохранение в БД, рассылка в UI) в одном месте - TradeService.
+Это сделано для централизации логики обработки трейдов и ордеров (сохранение в БД, рассылка в UI, рассылка в другие сервисы) в одном месте - TradeService и OrderService.
 
 **При написании тестов:**
-Необходимо создавать экземпляр `TradeService` в setup методах тестов, даже если он не используется напрямую. TradeService при создании автоматически подписывается на `DataBusEvents.NewTrades` и транслирует их в `FillsOrderService` и `CurrentWalletPositionService` через вызов их методов `OnNewTrades()`. Без TradeService эти сервисы не получат трейды.
+Необходимо создавать экземпляры `TradeService` и `OrderService` в setup методах тестов, даже если они не используются напрямую:
+- **TradeService** при создании автоматически подписывается на `DataBusEvents.NewTrades` и транслирует их в `FillsOrderService`, `CurrentWalletPositionService` и `RealtimeUpdateService` через вызов их методов `OnNewTrades()`. Без TradeService эти сервисы не получат трейды.
+- **OrderService** при создании автоматически подписывается на `DataBusEvents.NewOrders` и транслирует их в `FillsOrderService`, `CopyOrderService` и `RealtimeUpdateService` через вызов их методов `OnNewOrders()`. Без OrderService эти сервисы не получат ордера.
 
 ### Управление WebSocket подписками
 

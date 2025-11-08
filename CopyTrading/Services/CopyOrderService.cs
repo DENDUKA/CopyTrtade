@@ -14,39 +14,18 @@ namespace CopyTrading.Services;
 /// <summary>
 /// Сервис для непостредственного копирования ордеров и размещения на бирже
 /// </summary>
-public class CopyOrderService
+public class CopyOrderService(
+    IWalletInfoProvider _walletProvider,
+    IExchangeInfoProvider _exchangeInfoProvider,
+    CurrentWalletPositionService _currentWalletPositionService,
+    PositionMappingService _positionMappingService,
+    CopyOrderResultService _resultService,
+    FillsOrderService _fillsOrderService,
+    ILogger<CopyOrderService> _logger)
 {
-    private readonly IWalletInfoProvider _walletProvider;
-    private readonly IExchangeInfoProvider _exchangeInfoProvider;
-    private readonly CurrentWalletPositionService _currentWalletPositionService;
-    private readonly PositionMappingService _positionMappingService;
-    private readonly CopyOrderResultService _resultService;
-    private readonly FillsOrderService _fillsOrderService;
-    private readonly ILogger<CopyOrderService> _logger;
-    //TODO вынести в конструктор , задаваться должен для каждого экземпляра ( поменять singleton )
     private readonly Wallet _myWallet = WalletSettings.MyWallet;
 
-    public CopyOrderService(
-        IWalletInfoProvider walletProvider,
-        IExchangeInfoProvider exchangeInfoProvider,
-        CurrentWalletPositionService currentWalletPositionService,
-        PositionMappingService positionMappingService,
-        CopyOrderResultService resultService,
-        FillsOrderService fillsOrderService,
-        ILogger<CopyOrderService> logger)
-    {
-        _walletProvider = walletProvider;
-        _exchangeInfoProvider = exchangeInfoProvider;
-        _currentWalletPositionService = currentWalletPositionService;
-        _positionMappingService = positionMappingService;
-        _resultService = resultService;
-        _fillsOrderService = fillsOrderService;
-        _logger = logger;
-
-        DataBusEvents.NewOrders += OnNewOrders;
-    }
-
-    private async void OnNewOrders(OriginalOrder[] orders)
+    public async Task OnNewOrders(OriginalOrder[] orders)
     {
         try
         {
