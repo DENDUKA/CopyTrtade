@@ -25,7 +25,8 @@
       "Bash(Select-String -Pattern \"(Assert\\.|Expected|Should|Actual|Test passed|Test failed)\" -Context 3)",
       "Bash(dotnet clean:*)",
       "Bash(Select-String -Pattern \"(passed|failed|Passed|Failed|всего|Total)\" -Context 0,1)",
-      "Bash(Select-String -Pattern \"(Failed|Order 3002|MultipleTradersDifferent)\" -Context 2)"
+      "Bash(Select-String -Pattern \"(Failed|Order 3002|MultipleTradersDifferent)\" -Context 2)",
+      "Bash(Select-String -Pattern \"(Сборка успешно|Ошибок:|Предупреждений:|error |Build succeeded)\" -Context 0,2)"
     ],
     "deny": [],
     "ask": []

@@ -3,6 +3,7 @@
 @using CopyTrading.Models.Values
 @using CopyTrading.Services
 @inject CopyOrderResultService ResultService
+@inject NavigationManager NavigationManager
 
 <h3>Результаты копирования ордеров</h3>
 
@@ -90,7 +91,18 @@
                                 <td>@result.Timestamp.ToLocalTime().ToString("HH:mm:ss")</td>
                                 <td>@result.OriginalOrderId</td>
                                 <td><strong>@result.Symbol</strong></td>
-                                <td>@GetShortWallet(result.TraderWallet)</td>
+                                <td>
+                                    @if (result.TraderWallet != null)
+                                    {
+                                        <a href="/wallet/@result.TraderWallet.Value" class="wallet-link">
+                                            @GetShortWallet(result.TraderWallet)
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <span>-</span>
+                                    }
+                                </td>
                                 <td>
                                     @if (result.IsSuccess)
                                     {
@@ -241,5 +253,17 @@
 
     .table-danger {
         background-color: #f8d7da;
+    }
+
+    .wallet-link {
+        color: #0d6efd;
+        text-decoration: none;
+        font-family: monospace;
+        transition: color 0.2s;
+    }
+
+    .wallet-link:hover {
+        color: #0a58ca;
+        text-decoration: underline;
     }
 </style>

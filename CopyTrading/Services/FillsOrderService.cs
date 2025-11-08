@@ -31,6 +31,20 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger)
         return _orders.TryGetValue(orderId, out var orderFills) ? orderFills : null;
     }
 
+    /// <summary>
+    /// Получает все открытые ордера для указанного кошелька
+    /// </summary>
+    /// <param name="wallet">Кошелек для фильтрации</param>
+    /// <returns>Массив открытых OrderFills для указанного кошелька</returns>
+    public OrderFills[] GetOpenOrdersByWallet(Models.Values.Wallet wallet)
+    {
+        return _orders.Values
+            .Where(orderFills =>
+                orderFills.OriginalOrder.Wallet.Value == wallet.Value &&
+                !IsFinalStatus(orderFills.OriginalOrder.Status))
+            .ToArray();
+    }
+
     public void OnNewOrders(OriginalOrder[] orders)
     {
         foreach (var newOrder in orders)

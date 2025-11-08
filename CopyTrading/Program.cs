@@ -6,6 +6,10 @@ namespace CopyTrading
     {
         public static async Task Main(string[] args)
         {
+            // Настраиваем кодировку консоли для корректного отображения русских букв
+            Console.OutputEncoding = System.Text.Encoding.UTF8;
+            Console.InputEncoding = System.Text.Encoding.UTF8;
+
             // Настраиваем обработчики необработанных исключений
             AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
             {
