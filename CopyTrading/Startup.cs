@@ -61,6 +61,7 @@ public class Startup
         services.AddSingleton<CurrentWalletPositionService>();
         services.AddSingleton<PositionMappingService>();
         services.AddSingleton<CopyOrderStorageService>();
+        services.AddSingleton<CopyTradeVolumePerWalletService>();
 
         //HyperLiquid Providers
         services.AddSingleton<IWalletInfoProvider, WalletInfoProvider>();        
@@ -81,6 +82,7 @@ public class Startup
         services.AddSingleton<Repository.SQLite.OrderRepository>();
         services.AddSingleton<Repository.SQLite.TradeRepository>();
         services.AddSingleton<Repository.SQLite.WalletInfoRepository>();
+        services.AddSingleton<Repository.SQLite.WalletSettingsRepository>();
 
         services.AddSerilogUi(options =>
         {
