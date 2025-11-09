@@ -57,12 +57,17 @@ This file provides guidance to WARP (warp.dev) when working with code in this re
    - `CurrentWalletPositionService` — поддерживает in-memory snapshot позиций по кошелькам (ConcurrentDictionary + семафоры), определяет `OrderSubType` для ордеров (Open/Increase/Decrease/Close), отдаёт snapshot/плечо по символу.
    - `PositionMappingService` — in-memory маппинг позиций трейдер → моя позиция (ключ: трейдерский кошелёк + мой кошелёк + символ + направление). Хранит `PositionRatio` и текущие количества.
    - `CopyOrderService` — основной обработчик `NewOrders`: по `OrderStatus` и `OrderSubType` создаёт/изменяет копируемые ордера (расчёт количества с учётом сохранённого `PositionRatio`), публикует `CopyOrder*` события. Интеграция размещения/отмены на бирже помечена TODO и должна идти через `OrdersProvider`.
+   - `CopyTradeVolumePerWalletService` — хранит настройки по Wallet (USD и CopyKoef), API принимает только модель `CopyTradeWalletSettings` в `CreateOrUpdate`/`Delete`.
    - `FillsOrderService` — коррелирует сделки и ордера, формирует `OrderFills` и триггерит `OrderFinished` (инициализируется в `Startup.Configure`).
 3) Хранилища:
    - InfluxDB репозитории (`CopyTrading/Repository/Influx/*`) для временных рядов (ордера/сделки/свечи).
-   - SQLite репозитории (`CopyTrading/Repository/SQLite/*`) для реляционных данных (ордера, сделки, wallet snapshots). Serilog также пишет логи в SQLite (таблица `Logs`).
+   - SQLite репозитории (`CopyTrading/Repository/SQLite/*`) для реляционных данных (ордера, сделки, wallet snapshots, настройки Wallet).
+     - `WalletSettingsRepository.cs` — работает с таблицей `WalletSettings` (обязательные поля: `Wallet` TEXT PK, `ValueUsd` REAL, `CopyKoef` REAL, у `CopyKoef` дефолт 1.0). Миграций не выполняет, колонка `CopyKoef` обязательна.
+   - Serilog также пишет логи в SQLite (таблица `Logs`).
 4) Веб-слой и UI real-time:
    - Контроллеры (`CopyTrading/Controllers/*`): `OrdersController`, `TradesController`, `WalletInfoController`, `CandlesController`, `HealthCheckController` — REST API для подписок, сбора истории и получения данных.
+   - Blazor UI страницы (`CopyTrading/BlazorUI/Pages/*`):
+     - `WalletSettingsPage.razor` → маршрут `/wallet-settings` для управления Wallet-настройками (USD и CopyKoef).
    - SignalR Hub (`CopyTrading/BlazorUI/Hubs/CopyTradingHub.cs`) и сервис `RealtimeUpdateService` — ретрансляция событий `DataBusEvents` в UI (каналы `ReceiveOrders`, `ReceiveTrades`, `PositionsUpdated`, `ReceiveOrderFinished`). В `Startup` зарегистрирован Blazor Server и маршруты (`MapBlazorHub`, `MapFallbackToPage("/_Host")`).
 
 Инициализация и запуск сервисов:
@@ -84,11 +89,15 @@ This file provides guidance to WARP (warp.dev) when working with code in this re
 
 ## Типичный сценарий разработки/отладки
 1) Запустить сервер: `dotnet run --project CopyTrading/CopyTrading.csproj` (Swagger и Serilog UI доступны по URL выше).
-2) Инициализировать поток данных, вызвав:
+2) Открыть `/wallet-settings` — страница управления настройками (USD и CopyKoef). Ввод дробной части допускает точку и запятую.
+3) Инициализировать поток данных, вызвав:
    - `GET /Orders/SubscribeToTrackedWallets`
    - `GET /Trades/SubscribeToTrackedWallets`
-3) Смотреть логи и состояние в `/serilog-ui`, а также проверять события через SignalR Hub (клиент UI получит `ReceiveOrders`/`ReceiveTrades`).
-4) Запускать тесты/покрытие и форматирование кода командами из раздела «Быстрые команды».
+4) Смотреть логи и состояние в `/serilog-ui`, а также проверять события через SignalR Hub (клиент UI получит `ReceiveOrders`/`ReceiveTrades`).
+5) Запускать тесты/покрытие и форматирование кода командами из раздела «Быстрые команды».
+
+### Примечание (сборка)
+- Если при `dotnet build` видите ошибки `MSB3021/MSB3027` о блокировке `CopyTrading.exe`, закройте запущенное приложение перед сборкой.
 
 ## Правила проекта (именование)
 - Не использовать суффикс `Async` в именах методов, даже если они возвращают `Task`.
