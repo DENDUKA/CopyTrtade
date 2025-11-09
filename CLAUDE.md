@@ -102,6 +102,20 @@ dotnet clean CopyTrading.sln
 - Сейчас настроен с `MyWallet` из `WalletSettings` (захардкожено, отмечено как TODO)
 - Активируется в `Startup.Configure` через `serviceProvider.GetService<CopyOrderService>()`
 
+**CopyOrderStorageService** (`CopyTrading/Services/CopyOrderStorageService.cs`)
+- Хранит и управляет всеми копируемыми ордерами в памяти
+- Подписывается на события `DataBusEvents.CopyOrderCreated`, `CopyOrderClosed`, `CopyOrderFilled`
+- Предоставляет методы для получения статистики и фильтрации ордеров по статусу
+- **Автоматическая очистка памяти:**
+  - Хранит копируемые ордера в `ConcurrentDictionary<long, CopyOrderV2> _copyOrders`
+  - Когда количество ордеров превышает **2000**, запускается автоматическая очистка
+  - Удаляет **все старые ордера** (независимо от статуса) начиная с самых старых по времени
+  - Очистка продолжается пока количество не уменьшится до **500** ордеров
+  - Метод `CleanupOldOrdersIfNeeded()` вызывается автоматически при добавлении ордера через `AddOrder()`
+  - Процесс очистки логируется (INFO уровень для статистики, DEBUG для деталей)
+  - Отличие от `FillsOrderService`: удаляет ВСЕ ордера по времени, а не только завершенные
+- Активируется в `Startup.Configure` через `serviceProvider.GetRequiredService<CopyOrderStorageService>()`
+
 **CurrentWalletPositionService** (`CopyTrading/Services/CurrentWalletPositionService.cs`)
 - Получает трейды через метод `OnNewTrades`, который вызывает `TradeService` (НЕ подписан напрямую на `DataBusEvents.NewTrades`)
 - Поддерживает снапшоты позиций кошельков в реальном времени

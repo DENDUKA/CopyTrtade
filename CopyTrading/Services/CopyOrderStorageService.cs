@@ -14,6 +14,10 @@ public class CopyOrderStorageService
     private readonly ConcurrentDictionary<long, CopyOrderV2> _copyOrders = new();
     private readonly ILogger<CopyOrderStorageService> _logger;
 
+    // Константы для управления размером кэша
+    private const int MaxOrdersThreshold = 2000;  // Порог для начала очистки
+    private const int TargetOrdersCount = 500;    // Целевое количество после очистки
+
     public CopyOrderStorageService(ILogger<CopyOrderStorageService> logger)
     {
         _logger = logger;
@@ -30,7 +34,7 @@ public class CopyOrderStorageService
     private void OnCopyOrderCreated(CopyOrderV2 copyOrder)
     {
         _logger.LogInformation($"CopyOrderStorageService OnCopyOrderCreated {copyOrder.ToString()}");
-        AddOrder(copyOrder);
+        AddOrder(copyOrder); // Очистка вызывается внутри AddOrder
     }
 
     private void OnCopyOrderFilled((OriginalOrder Order, OrderStatus Status) data)
@@ -52,6 +56,10 @@ public class CopyOrderStorageService
                     $"Копируемый ордер добавлен: ID={order.OrderId}, Symbol={order.OriginalOrder.Symbol}, " +
                     $"Direction={order.OriginalOrder.Direction}, Price={order.OriginalOrder.Price}, Quantity={order.Quantity}, " +
                     $"OriginalOrderId={order.OriginalOrderId}");
+
+                // Проверяем необходимость очистки после добавления ордера
+                CleanupOldOrdersIfNeeded();
+
                 return true;
             }
             else
@@ -164,5 +172,43 @@ public class CopyOrderStorageService
             ["Rejected"] = _copyOrders.Values.Count(o => o.OriginalOrder.Status == OrderStatus.Rejected),
             ["MarginCanceled"] = _copyOrders.Values.Count(o => o.OriginalOrder.Status == OrderStatus.MarginCanceled)
         };
+    }
+
+    /// <summary>
+    /// Проверяет необходимость очистки старых ордеров и выполняет её при необходимости
+    /// Удаляет старые копируемые ордера, начиная с самых старых, пока количество не уменьшится до целевого
+    /// </summary>
+    private void CleanupOldOrdersIfNeeded()
+    {
+        // Проверяем, превышен ли порог
+        if (_copyOrders.Count <= MaxOrdersThreshold)
+        {
+            return;
+        }
+
+        _logger.LogInformation($"CopyOrderStorageService: Начинаем очистку старых ордеров. Текущее количество: {_copyOrders.Count}");
+
+        // Получаем все ордера, отсортированные по времени (от старых к новым)
+        var ordersToRemove = _copyOrders.Values
+            .OrderBy(order => order.OriginalOrder.Time)
+            .Take(_copyOrders.Count - TargetOrdersCount)
+            .ToList();
+
+        _logger.LogInformation($"CopyOrderStorageService: Будет удалено {ordersToRemove.Count} старых ордеров");
+
+        int removedCount = 0;
+
+        // Удаляем старые ордера
+        foreach (var order in ordersToRemove)
+        {
+            if (_copyOrders.TryRemove(order.OrderId, out _))
+            {
+                removedCount++;
+                _logger.LogDebug($"CopyOrderStorageService: Удален ордер ID={order.OrderId}, OriginalOrderId={order.OriginalOrderId}, " +
+                               $"Symbol={order.OriginalOrder.Symbol}, Time={order.OriginalOrder.Time}, Status={order.OriginalOrder.Status}");
+            }
+        }
+
+        _logger.LogInformation($"CopyOrderStorageService: Очистка завершена. Удалено: {removedCount} ордеров. Осталось: {_copyOrders.Count}");
     }
 }
