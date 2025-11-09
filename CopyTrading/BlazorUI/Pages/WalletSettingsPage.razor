@@ -36,7 +36,11 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Объём (USD)</label>
-                        <input class="form-control" type="number" step="0.01" min="0" @bind-value="newVolumeUsd" @bind-value:event="oninput" />
+                        <input class="form-control" type="text" inputmode="decimal" @bind-value="newVolumeUsdText" @bind-value:event="oninput" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Коэффициент копирования (CopyKoef)</label>
+                        <input class="form-control" type="text" inputmode="decimal" @bind-value="newCopyKoefText" @bind-value:event="oninput" />
                     </div>
                     <button class="btn btn-primary" @onclick="AddOrUpdate">
                         <i class="fas fa-save"></i> Сохранить
@@ -62,7 +66,8 @@
                                 <thead class="table-light">
                                     <tr>
                                         <th style="width:60%">Wallet</th>
-                                        <th style="width:25%">USD</th>
+                                        <th style="width:20%">USD</th>
+                                        <th style="width:20%">CopyKoef</th>
                                         <th style="width:15%"></th>
                                     </tr>
                                 </thead>
@@ -71,10 +76,15 @@
                                     {
                                         <tr>
                                             <td class="align-middle"><code>@s.Wallet.Value</code></td>
-                                            <td style="max-width: 180px;">
-                                                <input class="form-control form-control-sm" type="number" step="0.01" min="0"
-                                                       value="@rowEdits.GetValueOrDefault(s.Wallet, s.VolumeUsd)"
-                                                       @oninput="(e => OnRowEditChange(s.Wallet, e))" />
+                                            <td style="max-width: 160px;">
+                                                <input class="form-control form-control-sm" type="text" inputmode="decimal"
+                                                       value="@GetUsdText(s.Wallet, s.VolumeUsd)"
+                                                       @oninput="(e => OnRowUsdEditChange(s.Wallet, e))" />
+                                            </td>
+                                            <td style="max-width: 160px;">
+                                                <input class="form-control form-control-sm" type="text" inputmode="decimal"
+                                                       value="@GetKoefText(s.Wallet, s.CopyKoef)"
+                                                       @oninput="(e => OnRowKoefEditChange(s.Wallet, e))" />
                                             </td>
                                             <td class="text-end">
                                                 <div class="btn-group btn-group-sm" role="group">
@@ -101,10 +111,14 @@
 @code {
     private List<CopyTradeWalletSettings> settings = new();
     private string? newWallet;
-    private decimal? newVolumeUsd;
+    private string? newVolumeUsdText;
+    private string? newCopyKoefText = "1";
     private string? errorMessage;
     private string? successMessage;
-    private Dictionary<Wallet, decimal> rowEdits = new();
+    private Dictionary<Wallet, decimal> rowUsdEdits = new();
+    private Dictionary<Wallet, decimal> rowKoefEdits = new();
+    private Dictionary<Wallet, string> rowUsdTextEdits = new();
+    private Dictionary<Wallet, string> rowKoefTextEdits = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -120,11 +134,23 @@
         }
     }
 
-    private void OnRowEditChange(Wallet wallet, ChangeEventArgs e)
+    private void OnRowUsdEditChange(Wallet wallet, ChangeEventArgs e)
     {
-        if (decimal.TryParse(Convert.ToString(e.Value), out var v) && v >= 0)
+        var text = Convert.ToString(e.Value) ?? string.Empty;
+        rowUsdTextEdits[wallet] = text;
+        if (TryParseDecimalFlexible(text, out var v) && v >= 0)
         {
-            rowEdits[wallet] = v;
+            rowUsdEdits[wallet] = v;
+        }
+    }
+
+    private void OnRowKoefEditChange(Wallet wallet, ChangeEventArgs e)
+    {
+        var text = Convert.ToString(e.Value) ?? string.Empty;
+        rowKoefTextEdits[wallet] = text;
+        if (TryParseDecimalFlexible(text, out var v) && v > 0)
+        {
+            rowKoefEdits[wallet] = v;
         }
     }
 
@@ -133,6 +159,36 @@
         errorMessage = null;
         successMessage = null;
     }
+
+    private static bool TryParseDecimalFlexible(object? value, out decimal result)
+    {
+        result = 0m;
+        var s = Convert.ToString(value)?.Trim();
+        if (string.IsNullOrEmpty(s)) return false;
+
+        // Унификация: разрешаем и «.» и «,» и промежуточные состояния ("1.", "1,")
+        var normalized = s.Replace(',', '.');
+        if (normalized.EndsWith(".") && normalized.Count(c => c == '.') == 1)
+        {
+            // Промежуточное состояние — пока не парсим, считаем, что пользователь ещё вводит
+            return false;
+        }
+        if (decimal.TryParse(normalized, NumberStyles.Number, CultureInfo.InvariantCulture, out result))
+            return true;
+        // Попытка по текущей культуре
+        if (decimal.TryParse(s, NumberStyles.Number, CultureInfo.CurrentCulture, out result))
+            return true;
+        // Попытка по ru-RU
+        if (decimal.TryParse(s, NumberStyles.Number, new CultureInfo("ru-RU"), out result))
+            return true;
+        return false;
+    }
+
+    private string GetUsdText(Wallet wallet, decimal current)
+        => rowUsdTextEdits.TryGetValue(wallet, out var t) ? t : current.ToString(CultureInfo.InvariantCulture);
+
+    private string GetKoefText(Wallet wallet, decimal current)
+        => rowKoefTextEdits.TryGetValue(wallet, out var t) ? t : current.ToString(CultureInfo.InvariantCulture);
 
     private async Task AddOrUpdate()
     {
@@ -144,24 +200,39 @@
                 errorMessage = "Некорректный адрес Wallet (ожидается 0x... из 42 символов).";
                 return;
             }
-            if (newVolumeUsd is null || newVolumeUsd < 0)
+
+            if (!TryParseDecimalFlexible(newVolumeUsdText, out var usd) || usd < 0)
             {
                 errorMessage = "Задайте неотрицательный объём USD.";
                 return;
             }
+            if (!TryParseDecimalFlexible(newCopyKoefText, out var koef) || koef <= 0)
+            {
+                errorMessage = "CopyKoef должен быть > 0.";
+                return;
+            }
 
             var wallet = new Wallet(newWallet);
-            var updated = await VolumeService.CreateOrUpdate(wallet, newVolumeUsd.Value);
+            var updated = await VolumeService.CreateOrUpdate(new CopyTradeWalletSettings
+            {
+                Wallet = wallet,
+                VolumeUsd = usd,
+                CopyKoef = koef
+            });
 
             var existing = settings.FirstOrDefault(x => x.Wallet.Equals(wallet));
             if (existing is null)
                 settings.Add(updated);
             else
+            {
                 existing.VolumeUsd = updated.VolumeUsd;
+                existing.CopyKoef = updated.CopyKoef;
+            }
 
             settings = settings.OrderBy(s => s.Wallet.Value).ToList();
             successMessage = "Сохранено";
-            newVolumeUsd = null;
+            newVolumeUsdText = null;
+            newCopyKoefText = "1";
         }
         catch (Exception ex)
         {
@@ -175,15 +246,48 @@
         ResetMessages();
         try
         {
-            if (!rowEdits.TryGetValue(wallet, out var v) || v < 0)
+            // Берём текущее значение из списка, если пользователь не редактировал поле
+            var existing = settings.First(x => x.Wallet.Equals(wallet));
+
+            decimal usd;
+            if (rowUsdTextEdits.TryGetValue(wallet, out var usdText))
+            {
+                if (!TryParseDecimalFlexible(usdText, out usd)) usd = existing.VolumeUsd;
+            }
+            else if (!rowUsdEdits.TryGetValue(wallet, out usd))
+            {
+                usd = existing.VolumeUsd;
+            }
+            if (usd < 0)
             {
                 errorMessage = "Введите корректное значение USD.";
                 return;
             }
 
-            var updated = await VolumeService.CreateOrUpdate(wallet, v);
-            var existing = settings.First(x => x.Wallet.Equals(wallet));
+            decimal koef;
+            if (rowKoefTextEdits.TryGetValue(wallet, out var koefText))
+            {
+                if (!TryParseDecimalFlexible(koefText, out koef)) koef = existing.CopyKoef;
+            }
+            else if (!rowKoefEdits.TryGetValue(wallet, out koef))
+            {
+                koef = existing.CopyKoef;
+            }
+            if (koef <= 0)
+            {
+                errorMessage = "Введите корректный CopyKoef (> 0).";
+                return;
+            }
+
+            var updated = await VolumeService.CreateOrUpdate(new CopyTradeWalletSettings
+            {
+                Wallet = wallet,
+                VolumeUsd = usd,
+                CopyKoef = koef
+            });
+
             existing.VolumeUsd = updated.VolumeUsd;
+            existing.CopyKoef = updated.CopyKoef;
             successMessage = "Обновлено";
         }
         catch (Exception ex)
@@ -198,11 +302,12 @@
         ResetMessages();
         try
         {
-            var ok = await VolumeService.Delete(wallet);
+            var ok = await VolumeService.Delete(new CopyTradeWalletSettings { Wallet = wallet });
             if (ok)
             {
                 settings.RemoveAll(x => x.Wallet.Equals(wallet));
-                rowEdits.Remove(wallet);
+                rowUsdEdits.Remove(wallet);
+                rowKoefEdits.Remove(wallet);
                 successMessage = "Удалено";
             }
             else

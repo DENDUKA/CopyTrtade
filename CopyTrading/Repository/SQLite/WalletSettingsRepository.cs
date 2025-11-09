@@ -17,52 +17,38 @@ public class WalletSettingsRepository(ILogger<WalletSettingsRepository> _logger)
 {
     private static string ConnectionString => $"Data Source={SQLLiteSettings.Path}";
 
-    private async Task EnsureSchema()
+    public async Task Upsert(CopyTradeWalletSettings settings)
     {
-        const string sql = @"CREATE TABLE IF NOT EXISTS WalletSettings (
-Wallet TEXT NOT NULL PRIMARY KEY,
-ValueUsd REAL NOT NULL
-);";
-        await using var connection = new SqliteConnection(ConnectionString);
-        await connection.OpenAsync();
-        await using var cmd = new SqliteCommand(sql, connection);
-        await cmd.ExecuteNonQueryAsync();
-    }
-
-    public async Task Upsert(Wallet wallet, decimal valueUsd)
-    {
-        const string sql = @"
-            INSERT INTO WalletSettings (Wallet, ValueUsd)
-            VALUES (@Wallet, @ValueUsd)
-            ON CONFLICT(Wallet) DO UPDATE SET
-                ValueUsd = excluded.ValueUsd;";
-
+        const string sql = @"INSERT INTO WalletSettings (Wallet, ValueUsd, CopyKoef)
+                VALUES (@Wallet, @ValueUsd, @CopyKoef)
+                ON CONFLICT(Wallet) DO UPDATE SET
+                    ValueUsd = excluded.ValueUsd,
+                    CopyKoef = excluded.CopyKoef;";
         try
         {
-            await EnsureSchema();
             await using var connection = new SqliteConnection(ConnectionString);
             await connection.OpenAsync();
 
             await using var cmd = new SqliteCommand(sql, connection);
-            cmd.Parameters.AddWithValue("@Wallet", wallet.Value);
-            cmd.Parameters.AddWithValue("@ValueUsd", valueUsd);
+            cmd.Parameters.AddWithValue("@Wallet", settings.Wallet.Value);
+            cmd.Parameters.AddWithValue("@ValueUsd", settings.VolumeUsd);
+            cmd.Parameters.AddWithValue("@CopyKoef", settings.CopyKoef);
 
-            await cmd.ExecuteNonQueryAsync();
+            var affected = await cmd.ExecuteNonQueryAsync();
+            _logger.LogDebug("WalletSettingsRepository.Upsert affected={Affected} wallet={Wallet}", affected, settings.Wallet);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "WalletSettingsRepository.UpsertAsync error for {Wallet}", wallet);
+            _logger.LogError(ex, "WalletSettingsRepository.Upsert error for {Wallet}", settings.Wallet);
             throw;
         }
     }
 
     public async Task<CopyTradeWalletSettings?> Get(Wallet wallet)
     {
-        const string sql = @"SELECT Wallet, ValueUsd FROM WalletSettings WHERE Wallet = @Wallet LIMIT 1;";
-
+        const string sql = @"SELECT Wallet, ValueUsd, CopyKoef FROM WalletSettings WHERE Wallet = @Wallet LIMIT 1;";
         try
         {
-            await EnsureSchema();
             await using var connection = new SqliteConnection(ConnectionString);
             await connection.OpenAsync();
 
@@ -73,10 +59,12 @@ ValueUsd REAL NOT NULL
             if (await reader.ReadAsync())
             {
                 var valueUsdDouble = reader.GetDouble(reader.GetOrdinal("ValueUsd"));
+                var copyKoefDouble = reader.GetDouble(reader.GetOrdinal("CopyKoef"));
                 return new CopyTradeWalletSettings
                 {
                     Wallet = wallet,
-                    VolumeUsd = Convert.ToDecimal(valueUsdDouble)
+                    VolumeUsd = Convert.ToDecimal(valueUsdDouble),
+                    CopyKoef = Convert.ToDecimal(copyKoefDouble)
                 };
             }
 
@@ -91,11 +79,9 @@ ValueUsd REAL NOT NULL
 
     public async Task<CopyTradeWalletSettings[]> GetAll()
     {
-        const string sql = @"SELECT Wallet, ValueUsd FROM WalletSettings;";
-
+        const string sql = @"SELECT Wallet, ValueUsd, CopyKoef FROM WalletSettings;";
         try
         {
-            await EnsureSchema();
             await using var connection = new SqliteConnection(ConnectionString);
             await connection.OpenAsync();
 
@@ -107,12 +93,13 @@ ValueUsd REAL NOT NULL
             {
                 var walletStr = reader.GetString(reader.GetOrdinal("Wallet"));
                 var valueUsdDouble = reader.GetDouble(reader.GetOrdinal("ValueUsd"));
+                var copyKoefDouble = reader.GetDouble(reader.GetOrdinal("CopyKoef"));
 
-                // Wallet ctor валидирует строку
                 list.Add(new CopyTradeWalletSettings
                 {
                     Wallet = new Wallet(walletStr),
-                    VolumeUsd = Convert.ToDecimal(valueUsdDouble)
+                    VolumeUsd = Convert.ToDecimal(valueUsdDouble),
+                    CopyKoef = Convert.ToDecimal(copyKoefDouble)
                 });
             }
 
@@ -130,7 +117,6 @@ ValueUsd REAL NOT NULL
         const string sql = @"DELETE FROM WalletSettings WHERE Wallet = @Wallet;";
         try
         {
-            await EnsureSchema();
             await using var connection = new SqliteConnection(ConnectionString);
             await connection.OpenAsync();
             await using var cmd = new SqliteCommand(sql, connection);

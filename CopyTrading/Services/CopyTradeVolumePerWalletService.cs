@@ -42,43 +42,33 @@ public class CopyTradeVolumePerWalletService
     /// <summary>
     /// Создать или обновить настройку для кошелька.
     /// </summary>
-    public async Task<CopyTradeWalletSettings> CreateOrUpdate(Wallet wallet, decimal volumeUsd)
+    public async Task<CopyTradeWalletSettings> CreateOrUpdate(CopyTradeWalletSettings settings)
     {
-        if (wallet is null)
-        {
-            _logger.LogError("CopyTradeVolumePerWalletService CreateOrUpdate Wallet is null");
-            throw new ArgumentNullException(nameof(wallet));
-        }
-        if (volumeUsd < 0)
-        {
-            _logger.LogError("CopyTradeVolumePerWalletService CreateOrUpdate volumeUsd < 0");
-            throw new ArgumentOutOfRangeException(nameof(volumeUsd), "VolumeUsd не может быть отрицательным");
-        }
+        if (settings is null) throw new ArgumentNullException(nameof(settings));
+        if (settings.Wallet is null) throw new ArgumentNullException(nameof(settings.Wallet));
+        if (settings.VolumeUsd < 0) throw new ArgumentOutOfRangeException(nameof(settings.VolumeUsd), "VolumeUsd не может быть отрицательным");
+        if (settings.CopyKoef <= 0) throw new ArgumentOutOfRangeException(nameof(settings.CopyKoef), "CopyKoef должен быть > 0");
 
         var updated = _settings.AddOrUpdate(
-            wallet,
-            addValueFactory: w => new CopyTradeWalletSettings
+            settings.Wallet,
+            addValueFactory: _ => settings,
+            updateValueFactory: (_, existing) =>
             {
-                Wallet = w,
-                VolumeUsd = volumeUsd
-            },
-            updateValueFactory: (w, existing) =>
-            {
-                existing.VolumeUsd = volumeUsd;
+                existing.VolumeUsd = settings.VolumeUsd;
+                existing.CopyKoef = settings.CopyKoef;
                 return existing;
             });
 
-        // Persist
         try
         {
-            await _repository.Upsert(wallet, volumeUsd);
+            await _repository.Upsert(updated);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "[CopyTradeVolumePerWalletService] Ошибка сохранения настройки в БД для {Wallet}", wallet);
+            _logger.LogError(ex, "[CopyTradeVolumePerWalletService] Ошибка сохранения настройки в БД для {Wallet}", settings.Wallet);
         }
 
-        _logger.LogInformation("[CopyTradeVolumePerWalletService] {Wallet} VolumeUsd={VolumeUsd}", wallet, volumeUsd);
+        _logger.LogInformation("[CopyTradeVolumePerWalletService] {Wallet} VolumeUsd={VolumeUsd} CopyKoef={CopyKoef}", settings.Wallet, settings.VolumeUsd, settings.CopyKoef);
         return updated;
     }
 
@@ -136,19 +126,18 @@ public class CopyTradeVolumePerWalletService
         return _settings.Values.ToArray();
     }
 
-    public async Task<bool> Delete(Wallet wallet)
+    public async Task<bool> Delete(CopyTradeWalletSettings settings)
     {
-        if (wallet is null) throw new ArgumentNullException(nameof(wallet));
-        var removed = _settings.TryRemove(wallet, out _);
+        if (settings is null || settings.Wallet is null) throw new ArgumentNullException(nameof(settings));
+        var removed = _settings.TryRemove(settings.Wallet, out _);
         try
         {
-            var dbRemoved = await _repository.Delete(wallet);
-            // Если из памяти не удалили (не было), но из БД удалили — считаем успехом
+            var dbRemoved = await _repository.Delete(settings.Wallet);
             return removed || dbRemoved;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "[CopyTradeVolumePerWalletService] Ошибка удаления настройки из БД для {Wallet}", wallet);
+            _logger.LogError(ex, "[CopyTradeVolumePerWalletService] Ошибка удаления настройки из БД для {Wallet}", settings.Wallet);
             throw;
         }
     }
