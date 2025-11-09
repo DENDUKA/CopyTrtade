@@ -61,7 +61,7 @@ public class Startup
         services.AddSingleton<CurrentWalletPositionService>();
         services.AddSingleton<PositionMappingService>();
         services.AddSingleton<CopyOrderStorageService>();
-        services.AddSingleton<CopyTradeVolumePerWalletService>();
+        services.AddSingleton<CopyTradeWalletSettingsService>();
 
         //HyperLiquid Providers
         services.AddSingleton<IWalletInfoProvider, WalletInfoProvider>();        

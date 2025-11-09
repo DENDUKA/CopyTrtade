@@ -7,7 +7,6 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
 using System.Reflection;
-using Xunit;
 
 namespace CopyTrading.Test.Service;
 
