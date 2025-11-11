@@ -21,6 +21,7 @@ public class CopyOrderService(
     PositionMappingService _positionMappingService,
     CopyOrderResultService _resultService,
     FillsOrderService _fillsOrderService,
+    CopyTradeWalletSettingsService _walletSettingsService,
     ILogger<CopyOrderService> _logger)
 {
     private readonly Wallet _myWallet = WalletSettings.MyWallet;
@@ -622,15 +623,36 @@ public class CopyOrderService(
 		// Получаем информацию о кошельке трейдера (копируемый кошелек)
 		var traderWalletInfo = await _walletProvider.GetInfo(order.Wallet);
 
-        // Получаем информацию о СВОЕМ кошельке
-        var myWalletInfo = await _walletProvider.GetInfo(_myWallet, false);
-        var myAccountValue = myWalletInfo.AccountVolume;
+        // Получаем настройки для кошелька трейдера
+        var walletSettings = await _walletSettingsService.Get(order.Wallet);
+        decimal myAccountValue;
+
+        if (walletSettings != null && walletSettings.VolumeUsd > 0)
+        {
+            // Используем VolumeUsd из настроек как наш виртуальный баланс
+            myAccountValue = walletSettings.VolumeUsd;
+            _logger.LogInformation($"CreateCopyOrder: Используем VolumeUsd из настроек для {order.Wallet}: {myAccountValue}");
+        }
+        else
+        {
+            // Fallback: получаем реальный баланс нашего кошелька
+            var myWalletInfo = await _walletProvider.GetInfo(_myWallet, false);
+            myAccountValue = myWalletInfo.AccountVolume;
+            _logger.LogWarning($"CreateCopyOrder: Настройки для {order.Wallet} не найдены или VolumeUsd=0, используем реальный баланс: {myAccountValue}");
+        }
 
         // Вычисляем долю от капитала трейдера (какой % от счета он вкладывает)
         var orderRatio = order.VolumeUsd / traderWalletInfo.AccountVolume;
 
         // Вычисляем ВАШ объем позиции (та же доля от ВАШЕГО баланса)
         var myVolumeUsd = myAccountValue * orderRatio;
+
+        // Применяем CopyKoef если он есть в настройках
+        if (walletSettings != null && walletSettings.CopyKoef != 1.0m)
+        {
+            myVolumeUsd *= walletSettings.CopyKoef;
+            _logger.LogInformation($"CreateCopyOrder: Применен CopyKoef={walletSettings.CopyKoef}, итоговый myVolumeUsd={myVolumeUsd}");
+        }
 
         // Вычисляем количество монет по той же цене
         var myQuantity = myVolumeUsd / order.Price;

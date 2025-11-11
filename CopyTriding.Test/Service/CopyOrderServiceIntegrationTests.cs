@@ -29,6 +29,7 @@ public class CopyOrderServiceIntegrationTests
 {
     private readonly Mock<IWalletInfoProvider> _walletInfoProvider;
     private readonly Mock<IExchangeInfoProvider> _exchangeInfoProvider;
+    private readonly Mock<CopyTradeWalletSettingsService> _walletSettingsServiceMock;
     private readonly CurrentWalletPositionService _currentWalletPositionService;
     private readonly PositionMappingService _positionMappingService;
     private readonly CopyOrderResultService _copyOrderResultService;
@@ -62,6 +63,7 @@ public class CopyOrderServiceIntegrationTests
     {
         _walletInfoProvider = new Mock<IWalletInfoProvider>(MockBehavior.Strict);
         _exchangeInfoProvider = new Mock<IExchangeInfoProvider>(MockBehavior.Strict);
+        _walletSettingsServiceMock = new Mock<CopyTradeWalletSettingsService>(MockBehavior.Loose, Mock.Of<CopyTrading.Repository.SQLite.WalletSettingsRepository>(), Mock.Of<ILogger<CopyTradeWalletSettingsService>>());
 
         // Инициализация логгеров
         _logger = new Mock<ILogger<CopyOrderService>>();
@@ -1404,6 +1406,7 @@ public class CopyOrderServiceIntegrationTests
             _positionMappingService,
             _copyOrderResultService,
             _fillsOrderServiceMock.Object,
+            _walletSettingsServiceMock.Object,
             _logger.Object,
             _myWallet);
 
@@ -1494,9 +1497,10 @@ public class IntegrationTestableCopyOrderService : CopyOrderService
         PositionMappingService positionMappingService,
         CopyOrderResultService resultService,
         FillsOrderService fillsOrderService,
+        CopyTradeWalletSettingsService walletSettingsService,
         ILogger<CopyOrderService> logger,
         Wallet myWallet)
-        : base(walletProvider, exchangeInfoProvider, currentWalletPositionService, positionMappingService, resultService, fillsOrderService, logger)
+        : base(walletProvider, exchangeInfoProvider, currentWalletPositionService, positionMappingService, resultService, fillsOrderService, walletSettingsService, logger)
     {
         // Используем рефлексию чтобы подменить _myWallet
         var field = typeof(CopyOrderService).GetField("_myWallet",
