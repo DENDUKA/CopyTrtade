@@ -81,6 +81,24 @@ public class CopyOrderServiceTests
             .Setup(x => x.GetExchangeInfo("BTC"))
             .ReturnsAsync(exchangeInfo);
 
+        // Mock для CopyTradeWalletSettingsService
+        var walletSettings = new CopyTradeWalletSettings
+        {
+            Wallet = traderWallet,
+            VolumeUsd = 2000m,  // Используем тот же баланс что и myWalletInfo.AccountVolume
+            CopyKoef = 1.0m
+        };
+
+        var walletSettingsServiceMock = new Mock<CopyTradeWalletSettingsService>(
+            MockBehavior.Loose,
+            new Mock<Repository.SQLite.WalletSettingsRepository>(
+                Mock.Of<ILogger<Repository.SQLite.WalletSettingsRepository>>()).Object,
+            Mock.Of<ILogger<CopyTradeWalletSettingsService>>());
+
+        walletSettingsServiceMock
+            .Setup(x => x.Get(traderWallet))
+            .ReturnsAsync(walletSettings);
+
         // Используем рефлексию для тестирования приватного метода
         var service = new TestableCopyOrderService(
             _walletInfoProvider.Object,
@@ -89,7 +107,7 @@ public class CopyOrderServiceTests
             null!,  // PositionMappingService не используется в CreateCopyOrder
             null!,  // CopyOrderResultService не используется в CreateCopyOrder
             null!,  // FillsOrderService не используется в CreateCopyOrder
-            null!,  // CopyTradeWalletSettingsService не используется в CreateCopyOrder
+            walletSettingsServiceMock.Object,
             _logger.Object,
             myWallet);
 
@@ -166,6 +184,24 @@ public class CopyOrderServiceTests
             .Setup(x => x.GetExchangeInfo("ETH"))
             .ReturnsAsync(exchangeInfo);
 
+        // Mock для CopyTradeWalletSettingsService
+        var walletSettings = new CopyTradeWalletSettings
+        {
+            Wallet = traderWallet,
+            VolumeUsd = 5000m,  // Используем тот же баланс что и myWalletInfo.AccountVolume
+            CopyKoef = 1.0m
+        };
+
+        var walletSettingsServiceMock = new Mock<CopyTradeWalletSettingsService>(
+            MockBehavior.Loose,
+            new Mock<Repository.SQLite.WalletSettingsRepository>(
+                Mock.Of<ILogger<Repository.SQLite.WalletSettingsRepository>>()).Object,
+            Mock.Of<ILogger<CopyTradeWalletSettingsService>>());
+
+        walletSettingsServiceMock
+            .Setup(x => x.Get(traderWallet))
+            .ReturnsAsync(walletSettings);
+
         var service = new TestableCopyOrderService(
             _walletInfoProvider.Object,
             _exchangeInfoProvider.Object,
@@ -173,7 +209,7 @@ public class CopyOrderServiceTests
             null!,  // PositionMappingService не используется в CreateCopyOrder
             null!,  // CopyOrderResultService не используется в CreateCopyOrder
             null!,  // FillsOrderService не используется в CreateCopyOrder
-            null!,  // CopyTradeWalletSettingsService не используется в CreateCopyOrder
+            walletSettingsServiceMock.Object,
             _logger.Object,
             myWallet);
 
@@ -249,6 +285,24 @@ public class CopyOrderServiceTests
             .Setup(x => x.GetExchangeInfo("SOL"))
             .ReturnsAsync(exchangeInfo);
 
+        // Mock для CopyTradeWalletSettingsService
+        var walletSettings = new CopyTradeWalletSettings
+        {
+            Wallet = traderWallet,
+            VolumeUsd = 3000m,  // Используем тот же баланс что и myWalletInfo.AccountVolume
+            CopyKoef = 1.0m
+        };
+
+        var walletSettingsServiceMock = new Mock<CopyTradeWalletSettingsService>(
+            MockBehavior.Loose,
+            new Mock<Repository.SQLite.WalletSettingsRepository>(
+                Mock.Of<ILogger<Repository.SQLite.WalletSettingsRepository>>()).Object,
+            Mock.Of<ILogger<CopyTradeWalletSettingsService>>());
+
+        walletSettingsServiceMock
+            .Setup(x => x.Get(traderWallet))
+            .ReturnsAsync(walletSettings);
+
         var service = new TestableCopyOrderService(
             _walletInfoProvider.Object,
             _exchangeInfoProvider.Object,
@@ -256,7 +310,7 @@ public class CopyOrderServiceTests
             null!,  // PositionMappingService не используется в CreateCopyOrder
             null!,  // CopyOrderResultService не используется в CreateCopyOrder
             null!,  // FillsOrderService не используется в CreateCopyOrder
-            null!,  // CopyTradeWalletSettingsService не используется в CreateCopyOrder
+            walletSettingsServiceMock.Object,
             _logger.Object,
             myWallet);
 
@@ -332,6 +386,24 @@ public class CopyOrderServiceTests
             .Setup(x => x.GetExchangeInfo("BTC"))
             .ReturnsAsync(exchangeInfo);
 
+        // Mock для CopyTradeWalletSettingsService
+        var walletSettings = new CopyTradeWalletSettings
+        {
+            Wallet = traderWallet,
+            VolumeUsd = 500m,  // Используем тот же баланс что и myWalletInfo.AccountVolume
+            CopyKoef = 1.0m
+        };
+
+        var walletSettingsServiceMock = new Mock<CopyTradeWalletSettingsService>(
+            MockBehavior.Loose,
+            new Mock<Repository.SQLite.WalletSettingsRepository>(
+                Mock.Of<ILogger<Repository.SQLite.WalletSettingsRepository>>()).Object,
+            Mock.Of<ILogger<CopyTradeWalletSettingsService>>());
+
+        walletSettingsServiceMock
+            .Setup(x => x.Get(traderWallet))
+            .ReturnsAsync(walletSettings);
+
         var service = new TestableCopyOrderService(
             _walletInfoProvider.Object,
             _exchangeInfoProvider.Object,
@@ -339,7 +411,7 @@ public class CopyOrderServiceTests
             null!,  // PositionMappingService не используется в CreateCopyOrder
             null!,  // CopyOrderResultService не используется в CreateCopyOrder
             null!,  // FillsOrderService не используется в CreateCopyOrder
-            null!,  // CopyTradeWalletSettingsService не используется в CreateCopyOrder
+            walletSettingsServiceMock.Object,
             _logger.Object,
             myWallet);
 

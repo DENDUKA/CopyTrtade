@@ -53,8 +53,8 @@ public class CopyOrderServiceIntegrationTests
     private readonly Mock<RealtimeUpdateService> _realtimeUpdateServiceMock;
 
     // Mocks для OrderService
-    private readonly Mock<CopyTrading.Repository.Influx.OrderRepository> _orderRepositoryInfluxMock;
-    private readonly Mock<CopyTrading.Repository.SQLite.OrderRepository> _orderRepositorySQLiteMock;
+    private readonly Mock<Repository.Influx.OrderRepository> _orderRepositoryInfluxMock;
+    private readonly Mock<Repository.SQLite.OrderRepository> _orderRepositorySQLiteMock;
 
     private readonly Wallet _traderWallet = new("0x7bde2b9240a2ee352108c6823a9fa20f225b83a0");
     private readonly Wallet _myWallet = new("0x1234567890abcdef1234567890abcdef12345678");
@@ -63,7 +63,15 @@ public class CopyOrderServiceIntegrationTests
     {
         _walletInfoProvider = new Mock<IWalletInfoProvider>(MockBehavior.Strict);
         _exchangeInfoProvider = new Mock<IExchangeInfoProvider>(MockBehavior.Strict);
-        _walletSettingsServiceMock = new Mock<CopyTradeWalletSettingsService>(MockBehavior.Loose, Mock.Of<CopyTrading.Repository.SQLite.WalletSettingsRepository>(), Mock.Of<ILogger<CopyTradeWalletSettingsService>>());
+
+        // Создаем mock для WalletSettingsRepository с необходимым logger
+        var walletSettingsRepoMock = new Mock<Repository.SQLite.WalletSettingsRepository>(
+            Mock.Of<ILogger<Repository.SQLite.WalletSettingsRepository>>());
+
+        _walletSettingsServiceMock = new Mock<CopyTradeWalletSettingsService>(
+            MockBehavior.Loose,
+            walletSettingsRepoMock.Object,
+            Mock.Of<ILogger<CopyTradeWalletSettingsService>>());
 
         // Инициализация логгеров
         _logger = new Mock<ILogger<CopyOrderService>>();
@@ -81,12 +89,12 @@ public class CopyOrderServiceIntegrationTests
         _tradeRepositoryInfluxMock = new Mock<TradeRepositoryInflux>(MockBehavior.Loose, Mock.Of<ILogger<TradeRepositoryInflux>>());
         _tradeRepositorySQLMock = new Mock<TradeRepositoreySQL>(MockBehavior.Loose, Mock.Of<ILogger<TradeRepositoreySQL>>());
         _realtimeUpdateServiceMock = new Mock<RealtimeUpdateService>(MockBehavior.Loose,
-            Mock.Of<Microsoft.AspNetCore.SignalR.IHubContext<CopyTrading.BlazorUI.Hubs.CopyTradingHub>>(),
+            Mock.Of<Microsoft.AspNetCore.SignalR.IHubContext<BlazorUI.Hubs.CopyTradingHub>>(),
             Mock.Of<ILogger<RealtimeUpdateService>>());
 
         // Инициализация моков для OrderService
-        _orderRepositoryInfluxMock = new Mock<CopyTrading.Repository.Influx.OrderRepository>(MockBehavior.Loose, Mock.Of<ILogger<CopyTrading.Repository.Influx.OrderRepository>>());
-        _orderRepositorySQLiteMock = new Mock<CopyTrading.Repository.SQLite.OrderRepository>(MockBehavior.Loose, Mock.Of<ILogger<CopyTrading.Repository.SQLite.OrderRepository>>());
+        _orderRepositoryInfluxMock = new Mock<Repository.Influx.OrderRepository>(MockBehavior.Loose, Mock.Of<ILogger<Repository.Influx.OrderRepository>>());
+        _orderRepositorySQLiteMock = new Mock<Repository.SQLite.OrderRepository>(MockBehavior.Loose, Mock.Of<ILogger<Repository.SQLite.OrderRepository>>());
 
         // Создаем реальные сервисы для проверки
         _copyOrderResultService = new CopyOrderResultService(_resultLogger.Object);
@@ -143,6 +151,18 @@ public class CopyOrderServiceIntegrationTests
         _walletInfoProvider
             .Setup(x => x.GetInfo(_myWallet, false))
             .ReturnsAsync(myWalletInfo);
+
+        // Setup WalletSettings для трейдера
+        var traderWalletSettings = new CopyTradeWalletSettings
+        {
+            Wallet = _traderWallet,
+            VolumeUsd = myVolumeUsd,  // Используем myVolumeUsd как виртуальный баланс для копирования
+            CopyKoef = 1.0m
+        };
+
+        _walletSettingsServiceMock
+            .Setup(x => x.Get(_traderWallet))
+            .ReturnsAsync(traderWalletSettings);
 
         // Создаем тестируемый сервис
         var service = CreateService();
@@ -280,7 +300,7 @@ public class CopyOrderServiceIntegrationTests
         var result2 = _copyOrderResultService.GetResult("1002");
 
         // Проверяем итоговую статистику CopyOrderResultService
-        var (Total, Success, Failed, SuccessRate) = _copyOrderResultService.GetStatistics();
+        var (Total, Success, Warning, Error, SuccessRate) = _copyOrderResultService.GetStatistics();
         Total.Should().Be(2);
         Success.Should().Be(2);
 
@@ -357,7 +377,7 @@ public class CopyOrderServiceIntegrationTests
         mapping.Should().BeNull("трейдер ушел ниже базовой линии, позиция должна быть полностью закрыта");
 
         // Проверяем статистику
-        (Total, Success, Failed, SuccessRate) = _copyOrderResultService.GetStatistics();
+        (Total, Success, Warning, Error, SuccessRate) = _copyOrderResultService.GetStatistics();
         Total.Should().Be(3);
         Success.Should().Be(3);
 
@@ -429,7 +449,7 @@ public class CopyOrderServiceIntegrationTests
         mapping.TraderQuantityAtEntry.Should().Be(80m);
 
         // Проверяем финальную статистику
-        (Total, Success, Failed, SuccessRate) = _copyOrderResultService.GetStatistics();
+        (Total, Success, Warning, Error, SuccessRate) = _copyOrderResultService.GetStatistics();
         Total.Should().Be(4);
         Success.Should().Be(4);
 
@@ -1020,8 +1040,8 @@ public class CopyOrderServiceIntegrationTests
 
         var symbol = "BTC";
         SetupExchangeInfo(symbol);
-        SetupWalletInfo(_traderWallet, 1000000m); // 1 миллион
-        SetupWalletInfo(_myWallet, 1000m); // 1 тысяча (коэффициент 0.001)
+        SetupWalletInfo(_traderWallet, 1000000m, volumeUsd: 1000m); // 1 миллион трейдер, мы копируем на 1 тысячу
+        SetupWalletInfo(_myWallet, 1000m); // 1 тысяча
 
         var service = CreateService();
 
@@ -1217,7 +1237,7 @@ public class CopyOrderServiceIntegrationTests
         await Task.Delay(200);
 
         // Assert
-        var (Total, Success, Failed, SuccessRate) = _copyOrderResultService.GetStatistics();
+        var (Total, Success, Warning, Error, SuccessRate) = _copyOrderResultService.GetStatistics();
         // Open + 3×Increase + 2×Decrease + Close = 7 операций
         Total.Should().BeGreaterThanOrEqualTo(7, "должно быть минимум 7 операций");
         Success.Should().BeGreaterThanOrEqualTo(7, "минимум 7 успешных операций");
@@ -1312,7 +1332,7 @@ public class CopyOrderServiceIntegrationTests
             .ReturnsAsync(exchangeInfo);
     }
 
-    private void SetupWalletInfo(Wallet wallet, decimal accountVolume, Dictionary<string, Position>? positions = null)
+    private void SetupWalletInfo(Wallet wallet, decimal accountVolume, Dictionary<string, Position>? positions = null, decimal? volumeUsd = null)
     {
         var walletInfo = new WalletInfoModel
         {
@@ -1324,6 +1344,23 @@ public class CopyOrderServiceIntegrationTests
         _walletInfoProvider
             .Setup(x => x.GetInfo(wallet, It.IsAny<bool>()))
             .ReturnsAsync(walletInfo);
+
+        // Setup для CopyTradeWalletSettingsService
+        // Для _myWallet не создаем настройки (он не трейдер)
+        // volumeUsd - это наш виртуальный баланс для копирования этого трейдера
+        if (wallet != _myWallet)
+        {
+            var walletSettings = new CopyTradeWalletSettings
+            {
+                Wallet = wallet,
+                VolumeUsd = volumeUsd ?? accountVolume / 2,  // По умолчанию половина баланса трейдера
+                CopyKoef = 1.0m
+            };
+
+            _walletSettingsServiceMock
+                .Setup(x => x.Get(wallet))
+                .ReturnsAsync(walletSettings);
+        }
     }
 
     private OriginalOrder CreateOrder(long orderId, Wallet wallet, string symbol, decimal price, decimal quantity,
@@ -1479,6 +1516,239 @@ public class CopyOrderServiceIntegrationTests
                 dict[snapshot.Wallet] = snapshot;
             }
         }
+    }
+
+    [Fact]
+    public async Task IntegrationTest_ComplexScenarioWithBalanceChange_ShouldHandleMultipleOrdersAndBalanceUpdates()
+    {
+        // Arrange
+        ResetServices();
+
+        /*
+         * Сценарий:
+         * 1. Трейдер: 10,000 USD, Мы: 1,000 USD (VolumeUsd из настроек)
+         * 2. Трейдер открывает позицию на 20,000 USD (leverage 2x, 200% от баланса)
+         *    → orderRatio = 20,000 / 10,000 = 2.0
+         *    → мы копируем: 1,000 × 2.0 = 2,000 USD (1 ETH)
+         * 3. Трейдер открывает еще позицию на 20,000 USD (200% от баланса)
+         *    → orderRatio = 2.0
+         *    → мы копируем: 2,000 USD (1 ETH)
+         * 4. У трейдера баланс меняется на 100,000 USD (вырос в 10 раз!)
+         * 5. Первые два ордера НЕ исполняются (остаются Open)
+         * 6. Трейдер открывает еще ордер на 200,000 USD (200% от НОВОГО баланса)
+         *    → orderRatio = 200,000 / 100,000 = 2.0 (тот же!)
+         *    → мы копируем: 1,000 × 2.0 = 2,000 USD (1 ETH)
+         *    → ВАЖНО: несмотря на рост баланса трейдера, мы копируем ту же долю
+         * 7. Трейдер закрывает первые два ордера
+         * 8. Третий ордер исполняется (Filled)
+         */
+
+        var symbol = "ETH";
+        var price = 2000m;
+
+        // Setup ExchangeInfo
+        var exchangeInfo = new SharedFuturesSymbol(TradingMode.PerpetualLinear, symbol, "USDC", "ETH/USDC", true)
+        {
+            QuantityDecimals = 4,
+        };
+
+        _exchangeInfoProvider
+            .Setup(x => x.GetExchangeInfo(symbol))
+            .ReturnsAsync(exchangeInfo);
+
+        // Setup начальных настроек для кошелька
+        var initialWalletSettings = new CopyTradeWalletSettings
+        {
+            Wallet = _traderWallet,
+            VolumeUsd = 1000m,  // Наш объем 1,000 USD
+            CopyKoef = 1.0m
+        };
+
+        _walletSettingsServiceMock
+            .Setup(x => x.Get(_traderWallet))
+            .ReturnsAsync(initialWalletSettings);
+
+        // Начальное состояние трейдера: баланс 10,000 USD
+        var traderWalletInfo = new WalletInfoModel
+        {
+            Wallet = _traderWallet,
+            AccountVolume = 10000m,
+            Positions = []
+        };
+
+        _walletInfoProvider
+            .Setup(x => x.GetInfo(_traderWallet, It.IsAny<bool>()))
+            .ReturnsAsync(traderWalletInfo);
+
+        _walletInfoProvider
+            .Setup(x => x.GetInfo(_myWallet, false))
+            .ReturnsAsync(new WalletInfoModel
+            {
+                Wallet = _myWallet,
+                AccountVolume = 1000m,
+                Positions = []
+            });
+
+        // Инициализируем пустой snapshot для трейдера
+        InitializeEmptyWalletSnapshot(_traderWallet);
+
+        // Создаем тестируемый сервис
+        var service = CreateService();
+
+        // ============================================================
+        // Шаг 1: Трейдер открывает первую позицию на 20,000 USD
+        // ============================================================
+        var order1 = new OriginalOrder
+        {
+            OrderId = 1001,
+            Wallet = _traderWallet,
+            Symbol = symbol,
+            Price = price,
+            Quantity = 10m,  // 10 ETH * 2000 = 20,000 USD
+            Direction = Direction.Long,
+            Leverage = 2m,
+            Status = OrderStatus.Open
+        };
+
+        DataBusEvents.NewOrders?.Invoke([order1]);
+        await Task.Delay(200);
+
+        // Проверяем первую копию
+        var result1 = _copyOrderResultService.GetResult("1001");
+        result1.Should().NotBeNull();
+        result1!.IsSuccess.Should().BeTrue();
+
+        var copyOrders = _storageService.GetAllOrders().ToList();
+        copyOrders.Should().HaveCount(1);
+
+        // Наш ордер: orderRatio = 20,000 / 10,000 = 2.0 (200%)
+        // myVolumeUsd = 1,000 * 2.0 = 2,000 USD
+        // myQuantity = 2,000 / 2,000 = 1 ETH
+        copyOrders[0].Quantity.Should().Be(1m);
+        copyOrders[0].VolumeUsd.Should().Be(2000m);
+        copyOrders[0].OrderRatio.Should().Be(2.0m);
+
+        // ВАЖНО: НЕ обновляем snapshot! Ордер Open (не Filled), snapshot остается пустым
+
+        // ============================================================
+        // Шаг 2: Трейдер открывает вторую позицию на 20,000 USD
+        // ============================================================
+        var order2 = new OriginalOrder
+        {
+            OrderId = 1002,
+            Wallet = _traderWallet,
+            Symbol = symbol,
+            Price = price,
+            Quantity = 10m,  // 10 ETH * 2000 = 20,000 USD
+            Direction = Direction.Long,
+            Leverage = 2m,
+            Status = OrderStatus.Open
+        };
+
+        DataBusEvents.NewOrders?.Invoke([order2]);
+        await Task.Delay(200);
+
+        // Проверяем вторую копию
+        var result2 = _copyOrderResultService.GetResult("1002");
+        result2.Should().NotBeNull();
+        result2!.IsSuccess.Should().BeTrue();
+
+        copyOrders = _storageService.GetAllOrders().ToList();
+        copyOrders.Should().HaveCount(2);
+        copyOrders[1].Quantity.Should().Be(1m);  // Снова 1 ETH (та же пропорция)
+        copyOrders[1].VolumeUsd.Should().Be(2000m);
+
+        // ВАЖНО: НЕ обновляем snapshot! Ордер Open (не Filled), snapshot остается пустым
+
+        // ============================================================
+        // Шаг 3: У трейдера меняется баланс на 100,000 USD
+        // ============================================================
+        traderWalletInfo.AccountVolume = 100000m;
+        // Первые два ордера НЕ исполняются (остаются Open)
+
+        // ============================================================
+        // Шаг 4: Трейдер готовится открыть третью позицию на 200,000 USD
+        // ============================================================
+        var order3 = new OriginalOrder
+        {
+            OrderId = 1003,
+            Wallet = _traderWallet,
+            Symbol = symbol,
+            Price = price,
+            Quantity = 100m,  // 100 ETH * 2000 = 200,000 USD
+            Direction = Direction.Long,
+            Leverage = 2m,
+            Status = OrderStatus.Open
+        };
+
+        // ВАЖНО: order3 пока НЕ отправляется! Он будет отправлен в шаге 6
+
+        // ============================================================
+        // Шаг 5: Трейдер отменяет первые два ордера (Cancelled)
+        // ============================================================
+        order1.Status = OrderStatus.Canceled;
+        DataBusEvents.NewOrders?.Invoke([order1]);
+        await Task.Delay(200);
+
+        order2.Status = OrderStatus.Canceled;
+        DataBusEvents.NewOrders?.Invoke([order2]);
+        await Task.Delay(200);
+
+        // После отмены ордеров 1001 и 1002, копируемые ордера тоже должны быть закрыты
+        // Они остаются в storage (просто закрыты), всего 2 ордера
+        copyOrders = _storageService.GetAllOrders().ToList();
+        copyOrders.Should().HaveCount(2);  // Только 2 ордера (1001, 1002), order3 еще не отправлен
+
+        // ============================================================
+        // Шаг 6: Третий ордер приходит (Open → Filled)
+        // ============================================================
+        // Сначала приходит как Open
+        order3.Status = OrderStatus.Open;
+        DataBusEvents.NewOrders?.Invoke([order3]);
+        await Task.Delay(200);
+
+        // Проверяем что order3 скопирован
+        var result3 = _copyOrderResultService.GetResult("1003");
+        result3.Should().NotBeNull();
+        result3!.IsSuccess.Should().BeTrue();
+
+        copyOrders = _storageService.GetAllOrders().ToList();
+        copyOrders.Should().HaveCount(3);  // Теперь 3 ордера (1001, 1002, 1003)
+
+        // Snapshot пустой (ордера не исполнились) → order3 определяется как Open
+        // orderRatio = 200,000 / 100,000 = 2.0 (200%)
+        // myVolumeUsd = 1,000 * 2.0 = 2,000 USD
+        // myQuantity = 2,000 / 2,000 = 1 ETH
+        var order3Copy = copyOrders.First(o => o.OriginalOrder.OrderId == 1003);
+        order3Copy.Quantity.Should().Be(1m);
+        order3Copy.VolumeUsd.Should().Be(2000m);
+        order3Copy.OrderRatio.Should().Be(2.0m);
+
+        // Затем приходит как Filled
+        order3.Status = OrderStatus.Filled;
+        DataBusEvents.NewOrders?.Invoke([order3]);
+        await Task.Delay(200);
+
+        // Финальные проверки
+        var stats = _copyOrderResultService.GetStatistics();
+        stats.Total.Should().Be(3);  // 3 ордера (1001, 1002, 1003)
+        stats.Success.Should().Be(3);  // Все 3 ордера успешно скопированы
+        stats.Warning.Should().Be(0);
+        stats.Error.Should().Be(0);
+
+        // Проверяем что все 3 ордера Long
+        copyOrders = _storageService.GetAllOrders().ToList();
+        copyOrders.Should().HaveCount(3);
+        copyOrders.Should().AllSatisfy(o => o.OriginalOrder.Direction.Should().Be(Direction.Long));
+
+        // Все Long ордера должны иметь quantity = 1 ETH каждый
+        copyOrders.Should().AllSatisfy(o => o.Quantity.Should().Be(1m));
+
+        // Все ордера должны иметь SubType = Open
+        copyOrders.Should().AllSatisfy(o => o.OrderSubType.Should().Be(OrderSubType.Open));
+
+        // Проверяем что первые два ордера были отменены
+        // (CopyOrderService вызовет HandleCanceledOrder для них)
     }
 
     #endregion

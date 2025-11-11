@@ -46,7 +46,7 @@ public class CopyTradeWalletSettingsService
     /// <summary>
     /// Получить настройку по кошельку. Возвращает null, если не найдено.
     /// </summary>
-    public async Task<CopyTradeWalletSettings?> Get(Wallet wallet)
+    public virtual async Task<CopyTradeWalletSettings?> Get(Wallet wallet)
     {
         if (wallet is null) throw new ArgumentNullException(nameof(wallet));
 
