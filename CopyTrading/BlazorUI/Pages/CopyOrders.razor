@@ -138,7 +138,11 @@
                                 <td>@order.Quantity</td>
                                 <td>$@order.VolumeUsd</td>
                                 <td>@order.OrderRatio.ToString("P2")</td>
-                                <td>@GetShortWallet(order.OriginalOrder.Wallet)</td>
+                                <td>
+                                    <a href="/wallet/@order.OriginalOrder.Wallet.Value">
+                                        @GetShortWallet(order.OriginalOrder.Wallet)
+                                    </a>
+                                </td>
                             </tr>
                         }
                     </tbody>

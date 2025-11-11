@@ -7,15 +7,8 @@ namespace CopyTrading.Controllers;
 [ApiController]
 [Route("[controller]")]
 public class HealthCheckController(
-    FillsOrderService _fillsOrderService,
     OrdersTradesSubscriber _subscribers) : ControllerBase
 {
-    [HttpGet("GetErrorsInFillsOrderService")]
-    public async Task<string[]> GetErrorsInFillsOrderService()
-    {
-        return [.. _fillsOrderService._ordersWithError.Select(x => $"{x.Key} {x.Value}")];
-    }
-
     [HttpGet("SubscribersStatus")]
     public async Task<string[]> SubscribersStatus()
     {

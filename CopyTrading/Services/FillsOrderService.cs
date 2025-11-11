@@ -326,6 +326,7 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger)
             if (_orders.TryRemove(orderFills.OriginalOrder.OrderId, out _))
             {
                 removedCount++;
+                _ordersWithError.TryRemove(orderFills.OriginalOrder.OrderId, out _);
                 _logger.LogDebug($"Удален завершенный ордер {orderFills.OriginalOrder.OrderId} (время: {orderFills.OriginalOrder.Time})");
             }
         }

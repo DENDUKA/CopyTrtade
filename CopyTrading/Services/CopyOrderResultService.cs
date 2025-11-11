@@ -13,6 +13,10 @@ public class CopyOrderResultService
     private readonly ConcurrentDictionary<string, CopyOrderResult> _results;
     private readonly ILogger<CopyOrderResultService> _logger;
 
+    // Константы для управления размером кэша
+    private const int MaxResultsThreshold = 2000;  // Порог для начала очистки
+    private const int TargetResultsCount = 500;    // Целевое количество после очистки
+
     public CopyOrderResultService(ILogger<CopyOrderResultService> logger)
     {
         _results = new ConcurrentDictionary<string, CopyOrderResult>();
@@ -37,6 +41,9 @@ public class CopyOrderResultService
 
         _results[originalOrderId] = result;
         _logger.LogInformation($"CopyOrderResult SUCCESS: {result}");
+
+        // Проверяем необходимость очистки после добавления результата
+        CleanupOldResultsIfNeeded();
     }
 
     /// <summary>
@@ -57,6 +64,9 @@ public class CopyOrderResultService
 
         _results[originalOrderId] = result;
         _logger.LogWarning($"CopyOrderResult FAILURE: {result}");
+
+        // Проверяем необходимость очистки после добавления результата
+        CleanupOldResultsIfNeeded();
     }
 
     /// <summary>
@@ -156,5 +166,43 @@ public class CopyOrderResultService
         var count = _results.Count;
         _results.Clear();
         _logger.LogInformation($"Все результаты очищены (было {count})");
+    }
+
+    /// <summary>
+    /// Автоматическая очистка старых результатов при превышении порога
+    /// Удаляет старые результаты (по времени) до достижения целевого количества
+    /// </summary>
+    private void CleanupOldResultsIfNeeded()
+    {
+        // Проверяем, превышен ли порог
+        if (_results.Count <= MaxResultsThreshold)
+        {
+            return;
+        }
+
+        _logger.LogInformation($"CopyOrderResultService: Начинаем очистку старых результатов. Текущее количество: {_results.Count}");
+
+        // Получаем все результаты, отсортированные по времени (от старых к новым)
+        var resultsToRemove = _results.Values
+            .OrderBy(result => result.Timestamp)
+            .Take(_results.Count - TargetResultsCount)
+            .ToList();
+
+        _logger.LogInformation($"CopyOrderResultService: Будет удалено {resultsToRemove.Count} старых результатов");
+
+        int removedCount = 0;
+
+        // Удаляем старые результаты
+        foreach (var result in resultsToRemove)
+        {
+            if (_results.TryRemove(result.OriginalOrderId, out _))
+            {
+                removedCount++;
+                _logger.LogDebug($"CopyOrderResultService: Удален результат OriginalOrderId={result.OriginalOrderId}, " +
+                               $"Symbol={result.Symbol}, Timestamp={result.Timestamp}, IsSuccess={result.IsSuccess}");
+            }
+        }
+
+        _logger.LogInformation($"CopyOrderResultService: Очистка завершена. Удалено: {removedCount}, Осталось: {_results.Count}");
     }
 }
