@@ -242,6 +242,13 @@ public class CopyOrderService(
             // Сохраняем результат
             SaveSuccessResult(order, copyOrder);
         }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("не найдены") || ex.Message.Contains("должен быть > 0"))
+        {
+            // Настройки не найдены или VolumeUsd=0 - это НЕ ошибка, просто не копируем
+            _logger.LogWarning($"OpenNewPosition: {ex.Message}");
+            SaveFailureResult(order, ex.Message);
+            // НЕ бросаем исключение дальше - это нормальная ситуация
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, $"OpenNewPosition ОШИБКА при создании копируемого ордера для {order.OrderId}");
@@ -625,21 +632,20 @@ public class CopyOrderService(
 
         // Получаем настройки для кошелька трейдера
         var walletSettings = await _walletSettingsService.Get(order.Wallet);
-        decimal myAccountValue;
 
-        if (walletSettings != null && walletSettings.VolumeUsd > 0)
+        if (walletSettings == null || walletSettings.VolumeUsd <= 0)
         {
-            // Используем VolumeUsd из настроек как наш виртуальный баланс
-            myAccountValue = walletSettings.VolumeUsd;
-            _logger.LogInformation($"CreateCopyOrder: Используем VolumeUsd из настроек для {order.Wallet}: {myAccountValue}");
+            var errorMsg = walletSettings == null
+                ? $"Настройки для кошелька {order.Wallet} не найдены - ордер не копируется"
+                : $"VolumeUsd для кошелька {order.Wallet} = {walletSettings.VolumeUsd} (должен быть > 0) - ордер не копируется";
+
+            _logger.LogWarning($"CreateCopyOrder: {errorMsg}");
+            throw new InvalidOperationException(errorMsg);
         }
-        else
-        {
-            // Fallback: получаем реальный баланс нашего кошелька
-            var myWalletInfo = await _walletProvider.GetInfo(_myWallet, false);
-            myAccountValue = myWalletInfo.AccountVolume;
-            _logger.LogWarning($"CreateCopyOrder: Настройки для {order.Wallet} не найдены или VolumeUsd=0, используем реальный баланс: {myAccountValue}");
-        }
+
+        // Используем VolumeUsd из настроек как наш виртуальный баланс
+        var myAccountValue = walletSettings.VolumeUsd;
+        _logger.LogInformation($"CreateCopyOrder: Используем VolumeUsd из настроек для {order.Wallet}: {myAccountValue}");
 
         // Вычисляем долю от капитала трейдера (какой % от счета он вкладывает)
         var orderRatio = order.VolumeUsd / traderWalletInfo.AccountVolume;
