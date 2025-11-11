@@ -106,8 +106,8 @@
                             <th>Status</th>
                             <th>SubType</th>
                             <th>Price</th>
-                            <th>Quantity</th>
-                            <th>Volume USD</th>
+                            <th>My Quantity</th>
+                            <th>My Volume USD</th>
                             <th>Order Ratio</th>
                             <th>Wallet</th>
                         </tr>
@@ -134,9 +134,9 @@
                                         @order.OrderSubType
                                     </span>
                                 </td>
-                                <td>$@order.OriginalOrder.Price</td>
-                                <td>@order.Quantity</td>
-                                <td>$@order.VolumeUsd</td>
+                                <td>$@order.OriginalOrder.Price.ToString("N2")</td>
+                                <td><strong class="text-primary">@order.Quantity.ToString("N4")</strong></td>
+                                <td><strong class="text-success">$@order.VolumeUsd.ToString("N2")</strong></td>
                                 <td>@order.OrderRatio.ToString("P2")</td>
                                 <td>
                                     <a href="/wallet/@order.OriginalOrder.Wallet.Value">

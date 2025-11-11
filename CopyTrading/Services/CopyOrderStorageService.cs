@@ -34,7 +34,7 @@ public class CopyOrderStorageService
     private void OnCopyOrderCreated(CopyOrderV2 copyOrder)
     {
         _logger.LogInformation($"CopyOrderStorageService OnCopyOrderCreated {copyOrder.ToString()}");
-        AddOrder(copyOrder); // Очистка вызывается внутри AddOrder
+        AddOrder(copyOrder);
     }
 
     private void OnCopyOrderFilled((OriginalOrder Order, OrderStatus Status) data)
