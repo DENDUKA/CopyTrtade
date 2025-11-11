@@ -246,7 +246,7 @@ public class CopyOrderService(
         {
             // Настройки не найдены или VolumeUsd=0 - это НЕ ошибка, просто не копируем
             _logger.LogWarning($"OpenNewPosition: {ex.Message}");
-            SaveFailureResult(order, ex.Message);
+            SaveWarningResult(order, ex.Message);
             // НЕ бросаем исключение дальше - это нормальная ситуация
         }
         catch (Exception ex)
@@ -509,8 +509,8 @@ public class CopyOrderService(
             if (mapping == null)
             {
                 var errorMsg = "Невозможно скопировать decrease - у нас нет открытой позиции (маппинг не найден)";
-                _logger.LogError($"DecreasePosition: OrderId={order.OrderId} {errorMsg}. CopyOrder НЕ БУДЕТ СОЗДАН!");
-                SaveFailureResult(order, errorMsg);
+                _logger.LogWarning($"DecreasePosition: OrderId={order.OrderId} {errorMsg}. CopyOrder НЕ БУДЕТ СОЗДАН!");
+                SaveWarningResult(order, errorMsg);
                 return;
             }
 
@@ -518,8 +518,8 @@ public class CopyOrderService(
             if (mapping.MyQuantity == 0)
             {
                 var errorMsg = "mapping.MyQuantity = 0 - позиция не была открыта или уже закрыта";
-                _logger.LogError($"DecreasePosition: OrderId={order.OrderId} {errorMsg}. CopyOrder НЕ БУДЕТ СОЗДАН!");
-                SaveFailureResult(order, errorMsg);
+                _logger.LogWarning($"DecreasePosition: OrderId={order.OrderId} {errorMsg}. CopyOrder НЕ БУДЕТ СОЗДАН!");
+                SaveWarningResult(order, errorMsg);
                 return;
             }
 
@@ -575,8 +575,8 @@ public class CopyOrderService(
             if (mapping == null)
             {
                 var errorMsg = "Невозможно скопировать close - у нас нет открытой позиции (маппинг не найден)";
-                _logger.LogError($"ClosePosition: OrderId={order.OrderId} {errorMsg}. CopyOrder НЕ БУДЕТ СОЗДАН!");
-                SaveFailureResult(order, errorMsg);
+                _logger.LogWarning($"ClosePosition: OrderId={order.OrderId} {errorMsg}. CopyOrder НЕ БУДЕТ СОЗДАН!");
+                SaveWarningResult(order, errorMsg);
                 return Task.CompletedTask;
             }
 
@@ -590,7 +590,7 @@ public class CopyOrderService(
                 _logger.LogWarning($"ClosePosition: OrderId={order.OrderId} {errorMsg}. Удаляем маппинг без создания CopyOrder.");
                 // FIX: используем Opposite() для корректного удаления маппинга
                 _positionMappingService.DeleteMapping(order.Wallet, _myWallet, order.Symbol, order.Direction.Opposite());
-                SaveFailureResult(order, errorMsg);
+                SaveWarningResult(order, errorMsg);
                 return Task.CompletedTask;
             }
 
@@ -762,7 +762,7 @@ public class CopyOrderService(
         {
             var errorMsg = "Ордер не был скопирован - отсутствует открывающий ордер";
             _logger.LogWarning($"CopyOrderService {methodName}: OrderId={order.OrderId} {errorMsg}");
-            SaveFailureResult(order, errorMsg);
+            SaveWarningResult(order, errorMsg);
             return false;
         }
         return true;
@@ -837,11 +837,19 @@ public class CopyOrderService(
     }
 
     /// <summary>
-    /// Сохранить неуспешный результат копирования
+    /// Сохранить неуспешный результат копирования (ошибка)
     /// </summary>
     private void SaveFailureResult(OriginalOrder order, string errorMessage)
     {
         _resultService.SaveFailure(order.OrderId.ToString(), order.Wallet, order.Symbol, errorMessage);
+    }
+
+    /// <summary>
+    /// Сохранить предупреждение (ордер не скопирован, но это не ошибка)
+    /// </summary>
+    private void SaveWarningResult(OriginalOrder order, string warningMessage)
+    {
+        _resultService.SaveWarning(order.OrderId.ToString(), order.Wallet, order.Symbol, warningMessage);
     }
 
     #endregion

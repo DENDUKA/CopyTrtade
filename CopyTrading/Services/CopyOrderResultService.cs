@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using CopyTrading.Models.Models;
+using CopyTrading.Models.Models.Enums;
 using CopyTrading.Models.Values;
 
 namespace CopyTrading.Services;
@@ -33,7 +34,7 @@ public class CopyOrderResultService
             OriginalOrderId = originalOrderId,
             TraderWallet = traderWallet,
             Symbol = symbol,
-            IsSuccess = true,
+            Status = CopyOrderResultStatus.Success,
             Message = "Success",
             Timestamp = DateTime.UtcNow,
             CopyOrderId = copyOrderId
@@ -47,7 +48,7 @@ public class CopyOrderResultService
     }
 
     /// <summary>
-    /// Сохраняет результат неудачного копирования ордера
+    /// Сохраняет результат неудачного копирования ордера (ошибка)
     /// </summary>
     public void SaveFailure(string originalOrderId, Wallet traderWallet, string symbol, string errorMessage)
     {
@@ -56,14 +57,37 @@ public class CopyOrderResultService
             OriginalOrderId = originalOrderId,
             TraderWallet = traderWallet,
             Symbol = symbol,
-            IsSuccess = false,
+            Status = CopyOrderResultStatus.Error,
             Message = errorMessage,
             Timestamp = DateTime.UtcNow,
             CopyOrderId = null
         };
 
         _results[originalOrderId] = result;
-        _logger.LogWarning($"CopyOrderResult FAILURE: {result}");
+        _logger.LogError($"CopyOrderResult ERROR: {result}");
+
+        // Проверяем необходимость очистки после добавления результата
+        CleanupOldResultsIfNeeded();
+    }
+
+    /// <summary>
+    /// Сохраняет предупреждение (ордер не скопирован, но это не ошибка)
+    /// </summary>
+    public void SaveWarning(string originalOrderId, Wallet traderWallet, string symbol, string warningMessage)
+    {
+        var result = new CopyOrderResult
+        {
+            OriginalOrderId = originalOrderId,
+            TraderWallet = traderWallet,
+            Symbol = symbol,
+            Status = CopyOrderResultStatus.Warning,
+            Message = warningMessage,
+            Timestamp = DateTime.UtcNow,
+            CopyOrderId = null
+        };
+
+        _results[originalOrderId] = result;
+        _logger.LogWarning($"CopyOrderResult WARNING: {result}");
 
         // Проверяем необходимость очистки после добавления результата
         CleanupOldResultsIfNeeded();
@@ -92,17 +116,27 @@ public class CopyOrderResultService
     public IEnumerable<CopyOrderResult> GetSuccessfulResults()
     {
         return _results.Values
-            .Where(r => r.IsSuccess)
+            .Where(r => r.Status == CopyOrderResultStatus.Success)
             .OrderByDescending(r => r.Timestamp);
     }
 
     /// <summary>
-    /// Получить только неудачные результаты
+    /// Получить только результаты с предупреждениями
+    /// </summary>
+    public IEnumerable<CopyOrderResult> GetWarningResults()
+    {
+        return _results.Values
+            .Where(r => r.Status == CopyOrderResultStatus.Warning)
+            .OrderByDescending(r => r.Timestamp);
+    }
+
+    /// <summary>
+    /// Получить только неудачные результаты (ошибки)
     /// </summary>
     public IEnumerable<CopyOrderResult> GetFailedResults()
     {
         return _results.Values
-            .Where(r => !r.IsSuccess)
+            .Where(r => r.Status == CopyOrderResultStatus.Error)
             .OrderByDescending(r => r.Timestamp);
     }
 
@@ -147,15 +181,16 @@ public class CopyOrderResultService
     /// <summary>
     /// Получить статистику по результатам
     /// </summary>
-    public (int Total, int Success, int Failed, double SuccessRate) GetStatistics()
+    public (int Total, int Success, int Warning, int Error, double SuccessRate) GetStatistics()
     {
         var allResults = _results.Values.ToList();
         var total = allResults.Count;
-        var success = allResults.Count(r => r.IsSuccess);
-        var failed = total - success;
+        var success = allResults.Count(r => r.Status == CopyOrderResultStatus.Success);
+        var warning = allResults.Count(r => r.Status == CopyOrderResultStatus.Warning);
+        var error = allResults.Count(r => r.Status == CopyOrderResultStatus.Error);
         var successRate = total > 0 ? (double)success / total * 100 : 0;
 
-        return (total, success, failed, successRate);
+        return (total, success, warning, error, successRate);
     }
 
     /// <summary>
@@ -199,7 +234,7 @@ public class CopyOrderResultService
             {
                 removedCount++;
                 _logger.LogDebug($"CopyOrderResultService: Удален результат OriginalOrderId={result.OriginalOrderId}, " +
-                               $"Symbol={result.Symbol}, Timestamp={result.Timestamp}, IsSuccess={result.IsSuccess}");
+                               $"Symbol={result.Symbol}, Timestamp={result.Timestamp}, Status={result.Status}");
             }
         }
 

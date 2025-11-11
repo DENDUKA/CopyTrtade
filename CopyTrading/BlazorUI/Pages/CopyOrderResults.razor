@@ -1,5 +1,6 @@
 @page "/copy-order-results"
 @using CopyTrading.Models.Models
+@using CopyTrading.Models.Models.Enums
 @using CopyTrading.Models.Values
 @using CopyTrading.Services
 @inject CopyOrderResultService ResultService
@@ -12,25 +13,31 @@
         <div class="card">
             <div class="card-body">
                 <div class="row">
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <div class="stat-card stat-total">
                             <h6>Всего попыток</h6>
                             <h3>@statistics.Total</h3>
                         </div>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <div class="stat-card stat-success">
                             <h6>Успешно</h6>
                             <h3 class="text-success">@statistics.Success</h3>
                         </div>
                     </div>
-                    <div class="col-md-3">
-                        <div class="stat-card stat-failed">
-                            <h6>Ошибок</h6>
-                            <h3 class="text-danger">@statistics.Failed</h3>
+                    <div class="col-md-2">
+                        <div class="stat-card stat-warning">
+                            <h6>Предупреждения</h6>
+                            <h3 class="text-warning">@statistics.Warning</h3>
                         </div>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
+                        <div class="stat-card stat-error">
+                            <h6>Ошибок</h6>
+                            <h3 class="text-danger">@statistics.Error</h3>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
                         <div class="stat-card stat-rate">
                             <h6>Процент успеха</h6>
                             <h3 class="@GetSuccessRateClass(statistics.SuccessRate)">@statistics.SuccessRate.ToString("F1")%</h3>
@@ -56,7 +63,10 @@
                             <input type="checkbox" @bind="filterSuccess" /> Успешные
                         </label>
                         <label class="me-3">
-                            <input type="checkbox" @bind="filterFailed" /> Ошибки
+                            <input type="checkbox" @bind="filterWarning" /> Предупреждения
+                        </label>
+                        <label class="me-3">
+                            <input type="checkbox" @bind="filterError" /> Ошибки
                         </label>
                         <button class="btn btn-sm btn-secondary ms-3" @onclick="RefreshData">
                             <i class="fas fa-sync"></i> Обновить
@@ -87,7 +97,7 @@
                     <tbody>
                         @foreach (var result in GetFilteredResults())
                         {
-                            <tr class="@GetRowClass(result.IsSuccess)">
+                            <tr class="@GetRowClass(result.Status)">
                                 <td>@result.Timestamp.ToLocalTime().ToString("HH:mm:ss")</td>
                                 <td>@result.OriginalOrderId</td>
                                 <td><strong>@result.Symbol</strong></td>
@@ -104,16 +114,22 @@
                                     }
                                 </td>
                                 <td>
-                                    @if (result.IsSuccess)
+                                    @if (result.Status == CopyOrderResultStatus.Success)
                                     {
                                         <span class="badge bg-success">
                                             <i class="fas fa-check"></i> Success
                                         </span>
                                     }
+                                    else if (result.Status == CopyOrderResultStatus.Warning)
+                                    {
+                                        <span class="badge bg-warning">
+                                            <i class="fas fa-exclamation-triangle"></i> Warning
+                                        </span>
+                                    }
                                     else
                                     {
                                         <span class="badge bg-danger">
-                                            <i class="fas fa-times"></i> Failed
+                                            <i class="fas fa-times"></i> Error
                                         </span>
                                     }
                                 </td>
@@ -128,9 +144,13 @@
                                     }
                                 </td>
                                 <td>
-                                    @if (result.IsSuccess)
+                                    @if (result.Status == CopyOrderResultStatus.Success)
                                     {
                                         <span class="text-success">@result.Message</span>
+                                    }
+                                    else if (result.Status == CopyOrderResultStatus.Warning)
+                                    {
+                                        <span class="text-warning">@result.Message</span>
                                     }
                                     else
                                     {
@@ -154,10 +174,11 @@
 </div>
 
 @code {
-    private (int Total, int Success, int Failed, double SuccessRate) statistics;
+    private (int Total, int Success, int Warning, int Error, double SuccessRate) statistics;
     private string searchSymbol = "";
     private bool filterSuccess = false;
-    private bool filterFailed = false;
+    private bool filterWarning = false;
+    private bool filterError = false;
 
     protected override void OnInitialized()
     {
@@ -185,12 +206,13 @@
             results = results.Where(r => r.Symbol.Contains(searchSymbol, StringComparison.OrdinalIgnoreCase));
         }
 
-        // Фильтр по успешности
-        if (filterSuccess || filterFailed)
+        // Фильтр по статусу
+        if (filterSuccess || filterWarning || filterError)
         {
             results = results.Where(r =>
-                (filterSuccess && r.IsSuccess) ||
-                (filterFailed && !r.IsSuccess)
+                (filterSuccess && r.Status == CopyOrderResultStatus.Success) ||
+                (filterWarning && r.Status == CopyOrderResultStatus.Warning) ||
+                (filterError && r.Status == CopyOrderResultStatus.Error)
             );
         }
 
@@ -204,9 +226,15 @@
         return "text-danger";
     }
 
-    private string GetRowClass(bool isSuccess)
+    private string GetRowClass(CopyOrderResultStatus status)
     {
-        return isSuccess ? "" : "table-danger";
+        return status switch
+        {
+            CopyOrderResultStatus.Success => "",
+            CopyOrderResultStatus.Warning => "table-warning",
+            CopyOrderResultStatus.Error => "table-danger",
+            _ => ""
+        };
     }
 
     private string GetShortWallet(Wallet? wallet)
@@ -232,12 +260,16 @@
         border-left: 4px solid #28a745;
     }
 
-    .stat-failed {
+    .stat-warning {
+        border-left: 4px solid #ffc107;
+    }
+
+    .stat-error {
         border-left: 4px solid #dc3545;
     }
 
     .stat-rate {
-        border-left: 4px solid #ffc107;
+        border-left: 4px solid #6c757d;
     }
 
     .stat-card h6 {
@@ -249,6 +281,10 @@
     .stat-card h3 {
         margin: 0;
         font-weight: bold;
+    }
+
+    .table-warning {
+        background-color: #fff3cd;
     }
 
     .table-danger {

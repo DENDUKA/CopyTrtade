@@ -1,3 +1,4 @@
+using CopyTrading.Models.Models.Enums;
 using CopyTrading.Models.Values;
 
 namespace CopyTrading.Models.Models;
@@ -23,12 +24,12 @@ public class CopyOrderResult
     public string Symbol { get; set; }
 
     /// <summary>
-    /// Успешно ли скопирован ордер
+    /// Статус результата копирования
     /// </summary>
-    public bool IsSuccess { get; set; }
+    public CopyOrderResultStatus Status { get; set; }
 
     /// <summary>
-    /// Сообщение: "Success" или описание ошибки
+    /// Сообщение: "Success" или описание ошибки/предупреждения
     /// </summary>
     public string Message { get; set; }
 
@@ -42,9 +43,22 @@ public class CopyOrderResult
     /// </summary>
     public string? CopyOrderId { get; set; }
 
+    /// <summary>
+    /// Успешно ли скопирован ордер (для обратной совместимости)
+    /// </summary>
+    public bool IsSuccess => Status == CopyOrderResultStatus.Success;
+
     public override string ToString()
     {
+        var statusIcon = Status switch
+        {
+            CopyOrderResultStatus.Success => "✓",
+            CopyOrderResultStatus.Warning => "⚠",
+            CopyOrderResultStatus.Error => "✗",
+            _ => "?"
+        };
+
         return $"[{Timestamp:HH:mm:ss}] Order {OriginalOrderId} ({Symbol}): " +
-               $"{(IsSuccess ? "✓ Success" : "✗ Failed")} - {Message}";
+               $"{statusIcon} {Status} - {Message}";
     }
 }

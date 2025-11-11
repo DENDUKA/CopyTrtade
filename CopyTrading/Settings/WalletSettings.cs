@@ -31,6 +31,7 @@ public static class WalletSettings
         new Wallet("0x685feceec46dd4e5c9b5b726f5d7550fd0eda526"),
         new Wallet("0x33c3b8bcd758f511b350374a63e1f880f40e0282"),
         new Wallet("0xb5418352d0a149c36964d56ae6ece340cacb842b"),
+        new Wallet("0xfce053a5e461683454bf37ad66d20344c0e3f4c0"),
 
 
        //использую для тестов (сеточник)
