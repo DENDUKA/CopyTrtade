@@ -51,7 +51,7 @@ public class CopyOrderServiceTests
             Wallet = traderWallet,
             AccountVolume = 20000M,  // Баланс трейдера $20,000
             TotalMarginUsed = 0,
-            Positions = new Dictionary<string, Position>(),
+            Positions = [],
             TimeStamp = DateTime.UtcNow
         };
 
@@ -60,7 +60,7 @@ public class CopyOrderServiceTests
             Wallet = myWallet,
             AccountVolume = 2000M,   // Мой баланс $2,000
             TotalMarginUsed = 0,
-            Positions = new Dictionary<string, Position>(),
+            Positions = [],
             TimeStamp = DateTime.UtcNow
         };
 
@@ -154,7 +154,7 @@ public class CopyOrderServiceTests
             Wallet = traderWallet,
             AccountVolume = 10000M,  // Баланс трейдера $10,000
             TotalMarginUsed = 0,
-            Positions = new Dictionary<string, Position>(),
+            Positions = [],
             TimeStamp = DateTime.UtcNow
         };
 
@@ -163,7 +163,7 @@ public class CopyOrderServiceTests
             Wallet = myWallet,
             AccountVolume = 5000M,   // Мой баланс $5,000
             TotalMarginUsed = 0,
-            Positions = new Dictionary<string, Position>(),
+            Positions = [],
             TimeStamp = DateTime.UtcNow
         };
 
@@ -255,7 +255,7 @@ public class CopyOrderServiceTests
             Wallet = traderWallet,
             AccountVolume = 25000M,  // Баланс трейдера $25,000
             TotalMarginUsed = 0,
-            Positions = new Dictionary<string, Position>(),
+            Positions = [],
             TimeStamp = DateTime.UtcNow
         };
 
@@ -264,7 +264,7 @@ public class CopyOrderServiceTests
             Wallet = myWallet,
             AccountVolume = 3000M,   // Мой баланс $3,000
             TotalMarginUsed = 0,
-            Positions = new Dictionary<string, Position>(),
+            Positions = [],
             TimeStamp = DateTime.UtcNow
         };
 
@@ -356,7 +356,7 @@ public class CopyOrderServiceTests
             Wallet = traderWallet,
             AccountVolume = 100000M,  // Баланс трейдера $100,000
             TotalMarginUsed = 0,
-            Positions = new Dictionary<string, Position>(),
+            Positions = [],
             TimeStamp = DateTime.UtcNow
         };
 
@@ -365,7 +365,7 @@ public class CopyOrderServiceTests
             Wallet = myWallet,
             AccountVolume = 500M,     // Мой баланс всего $500
             TotalMarginUsed = 0,
-            Positions = new Dictionary<string, Position>(),
+            Positions = [],
             TimeStamp = DateTime.UtcNow
         };
 

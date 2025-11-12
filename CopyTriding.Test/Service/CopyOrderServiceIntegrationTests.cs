@@ -1751,6 +1751,252 @@ public class CopyOrderServiceIntegrationTests
         // (CopyOrderService вызовет HandleCanceledOrder для них)
     }
 
+    [Fact]
+    public async Task IntegrationTest_TwoTraders_DifferentOrderSequence_ShouldProduceSameProportionalVolume()
+    {
+        // Этот тест проверяет что порядок ордеров (2000→4500 vs 4500→2000) не влияет на финальную пропорцию
+        // Трейдер A: баланс 10,000$, наш VolumeUsd 1,000$ → коэффициент 0.1
+        // Трейдер B: баланс 10,000$, наш VolumeUsd 1,000$ → коэффициент 0.1
+        // Оба трейдера открывают позиции на 2,000$ + 4,500$ = 6,500$ (65% от баланса)
+        // Ожидаемый результат:
+        // - Трейдер A: 1,000$ * 0.65 = 650$
+        // - Трейдер B: 1,000$ * 0.65 = 650$
+        // - Объемы ОДИНАКОВЫЕ несмотря на разный порядок ордеров!
+
+        // ============================================================
+        // Arrange
+        // ============================================================
+        ResetServices();  // Clear state from other tests
+
+        var traderA = new Wallet("0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+        var traderB = new Wallet("0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB");
+
+        var btcPrice = 50000m;  // BTC = 50,000$
+        var ethPrice = 3000m;   // ETH = 3,000$
+
+        // Setup Trader A (BTC): баланс 10,000$, наш VolumeUsd 1,000$
+        var traderAWalletInfo = new WalletInfoModel
+        {
+            Wallet = traderA,
+            AccountVolume = 10000m,
+            Positions = []
+        };
+        _walletInfoProvider
+            .Setup(x => x.GetInfo(traderA, It.IsAny<bool>()))
+            .ReturnsAsync(traderAWalletInfo);
+
+        var traderASettings = new CopyTradeWalletSettings
+        {
+            Wallet = traderA,
+            VolumeUsd = 1000m,  // Изменено с 5000 на 1000 для равного сравнения
+            CopyKoef = 1.0m
+        };
+        _walletSettingsServiceMock
+            .Setup(x => x.Get(traderA))
+            .ReturnsAsync(traderASettings);
+
+        // Setup Trader B (ETH): баланс 10,000$, наш VolumeUsd 1,000$
+        var traderBWalletInfo = new WalletInfoModel
+        {
+            Wallet = traderB,
+            AccountVolume = 10000m,
+            Positions = []
+        };
+        _walletInfoProvider
+            .Setup(x => x.GetInfo(traderB, It.IsAny<bool>()))
+            .ReturnsAsync(traderBWalletInfo);
+
+        var traderBSettings = new CopyTradeWalletSettings
+        {
+            Wallet = traderB,
+            VolumeUsd = 1000m,
+            CopyKoef = 1.0m
+        };
+        _walletSettingsServiceMock
+            .Setup(x => x.Get(traderB))
+            .ReturnsAsync(traderBSettings);
+
+        // Setup exchange info
+        var btcExchangeInfo = new SharedFuturesSymbol(TradingMode.PerpetualLinear, "BTC", "USDC", "BTC/USDC", true)
+        {
+            QuantityDecimals = 3,
+        };
+        _exchangeInfoProvider
+            .Setup(x => x.GetExchangeInfo("BTC"))
+            .ReturnsAsync(btcExchangeInfo);
+
+        var ethExchangeInfo = new SharedFuturesSymbol(TradingMode.PerpetualLinear, "ETH", "USDC", "ETH/USDC", true)
+        {
+            QuantityDecimals = 2,
+        };
+        _exchangeInfoProvider
+            .Setup(x => x.GetExchangeInfo("ETH"))
+            .ReturnsAsync(ethExchangeInfo);
+
+        InitializeEmptyWalletSnapshot(traderA);
+        InitializeEmptyWalletSnapshot(traderB);
+
+        // Создаем тестируемый сервис
+        var service = CreateService();
+
+        // ============================================================
+        // Act - Трейдер A (BTC): порядок 2,000$ → 4,500$
+        // ============================================================
+
+        // Трейдер A - Ордер 1: Open 2,000$ (20% от баланса)
+        var traderA_order1 = new OriginalOrder
+        {
+            OrderId = 1001,
+            Wallet = traderA,
+            Symbol = "BTC",
+            Price = btcPrice,
+            Quantity = 0.04m,  // 0.04 BTC * 50,000 = 2,000$
+            Direction = Direction.Long,
+            Leverage = 10m,
+            Status = OrderStatus.Open,
+            SubType = OrderSubType.Open
+        };
+        DataBusEvents.NewOrders?.Invoke([traderA_order1]);
+        await Task.Delay(200);
+
+        // Проверяем первую копию
+        var resultA1 = _copyOrderResultService.GetResult("1001");
+        resultA1.Should().NotBeNull();
+        if (!resultA1!.IsSuccess)
+        {
+            System.Diagnostics.Debug.WriteLine($"TraderA Order1 failed: {resultA1.Message}");
+        }
+        resultA1!.IsSuccess.Should().BeTrue($"because: {resultA1.Message}");
+
+        // Трейдер A - Ордер 2: Increase 4,500$ (45% от баланса)
+        var traderA_order2 = new OriginalOrder
+        {
+            OrderId = 1002,
+            Wallet = traderA,
+            Symbol = "BTC",
+            Price = btcPrice,
+            Quantity = 0.09m,  // 0.09 BTC * 50,000 = 4,500$
+            Direction = Direction.Long,
+            Leverage = 10m,
+            Status = OrderStatus.Open,
+            SubType = OrderSubType.Increase
+        };
+
+        DataBusEvents.NewOrders?.Invoke([traderA_order2]);
+        await Task.Delay(200);
+
+        // Проверяем вторую копию
+        var resultA2 = _copyOrderResultService.GetResult("1002");
+        resultA2.Should().NotBeNull();
+        resultA2!.IsSuccess.Should().BeTrue();
+
+        // ============================================================
+        // Act - Трейдер B (ETH): порядок 4,500$ → 2,000$ (обратный!)
+        // ============================================================
+
+        // Трейдер B - Ордер 1: Open 4,500$ (45% от баланса)
+        var traderB_order1 = new OriginalOrder
+        {
+            OrderId = 2001,
+            Wallet = traderB,
+            Symbol = "ETH",
+            Price = ethPrice,
+            Quantity = 1.5m,  // 1.5 ETH * 3,000 = 4,500$
+            Direction = Direction.Long,
+            Leverage = 10m,
+            Status = OrderStatus.Open,
+            SubType = OrderSubType.Open
+        };
+
+        DataBusEvents.NewOrders?.Invoke([traderB_order1]);
+        await Task.Delay(200);
+
+        // Проверяем первую копию
+        var resultB1 = _copyOrderResultService.GetResult("2001");
+        resultB1.Should().NotBeNull();
+        resultB1!.IsSuccess.Should().BeTrue();
+
+        // Трейдер B - Ордер 2: Increase 2,000$ (20% от баланса)
+        var traderB_order2 = new OriginalOrder
+        {
+            OrderId = 2002,
+            Wallet = traderB,
+            Symbol = "ETH",
+            Price = ethPrice,
+            Quantity = 0.6667m,  // 0.6667 ETH * 3,000 ≈ 2,000$
+            Direction = Direction.Long,
+            Leverage = 10m,
+            Status = OrderStatus.Open,
+            SubType = OrderSubType.Increase
+        };
+
+        DataBusEvents.NewOrders?.Invoke([traderB_order2]);
+        await Task.Delay(200);
+
+        // Проверяем вторую копию
+        var resultB2 = _copyOrderResultService.GetResult("2002");
+        resultB2.Should().NotBeNull();
+        resultB2!.IsSuccess.Should().BeTrue();
+
+        // ============================================================
+        // Assert - Проверяем финальные объемы
+        // ============================================================
+        var allOrders = _storageService.GetAllOrders().ToList();
+        allOrders.Should().HaveCount(4);  // 2 BTC + 2 ETH
+
+        // Получаем BTC ордера (Трейдер A)
+        var btcOrders = allOrders.Where(o => o.OriginalOrder.Symbol == "BTC").ToList();
+        btcOrders.Should().HaveCount(2);
+
+        // Получаем ETH ордера (Трейдер B)
+        var ethOrders = allOrders.Where(o => o.OriginalOrder.Symbol == "ETH").ToList();
+        ethOrders.Should().HaveCount(2);
+
+        // Рассчитываем финальные объемы в USD
+        var btcTotalQuantity = btcOrders.Sum(o => o.Quantity);
+        var btcTotalVolumeUsd = btcTotalQuantity * btcPrice;
+
+        var ethTotalQuantity = ethOrders.Sum(o => o.Quantity);
+        var ethTotalVolumeUsd = ethTotalQuantity * ethPrice;
+
+        // Проверяем ожидаемые объемы
+        // Трейдер A: 1,000$ * 0.65 = 650$
+        btcTotalVolumeUsd.Should().BeApproximately(650m, 10m);
+
+        // Трейдер B: 1,000$ * 0.65 = 650$
+        ethTotalVolumeUsd.Should().BeApproximately(650m, 10m);
+
+        // КЛЮЧЕВАЯ ПРОВЕРКА: Объемы ОДИНАКОВЫЕ несмотря на разный порядок ордеров!
+        // Оба трейдера: VolumeUsd = 1,000$, вложили 65% от баланса
+        // Результат должен быть идентичным: 650$ каждый
+        var volumeRatio = btcTotalVolumeUsd / ethTotalVolumeUsd;
+        volumeRatio.Should().BeApproximately(1.0m, 0.05m);  // Должно быть ≈1 (одинаковые объемы)
+
+        // Проверяем что оба трейдера вложили одинаковую долю от баланса (65%)
+        var traderATotalInvestment = (traderA_order1.VolumeUsd + traderA_order2.VolumeUsd);
+        var traderAInvestmentPercent = traderATotalInvestment / traderAWalletInfo.AccountVolume * 100;
+        traderAInvestmentPercent.Should().BeApproximately(65m, 1m);
+
+        var traderBTotalInvestment = (traderB_order1.VolumeUsd + traderB_order2.VolumeUsd);
+        var traderBInvestmentPercent = traderBTotalInvestment / traderBWalletInfo.AccountVolume * 100;
+        traderBInvestmentPercent.Should().BeApproximately(65m, 1m);
+
+        // Проверяем статистику
+        var stats = _copyOrderResultService.GetStatistics();
+        stats.Total.Should().Be(4);
+        stats.Success.Should().Be(4);
+        stats.Warning.Should().Be(0);
+        stats.Error.Should().Be(0);
+
+        // Debug output (можно убрать после успешного прохождения теста)
+        System.Diagnostics.Debug.WriteLine(
+            $"Test completed: " +
+            $"TraderA BTC volume: {btcTotalVolumeUsd:F2}$, " +
+            $"TraderB ETH volume: {ethTotalVolumeUsd:F2}$, " +
+            $"Volume ratio: {volumeRatio:F2} (expected: 1.00)"
+        );
+    }
+
     #endregion
 }
 
