@@ -106,6 +106,7 @@
                     <th>Адрес кошелька</th>
                     <th class="text-center">Подписка на ордера</th>
                     <th class="text-center">Подписка на трейды</th>
+                    <th class="text-center">Действия</th>
                 </tr>
             </thead>
             <tbody>
@@ -150,6 +151,24 @@
                                 </span>
                             }
                         </td>
+                        <td class="text-center">
+                            @if (!ordersSubscribed || !tradesSubscribed)
+                            {
+                                var isSubscribing = subscribingWallets.Contains(wallet);
+                                <button class="btn btn-sm btn-primary"
+                                        @onclick="() => SubscribeToWallet(wallet)"
+                                        disabled="@isSubscribing">
+                                    <i class="fas @(isSubscribing ? "fa-spinner fa-spin" : "fa-bell")"></i>
+                                    @(isSubscribing ? "Подписываемся..." : "Подписаться")
+                                </button>
+                            }
+                            else
+                            {
+                                <span class="badge bg-success">
+                                    <i class="fas fa-check-double"></i> Полная подписка
+                                </span>
+                            }
+                        </td>
                     </tr>
                     index++;
                 }
@@ -181,6 +200,8 @@
     private int ordersSubscribedCount = 0;
     private int tradesSubscribedCount = 0;
     private int pendingCount = 0;
+
+    private HashSet<CopyTrading.Models.Values.Wallet> subscribingWallets = new();
 
     protected override void OnInitialized()
     {
@@ -231,6 +252,45 @@
         finally
         {
             isSubscribingTrades = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SubscribeToWallet(CopyTrading.Models.Values.Wallet wallet)
+    {
+        try
+        {
+            subscribingWallets.Add(wallet);
+            StateHasChanged();
+
+            OrdersTradesSubscriber.GetSubscribeStatus(wallet, out bool ordersSubscribed, out bool tradesSubscribed);
+
+            Logger.LogInformation($"Начинаем подписку на кошелек {wallet.Value}");
+
+            // Подписываемся на ордера, если еще не подписаны
+            if (!ordersSubscribed)
+            {
+                Logger.LogInformation($"Подписываемся на ордера для кошелька {wallet.Value}");
+                await OrdersTradesSubscriber.SubscribeToNewOrders(new[] { wallet });
+            }
+
+            // Подписываемся на трейды, если еще не подписаны
+            if (!tradesSubscribed)
+            {
+                Logger.LogInformation($"Подписываемся на трейды для кошелька {wallet.Value}");
+                await OrdersTradesSubscriber.SubscribeToTrades(new[] { wallet });
+            }
+
+            Logger.LogInformation($"Подписка на кошелек {wallet.Value} завершена");
+            UpdateMetrics();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, $"Ошибка при подписке на кошелек {wallet.Value}");
+        }
+        finally
+        {
+            subscribingWallets.Remove(wallet);
             StateHasChanged();
         }
     }
