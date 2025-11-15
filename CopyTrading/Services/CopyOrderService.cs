@@ -136,7 +136,7 @@ public class CopyOrderService(
 
             case OrderSubType.Close:
                 _logger.LogInformation($"HandleOpenOrder: Вызываем ClosePosition для {order.OrderId}");
-                ClosePosition(order);
+                await ClosePosition(order);
                 _logger.LogInformation($"HandleOpenOrder: ClosePosition завершен для {order.OrderId}");
                 break;
 
@@ -294,9 +294,14 @@ public class CopyOrderService(
             var myIncreaseQuantity = order.Quantity * mapping.PositionRatio;
             myIncreaseQuantity = RoundQuantity(myIncreaseQuantity, exchangeInfo);
 
+            // Получаем настройки кошелька
+            var walletSettings = await _walletSettingsService.Get(order.Wallet);
+
+            myIncreaseQuantity *= walletSettings.CopyKoef;
+
             // Создаем копируемый ордер
             _logger.LogInformation($"IncreasePosition: Создаем CopyOrder для {order.OrderId}");
-            var copyOrder = CreateCopyOrderFromQuantity(order, myIncreaseQuantity, mapping.PositionRatio, OrderSubType.Increase);
+            var copyOrder = await CreateCopyOrderFromQuantity(order, myIncreaseQuantity, mapping.PositionRatio, OrderSubType.Increase, walletSettings);
             _logger.LogInformation($"IncreasePosition: CopyOrder создан для {order.OrderId}, CopyOrderId={copyOrder.OrderId}");
 
             // Публикуем событие и сохраняем результат
@@ -528,24 +533,28 @@ public class CopyOrderService(
             if (actualTraderQuantity is null) return;
 
             // Рассчитываем количество для закрытия
-            var myCloseQuantity = CalculateDecreaseQuantity(order, mapping, actualTraderQuantity.Value);
+            var myDecreaseQuantity = CalculateDecreaseQuantity(order, mapping, actualTraderQuantity.Value);
+
+            var walletSettings = await _walletSettingsService.Get(order.Wallet);
+
+            myDecreaseQuantity *= walletSettings.CopyKoef;
 
             // Получаем exchangeInfo и округляем
             var exchangeInfo = await TryGetExchangeInfo(order);
             if (exchangeInfo == null) return;
 
-            myCloseQuantity = RoundQuantity(myCloseQuantity, exchangeInfo);
+            myDecreaseQuantity = RoundQuantity(myDecreaseQuantity, exchangeInfo);
 
             // Создаем копируемый ордер
             _logger.LogInformation($"DecreasePosition: Создаем CopyOrder для {order.OrderId}");
-            var copyOrder = CreateCopyOrderFromQuantity(order, myCloseQuantity, mapping.PositionRatio, OrderSubType.Decrease);
+            var copyOrder = await CreateCopyOrderFromQuantity(order, myDecreaseQuantity, mapping.PositionRatio, OrderSubType.Decrease, walletSettings);
             _logger.LogInformation($"DecreasePosition: CopyOrder создан для {order.OrderId}, CopyOrderId={copyOrder.OrderId}");
 
             // Публикуем событие
             PublishCopyOrderCreated(order, copyOrder);
 
             // Обновляем или удаляем маппинг
-            UpdateOrDeleteMappingAfterDecrease(order, mapping, myCloseQuantity);
+            UpdateOrDeleteMappingAfterDecrease(order, mapping, myDecreaseQuantity);
 
             // Сохраняем результат
             SaveSuccessResult(order, copyOrder);
@@ -562,7 +571,7 @@ public class CopyOrderService(
     /// Полное закрытие позиции (Close)
     /// Закрываем ВСЮ нашу позицию независимо от текущих балансов
     /// </summary>
-    private Task ClosePosition(OriginalOrder order)
+    private async Task ClosePosition(OriginalOrder order)
     {
         _logger.LogInformation($"ClosePosition START: {order.Symbol} {order.Direction}, Quantity={order.Quantity}, OrderId={order.OrderId}");
 
@@ -577,7 +586,7 @@ public class CopyOrderService(
                 var errorMsg = "Невозможно скопировать close - у нас нет открытой позиции (маппинг не найден)";
                 _logger.LogWarning($"ClosePosition: OrderId={order.OrderId} {errorMsg}. CopyOrder НЕ БУДЕТ СОЗДАН!");
                 SaveWarningResult(order, errorMsg);
-                return Task.CompletedTask;
+                return;
             }
 
             // Закрываем ВСЮ нашу позицию
@@ -591,12 +600,12 @@ public class CopyOrderService(
                 // FIX: используем Opposite() для корректного удаления маппинга
                 _positionMappingService.DeleteMapping(order.Wallet, _myWallet, order.Symbol, order.Direction.Opposite());
                 SaveWarningResult(order, errorMsg);
-                return Task.CompletedTask;
+                return;
             }
 
             // Создаем копируемый ордер
             _logger.LogInformation($"ClosePosition: Создаем CopyOrder для {order.OrderId}");
-            var copyOrder = CreateCopyOrderFromQuantity(order, myCloseQuantity, mapping.PositionRatio, OrderSubType.Close);
+            var copyOrder = await CreateCopyOrderFromQuantity(order, myCloseQuantity, mapping.PositionRatio, OrderSubType.Close);
             _logger.LogInformation($"ClosePosition: CopyOrder создан для {order.OrderId}, CopyOrderId={copyOrder.OrderId}");
 
             // Публикуем событие
@@ -612,8 +621,6 @@ public class CopyOrderService(
             SaveSuccessResult(order, copyOrder);
 
             // TODO: Разместить ордер на полное закрытие через OrdersProvider
-
-            return Task.CompletedTask;
         }
         catch (Exception ex)
         {
@@ -680,6 +687,7 @@ public class CopyOrderService(
             MyPE = myAccountValue,
             AccountPE = traderWalletInfo.AccountVolume,
             Quantity = myQuantity,
+            WalletSettings = walletSettings,
         };
 
         await CorrectCopyOrder(newCopyOrder);
@@ -693,7 +701,7 @@ public class CopyOrderService(
     /// Создать копируемый ордер на основе уже рассчитанного количества
     /// Используется для Increase/Decrease/Close позиций
     /// </summary>
-    private static CopyOrderV2 CreateCopyOrderFromQuantity(OriginalOrder order, decimal myQuantity, decimal positionRatio, OrderSubType orderSubType)
+    private async Task<CopyOrderV2> CreateCopyOrderFromQuantity(OriginalOrder order, decimal myQuantity, decimal positionRatio,  OrderSubType orderSubType, CopyTradeWalletSettings walletSettings =null)
     {
         // Генерируем уникальный временный ID для копируемого ордера
         var tempOrderId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -708,6 +716,7 @@ public class CopyOrderService(
             MyPE = 0,  // Не актуально для Increase/Decrease/Close
             AccountPE = 0,  // Не актуально для Increase/Decrease/Close
             Quantity = myQuantity,
+            WalletSettings = walletSettings,
         };
 
         return copyOrder;

@@ -12,6 +12,7 @@ public class CopyOrderV2
     public decimal MyPE { get; init; }
     public decimal AccountPE { get; init; }
     public decimal Quantity { get; set; }
+    public CopyTradeWalletSettings? WalletSettings { get; init; }
 
     public decimal VolumeUsd => Quantity * OriginalOrder.Price;
 

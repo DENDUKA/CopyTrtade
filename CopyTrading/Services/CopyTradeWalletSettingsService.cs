@@ -48,7 +48,7 @@ public class CopyTradeWalletSettingsService
     /// </summary>
     public virtual async Task<CopyTradeWalletSettings?> Get(Wallet wallet)
     {
-        if (wallet is null) throw new ArgumentNullException(nameof(wallet));
+        ArgumentNullException.ThrowIfNull(wallet);
 
         if (_settings.TryGetValue(wallet, out var value))
             return value;
@@ -131,7 +131,7 @@ public class CopyTradeWalletSettingsService
     #region Helpers
     private static void Validate(CopyTradeWalletSettings settings)
     {
-        if (settings is null) throw new ArgumentNullException(nameof(settings));
+        ArgumentNullException.ThrowIfNull(settings);
         if (settings.Wallet is null) throw new ArgumentNullException(nameof(settings.Wallet));
         if (settings.VolumeUsd < 0) throw new ArgumentOutOfRangeException(nameof(settings.VolumeUsd), "VolumeUsd не может быть отрицательным");
         if (settings.CopyKoef <= 0) throw new ArgumentOutOfRangeException(nameof(settings.CopyKoef), "CopyKoef должен быть > 0");

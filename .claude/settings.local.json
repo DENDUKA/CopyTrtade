@@ -27,7 +27,9 @@
       "Bash(Select-String -Pattern \"(passed|failed|Passed|Failed|всего|Total)\" -Context 0,1)",
       "Bash(Select-String -Pattern \"(Failed|Order 3002|MultipleTradersDifferent)\" -Context 2)",
       "Bash(Select-String -Pattern \"(Сборка успешно|Ошибок:|Предупреждений:|error |Build succeeded)\" -Context 0,2)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(Select-String -Pattern \"(Не пройден|Failed|Expected|Should)\" -Context 1,2)",
+      "Bash(Select-String -Pattern \"(Arrange|Assert|Expected|result|Status|Message|WARNING|ERROR)\" -Context 0,2)"
     ],
     "deny": [],
     "ask": []
