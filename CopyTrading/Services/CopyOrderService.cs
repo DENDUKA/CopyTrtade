@@ -829,7 +829,7 @@ public class CopyOrderService(
             MyQuantity = copyOrder.Quantity,
             PositionRatio = copyOrder.Quantity / order.Quantity,  // Сохраняем пропорцию!
             TraderQuantityAtEntry = 0,  // При обычном Open трейдер открывает позицию с нуля
-            LastUpdate = DateTime.UtcNow
+            LastUpdate = DateTime.Now
         };
 
         _positionMappingService.SaveOrUpdateMapping(mapping);

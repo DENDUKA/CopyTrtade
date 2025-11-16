@@ -20,7 +20,7 @@ public static class TradeMapper
             Quantity = tradeDto.Quantity,
             StartPosition = tradeDto.StartPosition,
             IsFuture = tradeDto.SymbolType == SymbolType.Futures,
-            TimeStamp = tradeDto.Timestamp,
+            TimeStamp = DateTime.SpecifyKind(tradeDto.Timestamp, DateTimeKind.Utc).ToLocalTime(),
             TradeId = tradeDto.TradeId,
             Wallet = wallet,
         };

@@ -30,7 +30,7 @@ public class PositionMappingService(ILogger<PositionMappingService> _logger)
     /// </summary>
     public void SaveOrUpdateMapping(PositionMapping mapping)
     {
-        mapping.LastUpdate = DateTime.UtcNow;
+        mapping.LastUpdate = DateTime.Now;
         var key = mapping.GetKey();
 
         _mappings.AddOrUpdate(key, mapping, (k, old) => mapping);

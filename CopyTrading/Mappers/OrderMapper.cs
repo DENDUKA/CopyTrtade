@@ -17,7 +17,7 @@ public static class OrderMapper
             Direction = data.Order.OrderSide == HyperLiquid.Net.Enums.OrderSide.Buy ? Direction.Long : Direction.Short,
             Price = data.Order.Price,
             Quantity = data.Order.Quantity,
-            Time = data.Order.Timestamp,
+            Time = DateTime.SpecifyKind(data.Order.Timestamp, DateTimeKind.Utc).ToLocalTime(),
             Status = data.Status.ToBll(),
             Wallet = wallet
         };

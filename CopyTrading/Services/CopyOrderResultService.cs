@@ -36,7 +36,7 @@ public class CopyOrderResultService
             Symbol = symbol,
             Status = CopyOrderResultStatus.Success,
             Message = "Success",
-            Timestamp = DateTime.UtcNow,
+            Timestamp = DateTime.Now,
             CopyOrderId = copyOrderId
         };
 
@@ -59,7 +59,7 @@ public class CopyOrderResultService
             Symbol = symbol,
             Status = CopyOrderResultStatus.Error,
             Message = errorMessage,
-            Timestamp = DateTime.UtcNow,
+            Timestamp = DateTime.Now,
             CopyOrderId = null
         };
 
@@ -82,7 +82,7 @@ public class CopyOrderResultService
             Symbol = symbol,
             Status = CopyOrderResultStatus.Warning,
             Message = warningMessage,
-            Timestamp = DateTime.UtcNow,
+            Timestamp = DateTime.Now,
             CopyOrderId = null
         };
 
@@ -155,7 +155,7 @@ public class CopyOrderResultService
     /// </summary>
     public int ClearOldResults(TimeSpan olderThan)
     {
-        var cutoffTime = DateTime.UtcNow - olderThan;
+        var cutoffTime = DateTime.Now - olderThan;
         var oldKeys = _results
             .Where(kvp => kvp.Value.Timestamp < cutoffTime)
             .Select(kvp => kvp.Key)
