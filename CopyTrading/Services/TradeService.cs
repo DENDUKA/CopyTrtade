@@ -1,6 +1,7 @@
 ﻿using CopyTrading.BlazorUI.Services;
 using CopyTrading.DataEvents;
 using CopyTrading.Models.Models.Enums;
+using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Models.Trade;
 using CopyTrading.Models.Values;
 using CopyTrading.Providers.Hyperliquid.Subscribers;
@@ -83,6 +84,8 @@ public class TradeService
             }
 
             _logger.LogInformation($"Новый trade : {trade.ToString()}");
+
+            LogDelayWithServer(trade);
         }
 
 
@@ -137,5 +140,11 @@ public class TradeService
         }
 
         return (spread, deltaTimeS);
+    }
+
+    private void LogDelayWithServer(OriginalTrade trade)
+    {
+        var now = DateTime.Now;
+        _logger.LogInformation($"LogDelayWithServer Trade {trade.OrderId} {(now - trade.TimeStamp).TotalSeconds} ");
     }
 }

@@ -85,6 +85,8 @@ public class OrderService
 
             var minPeForOrder = await CalculateMinPerpEquityForOrder(order);
             _tradeRepositorySQL.WriteMinPeForOrder(minPeForOrder);
+
+            LogDelayWithServer(order);
         }
 
         _realtimeUpdateService.OnNewOrders(orders);
@@ -131,5 +133,11 @@ public class OrderService
     public decimal CalculateMinPerpEquity(decimal walletVolume, decimal tradeVolume)
     {
         return 100 / (tradeVolume / walletVolume * 100);
+    }
+
+    private void LogDelayWithServer(OriginalOrder order)
+    {
+        var now = DateTime.Now;
+        _logger.LogInformation($"LogDelayWithServer Order {order.Status.ToString()} {order.OrderId} {(now - order.Time).TotalSeconds} ");
     }
 }
