@@ -83,6 +83,7 @@ public class Startup
         services.AddSingleton<Repository.SQLite.TradeRepository>();
         services.AddSingleton<Repository.SQLite.WalletInfoRepository>();
         services.AddSingleton<Repository.SQLite.WalletSettingsRepository>();
+        services.AddSingleton<Repository.SQLite.LogRepository>();
 
         services.AddSerilogUi(options =>
         {

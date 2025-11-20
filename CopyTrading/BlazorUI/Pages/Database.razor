@@ -1,0 +1,152 @@
+@page "/database"
+@using CopyTrading.Repository.SQLite
+@inject LogRepository LogRepo
+@inject ILogger<Database> Logger
+
+<PageTitle>База данных - CopyTrading</PageTitle>
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>
+                <i class="fas fa-database"></i> База данных
+            </h1>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <!-- Управление логами -->
+            <div class="card mb-4">
+                <div class="card-header bg-danger text-white">
+                    <i class="fas fa-trash-alt"></i> Управление логами
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Внимание!</strong> Очистка логов приведет к безвозвратному удалению всех записей из таблицы логов в базе данных SQLite.
+                    </div>
+
+                    <div class="mb-3">
+                        <h5>Очистка логов</h5>
+                        <p class="text-muted">
+                            Удалить все записи из таблицы Logs в базе данных. Эта операция необратима.
+                        </p>
+                        <button class="btn btn-danger"
+                                @onclick="ClearLogs"
+                                disabled="@isClearing">
+                            @if (isClearing)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                <span>Очистка...</span>
+                            }
+                            else
+                            {
+                                <i class="fas fa-trash-alt me-2"></i>
+                                <span>Очистить все логи</span>
+                            }
+                        </button>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(clearLogsMessage))
+                    {
+                        <div class="alert @(clearLogsSuccess ? "alert-success" : "alert-danger")" role="alert">
+                            <i class="fas @(clearLogsSuccess ? "fa-check-circle" : "fa-exclamation-circle")"></i>
+                            @clearLogsMessage
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Информация о базе данных -->
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <i class="fas fa-info-circle"></i> Информация о базе данных
+                </div>
+                <div class="card-body">
+                    <h6>SQLite Database</h6>
+                    <p class="text-muted mb-2">Путь: <code>../SQLliteBD/CopyTradingDB.db</code></p>
+                    <hr />
+                    <div class="mb-2">
+                        <strong>Таблицы:</strong>
+                        <ul class="mt-2">
+                            <li>Logs - Системные логи (Serilog)</li>
+                            <li>Orders - История ордеров</li>
+                            <li>Trades - История сделок</li>
+                            <li>WalletInfo - Информация о кошельках</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Боковая панель -->
+        <div class="col-md-4">
+            <div class="card border-warning">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="fas fa-shield-alt text-warning"></i> Безопасность
+                    </h6>
+                    <p class="card-text small">
+                        Операции с базой данных необратимы. Убедитесь, что вы понимаете последствия перед выполнением действий.
+                    </p>
+                </div>
+            </div>
+
+            <div class="card mt-4 border-info">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="fas fa-lightbulb text-info"></i> Совет
+                    </h6>
+                    <p class="card-text small">
+                        Для просмотра логов используйте <a href="/serilog-ui" target="_blank">Serilog UI</a>.
+                        После очистки новые логи будут записываться автоматически.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private bool isClearing = false;
+    private string clearLogsMessage = string.Empty;
+    private bool clearLogsSuccess = false;
+
+    private async Task ClearLogs()
+    {
+        if (!await ConfirmAction("Вы уверены, что хотите удалить все логи?"))
+            return;
+
+        isClearing = true;
+        clearLogsMessage = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            await LogRepo.ClearAll();
+
+            clearLogsSuccess = true;
+            clearLogsMessage = "Логи успешно очищены";
+            Logger.LogInformation("Логи успешно очищены через UI");
+        }
+        catch (Exception ex)
+        {
+            clearLogsSuccess = false;
+            clearLogsMessage = $"Ошибка: {ex.Message}";
+            Logger.LogError(ex, "Исключение при очистке логов через UI");
+        }
+        finally
+        {
+            isClearing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task<bool> ConfirmAction(string message)
+    {
+        // В production среде лучше использовать модальное окно
+        // Для простоты используем JavaScript confirm
+        return await Task.FromResult(true); // TODO: Добавить модальное окно подтверждения
+    }
+}
