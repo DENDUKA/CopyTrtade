@@ -76,7 +76,7 @@ public class RealtimeUpdateService
             _logger.LogInformation($"RealtimeUpdateService: Получено {orders.Length} новых ордеров");
 
             // Отправляем всем подключенным клиентам
-            await _hubContext.Clients.All.SendAsync("ReceiveOrders", orders);
+            await _hubContext.Clients?.All.SendAsync("ReceiveOrders", orders);
 
             _logger.LogDebug($"Отправлено {orders.Length} ордеров всем клиентам");
         }
@@ -96,7 +96,7 @@ public class RealtimeUpdateService
             _logger.LogInformation($"RealtimeUpdateService: Ордер завершен - {orderFills.OriginalOrder.OrderId}");
 
             // Отправляем всем подключенным клиентам
-            await _hubContext.Clients.All.SendAsync("ReceiveOrderFinished", orderFills);
+            await _hubContext.Clients?.All.SendAsync("ReceiveOrderFinished", orderFills);
 
             _logger.LogDebug($"Отправлено уведомление о завершении ордера {orderFills.OriginalOrder.OrderId}");
         }

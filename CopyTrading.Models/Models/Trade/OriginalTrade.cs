@@ -14,7 +14,7 @@ public record class OriginalTrade
     public decimal Price { get; set; }
     public DateTime TimeStamp { get; set; }
     public OrderSubType SubType { get; set; }
-    public bool IsFuture { get; set; }
+    public required bool IsFuture { get; set; }
     public Direction Direction { get; set; }
     public decimal StartPosition { get; set; }
     public bool IsTaker { get; set; }

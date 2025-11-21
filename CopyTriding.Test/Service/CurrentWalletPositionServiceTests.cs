@@ -52,6 +52,7 @@ public class CurrentWalletPositionServiceTests
             Symbol = "BTC",
             Direction = Direction.Short,
             Quantity = 0.1M,
+            IsFuture = true,
         };
 
         var longTrade = new OriginalTrade()
@@ -60,6 +61,7 @@ public class CurrentWalletPositionServiceTests
             Symbol = "BTC",
             Direction = Direction.Long,
             Quantity = 0.1M,
+            IsFuture = true,
         };
 
         // Act
@@ -129,6 +131,7 @@ public class CurrentWalletPositionServiceTests
             Symbol = "BTC",
             Direction = Direction.Short,
             Quantity = 0.1M,
+            IsFuture = true,
         };
 
         var longTrade = new OriginalTrade()
@@ -137,6 +140,7 @@ public class CurrentWalletPositionServiceTests
             Symbol = "BTC",
             Direction = Direction.Long,
             Quantity = 0.1M,
+            IsFuture = true,
         };
 
         // Act
@@ -390,7 +394,8 @@ public class CurrentWalletPositionServiceTests
             Symbol = "BNB",
             Direction = Direction.Long,
             Quantity = 10M,
-            Price = 300M
+            Price = 300M,
+            IsFuture = true,
             // VolumeUsd вычисляется автоматически = Quantity * Price
         };
 
@@ -439,7 +444,8 @@ public class CurrentWalletPositionServiceTests
             Symbol = "ADA",
             Direction = Direction.Long,
             Quantity = 1000M,
-            Price = 0.6M
+            Price = 0.6M,
+            IsFuture = true,
             // VolumeUsd = 600M вычисляется автоматически
         };
 
@@ -677,7 +683,8 @@ public class CurrentWalletPositionServiceTests
             Symbol = "ATOM",
             Direction = Direction.Long,
             Quantity = 10M,
-            Price = 10M
+            Price = 10M,
+            IsFuture = true,
             // VolumeUsd = 100M вычисляется автоматически
         };
 
@@ -867,7 +874,8 @@ public class CurrentWalletPositionServiceTests
                 Symbol = "BTC",
                 Direction = direction,
                 Quantity = quantity,
-                Price = price
+                Price = price,
+                IsFuture = true,
                 // VolumeUsd вычисляется автоматически
             };
 
