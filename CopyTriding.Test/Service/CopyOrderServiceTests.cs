@@ -10,7 +10,6 @@ using CopyTrading.Providers.Hyperliquid.Interfaces;
 using CopyTrading.Providers.Hyperliquid.Subscribers;
 using CopyTrading.Services;
 using CopyTrading.Services.Interfaces;
-using System.Collections.Generic;
 using CryptoExchange.Net.SharedApis;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;

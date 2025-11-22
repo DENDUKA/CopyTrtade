@@ -189,11 +189,10 @@ dotnet clean CopyTrading.sln
     - Пересчитывает SubType для каждого pending ордера
     - Обновляет значения через `FillsOrderService.UpdateOrderSubType()` если изменились
     - Логирует количество обновленных ордеров
-  - `CalculatePotentialPosition()` (строки 78-106):
-    - Рассчитывает потенциальную позицию = реальная позиция + pending ордера
-    - Параметр `excludeOrderId` исключает указанный ордер из расчета
-    - Параметр `onlyEarlierOrders=true` учитывает только ордера с OrderId меньше excludeOrderId
-    - Используется для определения влияния ордера на позицию
+  - `CalculatePotentialPosition(Wallet wallet, string symbol, long orderId)` (строки 79-107):
+    - Рассчитывает потенциальную позицию = реальная позиция + pending ордера с OrderId < orderId
+    - Учитывает только более ранние ордера (с меньшим OrderId)
+    - Используется для определения SubType без влияния самого ордера и более поздних ордеров
 
 **OrderService, CandleService**
 - Различные сервисы бизнес-логики для обработки специфичных доменных операций

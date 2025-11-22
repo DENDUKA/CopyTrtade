@@ -1,5 +1,4 @@
 ﻿using CopyTrading.Providers.Hyperliquid.Subscribers;
-using CopyTrading.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CopyTrading.Controllers;

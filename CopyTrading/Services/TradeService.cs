@@ -1,7 +1,6 @@
 ﻿using CopyTrading.BlazorUI.Services;
 using CopyTrading.DataEvents;
 using CopyTrading.Models.Models.Enums;
-using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Models.Trade;
 using CopyTrading.Models.Values;
 using CopyTrading.Providers.Hyperliquid.Subscribers;

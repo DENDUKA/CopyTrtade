@@ -1,5 +1,4 @@
 ﻿using System.Collections.Concurrent;
-using CopyTrading.DataEvents;
 using CopyTrading.Mappers;
 using CopyTrading.Models.Models;
 using CopyTrading.Models.Models.Enums;
@@ -72,21 +71,21 @@ public class CurrentWalletPositionService(
     }
 
     /// <summary>
-    /// Рассчитать потенциальную позицию (реальная + pending ордера)
-    /// Использует FillsOrderService для получения открытых ордеров
+    /// Рассчитывает потенциальную позицию для указанного символа и кошелька
+    /// Потенциальная позиция = реальная позиция + все открытые pending ордера (кроме указанного)
+    /// Используется для определения SubType ордера
     /// </summary>
-    private decimal CalculatePotentialPosition(Wallet wallet, string symbol, long? excludeOrderId = null, bool onlyEarlierOrders = false)
+    private decimal CalculatePotentialPosition(Wallet wallet, string symbol, long excludeOrderId)
     {
         // Получаем реальную позицию
         var realPositions = GetPositionsFromSnapshot(wallet, symbol);
         decimal realQuantity = realPositions.Length > 0 ? realPositions[0].Quantity : 0;
 
-        // Получаем pending ордера из FillsOrderService
+        // Получаем все открытые pending ордера из FillsOrderService
         var openOrderFills = _fillsOrderService.GetOpenOrdersByWallet(wallet);
         var pendingOrdersForSymbol = openOrderFills
             .Where(of => of.OriginalOrder.Symbol == symbol)
-            .Where(of => !excludeOrderId.HasValue || of.OriginalOrder.OrderId != excludeOrderId.Value)  // Исключаем указанный ордер
-            .Where(of => !onlyEarlierOrders || !excludeOrderId.HasValue || of.OriginalOrder.OrderId < excludeOrderId.Value)  // Только более ранние ордера (с меньшим OrderId)
+            .Where(of => of.OriginalOrder.OrderId != excludeOrderId)  // Исключаем сам ордер
             .Select(of => of.OriginalOrder)
             .ToArray();
 
@@ -100,7 +99,7 @@ public class CurrentWalletPositionService(
 
         decimal potentialPosition = realQuantity + pendingQuantity;
 
-        _logger.LogDebug($"CalculatePotentialPosition: {wallet} {symbol} Real={realQuantity}, Pending={pendingQuantity} ({pendingOrdersForSymbol.Length} orders), Potential={potentialPosition}, ExcludeOrderId={excludeOrderId}, OnlyEarlierOrders={onlyEarlierOrders}");
+        _logger.LogDebug($"CalculatePotentialPosition: {wallet} {symbol} Real={realQuantity}, Pending={pendingQuantity} ({pendingOrdersForSymbol.Length} orders), Potential={potentialPosition}, ExcludeOrderId={excludeOrderId}");
 
         return potentialPosition;
     }
@@ -199,9 +198,8 @@ public class CurrentWalletPositionService(
             return OrderSubType.None;
         }
 
-        // Рассчитываем потенциальную позицию (реальная + pending ордера с меньшим OrderId), ИСКЛЮЧАЯ текущий ордер
-        // onlyEarlierOrders=true означает что мы учитываем только ордера с OrderId < текущего
-        decimal potentialPosition = CalculatePotentialPosition(order.Wallet, order.Symbol, excludeOrderId: order.OrderId, onlyEarlierOrders: true);
+        // Рассчитываем потенциальную позицию (реальная + все открытые pending ордера, кроме текущего)
+        decimal potentialPosition = CalculatePotentialPosition(order.Wallet, order.Symbol, order.OrderId);
 
         // Нет ни реальной позиции, ни pending ордеров - это Open
         if (potentialPosition == 0)
