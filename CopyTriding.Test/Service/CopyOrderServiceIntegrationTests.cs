@@ -100,7 +100,7 @@ public class CopyOrderServiceIntegrationTests
         _copyOrderResultService = new CopyOrderResultService(_resultLogger.Object);
         _storageService = new CopyOrderStorageService(_storageLogger.Object);
         _positionMappingService = new PositionMappingService(_mappingLogger.Object);
-        _currentWalletPositionService = new CurrentWalletPositionService(_walletInfoProvider.Object, _positionLogger.Object);
+        _currentWalletPositionService = new CurrentWalletPositionService(_walletInfoProvider.Object, new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>()), _positionLogger.Object);
     }
 
     [Fact]

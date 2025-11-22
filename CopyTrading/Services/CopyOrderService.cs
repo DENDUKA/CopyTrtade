@@ -109,12 +109,9 @@ public class CopyOrderService(
     {
         _logger.LogInformation($"HandleOpenOrder START: {order.Symbol} {order.Direction}, OrderId={order.OrderId}");
 
-        // Определяем тип ордера через CurrentWalletPositionService
-        var orderSubType = _currentWalletPositionService.GetOrderSubType(order);
+        _logger.LogInformation($"CopyOrderService HandleOpenOrder: OrderId={order.OrderId} {order.Symbol} {order.Direction} SubType={order.SubType}");
 
-        _logger.LogInformation($"CopyOrderService HandleOpenOrder: OrderId={order.OrderId} {order.Symbol} {order.Direction} SubType={orderSubType}");
-
-        switch (orderSubType)
+        switch (order.SubType)
         {
             case OrderSubType.Open:
                 _logger.LogInformation($"HandleOpenOrder: Вызываем OpenNewPosition для {order.OrderId}");
@@ -150,7 +147,7 @@ public class CopyOrderService(
 
             default:
                 {
-                    var errorMsg = $"Неизвестный OrderSubType {orderSubType}";
+                    var errorMsg = $"Неизвестный OrderSubType {order.SubType}";
                     _logger.LogError($"CopyOrderService HandleOpenOrder: OrderId={order.OrderId} {errorMsg} - CopyOrder НЕ БУДЕТ СОЗДАН!");
                     SaveFailureResult(order, errorMsg);
                     break;

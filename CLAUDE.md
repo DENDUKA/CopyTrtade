@@ -67,14 +67,51 @@ dotnet clean CopyTrading.sln
 **OrderService** (`CopyTrading/Services/OrderService.cs`)
 - **Центральный медиатор** для распределения событий `NewOrders`
 - Подписывается на событие `DataBusEvents.NewOrders` в конструкторе
-- **НЕ** публикует события напрямую - вместо этого вызывает методы других сервисов:
-  - `_fillsOrderService.OnNewOrders(orders)` - передает ордера для корреляции со сделками
-  - `_copyOrderService.OnNewOrders(orders)` - запускает процесс копирования ордеров
-  - `_realtimeUpdateService.OnNewOrders(orders)` - отправляет в UI через SignalR
-- Сохраняет ордера в репозитории (InfluxDB и SQLite)
-- Рассчитывает минимальный Perpetual Equity для каждого ордера
+- **Последовательность обработки в `OnNewOrders()`:**
+  1. **Для каждого нового ордера:**
+     - Рассчитывает `SubType` через `CurrentWalletPositionService.GetOrderSubType()` (строка 86)
+     - Сохраняет ордер в SQLite
+     - Рассчитывает минимальный Perpetual Equity через `CalculateMinPerpEquityForOrder()`
+     - Сохраняет MinPE в БД
+     - Логирует задержку с сервером
+  2. **После обработки всех ордеров:**
+     - Отправляет в UI через `_realtimeUpdateService.OnNewOrders()`
+     - Добавляет в `_fillsOrderService.OnNewOrders()` для корреляции со сделками
+     - Пересчитывает SubType для всех pending ордеров через `RecalculateSubTypesForOrders()`
+     - Запускает копирование через `_copyOrderService.OnNewOrders()`
 - **ВАЖНО:** `FillsOrderService`, `CopyOrderService` и `RealtimeUpdateService` НЕ подписаны напрямую на `DataBusEvents.NewOrders`, они получают данные через методы `OnNewOrders`, которые вызывает `OrderService`
 - Активируется в `Startup.Configure` через `serviceProvider.GetService<OrderService>()`
+
+**Расчет SubType (OrderSubType) для ордеров:**
+
+`OrderSubType` определяет тип ордера относительно существующей позиции: Open (новая позиция), Increase (увеличение), Decrease (уменьшение), Close (закрытие). Расчет происходит в два этапа:
+
+**Этап 1: Первичный расчет для новых ордеров** (`OrderService.OnNewOrders`, строка 86)
+- Выполняется ДО добавления ордера в `FillsOrderService`
+- Вызывается `CurrentWalletPositionService.GetOrderSubType(order)` для каждого нового ордера
+- При расчете используется параметр `excludeOrderId: order.OrderId, onlyEarlierOrders: true`
+- Это означает: учитываются только pending ордера с OrderId < текущего
+- **Критично:** Новые ордера из текущего массива НЕ влияют друг на друга при первичном расчете
+
+**Этап 2: Пересчет для всех pending ордеров** (`OrderService.RecalculateSubTypesForOrders`, строка 100)
+- Выполняется ПОСЛЕ добавления всех новых ордеров в `FillsOrderService`
+- Группирует ордера по `(Wallet, Symbol)` и вызывает `CurrentWalletPositionService.RecalculateSubTypesForSymbol()`
+- Пересчитывает SubType для ВСЕХ pending ордеров (включая только что добавленные)
+- Обновляет SubType через `FillsOrderService.UpdateOrderSubType()` если значение изменилось
+- Теперь новые ордера учитываются при расчете позиций для старых pending ордеров
+
+**Почему два этапа расчета:**
+
+Если в массиве `orders[]` приходит несколько ордеров одновременно (например, OrderId [100, 50, 200]):
+- Без первичного расчета: если добавить все в FillsOrderService сразу, то при расчете SubType для ордера 100, ордер 50 (меньший ID) уже будет в системе и повлияет на расчет, хотя оба пришли одновременно
+- С первичным расчетом: каждый новый ордер видит только "старые" pending ордера, что корректно отражает состояние на момент создания
+- Пересчет на втором этапе: обновляет SubType для старых pending ордеров с учетом новых, что правильно отражает изменение состояния системы
+
+**Метод `CalculateMinPerpEquityForOrder()`** (`OrderService.cs:110-120`)
+- **Единственная ответственность:** рассчитать минимальный Perpetual Equity для ордера
+- **НЕ рассчитывает SubType** - это делается отдельно в `OnNewOrders()`
+- Принимает уже рассчитанный `order.SubType` и сохраняет его в `MinPEForOrder` для БД
+- Возвращает объект `MinPEForOrder` с полями: OrderId, AccountVolume, MinPE, SubType
 
 **FillsOrderService** (`CopyTrading/Services/FillsOrderService.cs`)
 - Получает трейды через метод `OnNewTrades`, который вызывает `TradeService` (НЕ подписан напрямую на `DataBusEvents.NewTrades`)
@@ -83,6 +120,14 @@ dotnet clean CopyTrading.sln
 - Поддерживает concurrent словари для корреляции сделок с ордерами
 - Обрабатывает pending сделки, которые приходят раньше своих ордеров
 - Генерирует события `OrderFinished` когда ордера достигают финальных статусов
+- **Методы для работы с OrderSubType:**
+  - `GetPendingOrdersByWalletAndSymbol(Wallet, Symbol)` (строки 52-61):
+    - Возвращает все pending (не финальные) ордера для указанной пары кошелек+символ
+    - Используется `CurrentWalletPositionService` для пересчета SubType
+  - `UpdateOrderSubType(long orderId, OrderSubType newSubType)` (строки 63-82):
+    - Обновляет SubType для указанного ордера в памяти (в `_orders` словаре)
+    - Возвращает true если ордер найден и обновлен, false если не найден
+    - Логирует изменение: старое значение → новое значение
 - **Автоматическая очистка памяти:**
   - Хранит все ордера в `ConcurrentDictionary<long, OrderFills> _orders`
   - Когда количество ордеров превышает **2000**, запускается автоматическая очистка
@@ -131,8 +176,24 @@ dotnet clean CopyTrading.sln
 
 **CurrentWalletPositionService** (`CopyTrading/Services/CurrentWalletPositionService.cs`)
 - Получает трейды через метод `OnNewTrades`, который вызывает `TradeService` (НЕ подписан напрямую на `DataBusEvents.NewTrades`)
-- Поддерживает снапшоты позиций кошельков в реальном времени
+- Поддерживает снапшоты позиций кошельков в реальном времени (`WalletPositionsSnapshot`)
 - Используется для умной синхронизации при копировании ордеров
+- **Ключевые методы для расчета OrderSubType:**
+  - `GetOrderSubType(OriginalOrder order)` (строки 194-215):
+    - Определяет тип ордера: Open, Increase, Decrease или Close
+    - Рассчитывает потенциальную позицию через `CalculatePotentialPosition()`
+    - Использует параметр `onlyEarlierOrders=true` для учета только ордеров с OrderId < текущего
+    - Вызывает `DetermineOrderSubType()` для финальной классификации
+  - `RecalculateSubTypesForSymbol(Wallet wallet, string symbol)` (строки 231-277):
+    - Получает все pending ордера для указанной пары (wallet, symbol) через `FillsOrderService`
+    - Пересчитывает SubType для каждого pending ордера
+    - Обновляет значения через `FillsOrderService.UpdateOrderSubType()` если изменились
+    - Логирует количество обновленных ордеров
+  - `CalculatePotentialPosition()` (строки 78-106):
+    - Рассчитывает потенциальную позицию = реальная позиция + pending ордера
+    - Параметр `excludeOrderId` исключает указанный ордер из расчета
+    - Параметр `onlyEarlierOrders=true` учитывает только ордера с OrderId меньше excludeOrderId
+    - Используется для определения влияния ордера на позицию
 
 **OrderService, CandleService**
 - Различные сервисы бизнес-логики для обработки специфичных доменных операций
@@ -231,7 +292,11 @@ Swagger UI доступен в режиме разработки по адрес
 **При написании тестов:**
 Необходимо создавать экземпляры `TradeService` и `OrderService` в setup методах тестов, даже если они не используются напрямую:
 - **TradeService** при создании автоматически подписывается на `DataBusEvents.NewTrades` и транслирует их в `FillsOrderService`, `CurrentWalletPositionService` и `RealtimeUpdateService` через вызов их методов `OnNewTrades()`. Без TradeService эти сервисы не получат трейды.
-- **OrderService** при создании автоматически подписывается на `DataBusEvents.NewOrders` и транслирует их в `FillsOrderService`, `CopyOrderService` и `RealtimeUpdateService` через вызов их методов `OnNewOrders()`. Без OrderService эти сервисы не получат ордера.
+- **OrderService** при создании автоматически подписывается на `DataBusEvents.NewOrders` и:
+  - Рассчитывает SubType для каждого нового ордера
+  - Транслирует ордера в `FillsOrderService`, `CopyOrderService` и `RealtimeUpdateService` через вызов их методов `OnNewOrders()`
+  - Пересчитывает SubType для всех pending ордеров через `RecalculateSubTypesForOrders()`
+  - **Критично:** Без OrderService ордера не получат правильный SubType, и CopyOrderService не сможет корректно копировать ордера
 
 ### Управление WebSocket подписками
 

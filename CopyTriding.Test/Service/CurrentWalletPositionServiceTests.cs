@@ -16,6 +16,7 @@ public class CurrentWalletPositionServiceTests
 {
     private readonly Mock<IWalletInfoProvider> _walletInfoProvider = new(MockBehavior.Strict);
     private readonly Mock<ILogger<CurrentWalletPositionService>> _logger = new(MockBehavior.Loose);
+    private readonly CopyOrderStorageService _storageService = new(Mock.Of<ILogger<CopyOrderStorageService>>());
 
     [Fact]
     public async Task CurrentLongPosInitialize_Add_Succsess()
@@ -25,6 +26,7 @@ public class CurrentWalletPositionServiceTests
 
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
+            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>()),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -104,6 +106,7 @@ public class CurrentWalletPositionServiceTests
 
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
+            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>()),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -183,6 +186,7 @@ public class CurrentWalletPositionServiceTests
 
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
+            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>()),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -219,6 +223,7 @@ public class CurrentWalletPositionServiceTests
 
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
+            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>()),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -265,6 +270,7 @@ public class CurrentWalletPositionServiceTests
 
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
+            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>()),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -311,6 +317,7 @@ public class CurrentWalletPositionServiceTests
 
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
+            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>()),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -379,6 +386,7 @@ public class CurrentWalletPositionServiceTests
 
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
+            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>()),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -418,6 +426,7 @@ public class CurrentWalletPositionServiceTests
 
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
+            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>()),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -470,6 +479,7 @@ public class CurrentWalletPositionServiceTests
 
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
+            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>()),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -506,6 +516,7 @@ public class CurrentWalletPositionServiceTests
 
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
+            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>()),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -532,6 +543,7 @@ public class CurrentWalletPositionServiceTests
 
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
+            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>()),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -591,6 +603,7 @@ public class CurrentWalletPositionServiceTests
 
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
+            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>()),
             _logger.Object);
 
         // Act
@@ -611,6 +624,7 @@ public class CurrentWalletPositionServiceTests
         // Arrange
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
+            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>()),
             _logger.Object);
 
         var wallet = new Wallet("0x7bde2b9240a2ee352108c6823a9fa20f225b83a0");
@@ -656,6 +670,7 @@ public class CurrentWalletPositionServiceTests
 
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
+            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>()),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -734,6 +749,7 @@ public class CurrentWalletPositionServiceTests
 
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
+            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>()),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot

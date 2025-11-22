@@ -49,6 +49,46 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger)
             .ToArray();
     }
 
+    /// <summary>
+    /// Получает все pending (незавершенные) ордера для указанного кошелька и символа
+    /// </summary>
+    /// <param name="wallet">Кошелек для фильтрации</param>
+    /// <param name="symbol">Символ для фильтрации</param>
+    /// <returns>Массив pending OrderFills для указанного кошелька и символа</returns>
+    public OrderFills[] GetPendingOrdersByWalletAndSymbol(Models.Values.Wallet wallet, string symbol)
+    {
+        return _orders.Values
+            .Where(orderFills =>
+                orderFills.OriginalOrder.Wallet.Value == wallet.Value &&
+                orderFills.OriginalOrder.Symbol == symbol &&
+                !IsFinalStatus(orderFills.OriginalOrder.Status))
+            .ToArray();
+    }
+
+    /// <summary>
+    /// Обновляет OrderSubType для указанного ордера
+    /// </summary>
+    /// <param name="orderId">ID ордера</param>
+    /// <param name="newSubType">Новый SubType</param>
+    /// <returns>True если обновление успешно, false если ордер не найден</returns>
+    public bool UpdateOrderSubType(long orderId, OrderSubType newSubType)
+    {
+        if (_orders.TryGetValue(orderId, out var orderFills))
+        {
+            var oldSubType = orderFills.OriginalOrder.SubType;
+            orderFills.OriginalOrder.SubType = newSubType;
+
+            _logger.LogInformation(
+                $"OrderSubType обновлен для OriginalOrder ID={orderId}: {oldSubType} -> {newSubType}, " +
+                $"Wallet={orderFills.OriginalOrder.Wallet}, Symbol={orderFills.OriginalOrder.Symbol}");
+
+            return true;
+        }
+
+        _logger.LogWarning($"Ордер ID={orderId} не найден для обновления SubType");
+        return false;
+    }
+
     public void OnNewOrders(OriginalOrder[] orders)
     {
         foreach (var newOrder in orders)

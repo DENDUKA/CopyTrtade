@@ -1,4 +1,5 @@
 ﻿using CopyTrading.DataEvents;
+using CopyTrading.Models.Models.Enums.Order;
 using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Values;
 using CopyTrading.Providers.Hyperliquid.Interfaces;
@@ -81,6 +82,9 @@ public class OrderService
         {
             _logger.LogInformation($"Получен новый ордер: {order}");
 
+            // Рассчитываем SubType для каждого нового ордера
+            order.SubType = _currentWalletPositionService.GetOrderSubType(order);
+
             _orderSQLLiteRepository.WriteOrder(order);
 
             var minPeForOrder = await CalculateMinPerpEquityForOrder(order);
@@ -90,49 +94,48 @@ public class OrderService
         }
 
         _realtimeUpdateService.OnNewOrders(orders);
-
         _fillsOrderService.OnNewOrders(orders);
+
+        // Пересчитываем SubType для всех pending ордеров, затронутых изменениями
+        RecalculateSubTypesForOrders(orders);
+
         await _copyOrderService.OnNewOrders(orders);
     }
 
-    public async Task<MinPEForOrder> CalculateMinPerpEquityForOrder(OriginalOrder order)
+    private static decimal CalculateMinPerpEquity(decimal walletVolume, decimal tradeVolume)
+    {
+        return 100 / (tradeVolume / walletVolume * 100);
+    }
+
+    private async Task<MinPEForOrder> CalculateMinPerpEquityForOrder(OriginalOrder order)
     {
         var walletInfo = await _walletInfo.GetInfo(order.Wallet);
 
         var minPE = CalculateMinPerpEquity(walletInfo.AccountVolume, order.VolumeUsd);
-        var subType = _currentWalletPositionService.GetOrderSubType(order);
 
         return new MinPEForOrder
         {
             OrderId = order.OrderId,
             AccountVolume = walletInfo.AccountVolume,
             MinPE = minPE,
-            SubType = subType,
+            SubType = order.SubType,
         };
     }
 
-    public async Task<decimal> CalculateMinPerpEquityForHystoryTrades(Wallet wallet)
+    /// <summary>
+    /// Пересчитывает SubType для всех pending ордеров, затронутых изменениями
+    /// Группирует ордера по (Wallet, Symbol) и вызывает пересчёт для каждой группы
+    /// </summary>
+    private void RecalculateSubTypesForOrders(OriginalOrder[] orders)
     {
-        var trades = await _walletInfo.GetHistoricalTrades(wallet);
-        var walletInfo = await _walletInfo.GetInfo(wallet);
+        var orderGroups = orders
+            .GroupBy(o => new { o.Wallet, o.Symbol })
+            .ToArray();
 
-        var minPerpE = decimal.MinValue;
-        //Тут надо получать Value Wallet в определенный момент времени ( трейда ) и вычислять исходя из него
-        foreach (var t in trades.Take(100))
+        foreach (var group in orderGroups)
         {
-            var tradeEquity = 100 / (t.VolumeUsd / walletInfo.AccountVolume * 100) * 10;
-            if (tradeEquity > minPerpE)
-            {
-                minPerpE = tradeEquity;
-            }
+            _currentWalletPositionService.RecalculateSubTypesForSymbol(group.Key.Wallet, group.Key.Symbol);
         }
-
-        return minPerpE;
-    }
-
-    public decimal CalculateMinPerpEquity(decimal walletVolume, decimal tradeVolume)
-    {
-        return 100 / (tradeVolume / walletVolume * 100);
     }
 
     private void LogDelayWithServer(OriginalOrder order)

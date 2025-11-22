@@ -1,6 +1,8 @@
 ﻿using System.Collections.Concurrent;
+using CopyTrading.DataEvents;
 using CopyTrading.Mappers;
 using CopyTrading.Models.Models;
+using CopyTrading.Models.Models.Enums;
 using CopyTrading.Models.Models.Enums.Order;
 using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Models.Trade;
@@ -11,6 +13,7 @@ namespace CopyTrading.Services;
 
 public class CurrentWalletPositionService(
     IWalletInfoProvider _walletInfoProvider,
+    FillsOrderService _fillsOrderService,
     ILogger<CurrentWalletPositionService> _logger)
 {
     private readonly ConcurrentDictionary<Wallet, WalletPositionsSnapshot> _walletPositionSnapshot = [];
@@ -66,6 +69,40 @@ public class CurrentWalletPositionService(
         var count = _walletPositionSnapshot.Count;
         _walletPositionSnapshot.Clear();
         _logger.LogInformation($"Все snapshots очищены (было {count})");
+    }
+
+    /// <summary>
+    /// Рассчитать потенциальную позицию (реальная + pending ордера)
+    /// Использует FillsOrderService для получения открытых ордеров
+    /// </summary>
+    private decimal CalculatePotentialPosition(Wallet wallet, string symbol, long? excludeOrderId = null, bool onlyEarlierOrders = false)
+    {
+        // Получаем реальную позицию
+        var realPositions = GetPositionsFromSnapshot(wallet, symbol);
+        decimal realQuantity = realPositions.Length > 0 ? realPositions[0].Quantity : 0;
+
+        // Получаем pending ордера из FillsOrderService
+        var openOrderFills = _fillsOrderService.GetOpenOrdersByWallet(wallet);
+        var pendingOrdersForSymbol = openOrderFills
+            .Where(of => of.OriginalOrder.Symbol == symbol)
+            .Where(of => !excludeOrderId.HasValue || of.OriginalOrder.OrderId != excludeOrderId.Value)  // Исключаем указанный ордер
+            .Where(of => !onlyEarlierOrders || !excludeOrderId.HasValue || of.OriginalOrder.OrderId < excludeOrderId.Value)  // Только более ранние ордера (с меньшим OrderId)
+            .Select(of => of.OriginalOrder)
+            .ToArray();
+
+        // Суммируем pending ордера (Long = положительные, Short = отрицательные)
+        decimal pendingQuantity = 0;
+        foreach (var order in pendingOrdersForSymbol)
+        {
+            decimal orderQuantity = order.Direction == Direction.Long ? order.Quantity : -order.Quantity;
+            pendingQuantity += orderQuantity;
+        }
+
+        decimal potentialPosition = realQuantity + pendingQuantity;
+
+        _logger.LogDebug($"CalculatePotentialPosition: {wallet} {symbol} Real={realQuantity}, Pending={pendingQuantity} ({pendingOrdersForSymbol.Length} orders), Potential={potentialPosition}, ExcludeOrderId={excludeOrderId}, OnlyEarlierOrders={onlyEarlierOrders}");
+
+        return potentialPosition;
     }
 
     public async Task<OrderSubType> AddTrade(OriginalTrade trade)
@@ -162,29 +199,19 @@ public class CurrentWalletPositionService(
             return OrderSubType.None;
         }
 
-        var openPos = GetPositionsFromSnapshot(order.Wallet, order.Symbol);
+        // Рассчитываем потенциальную позицию (реальная + pending ордера с меньшим OrderId), ИСКЛЮЧАЯ текущий ордер
+        // onlyEarlierOrders=true означает что мы учитываем только ордера с OrderId < текущего
+        decimal potentialPosition = CalculatePotentialPosition(order.Wallet, order.Symbol, excludeOrderId: order.OrderId, onlyEarlierOrders: true);
 
-        // Нет открытых позиций - это Open
-        if (openPos.Length == 0)
+        // Нет ни реальной позиции, ни pending ордеров - это Open
+        if (potentialPosition == 0)
         {
-            _logger.LogInformation($"GetOrderSubType: Для OrderId {order.OrderId} Нет открытых позиций для {order.Symbol} у {order.Wallet} - возвращаем OrderSubType.Open");
+            _logger.LogInformation($"GetOrderSubType: Для OrderId {order.OrderId} Нет позиций (реальных и pending) для {order.Symbol} у {order.Wallet} - возвращаем OrderSubType.Open");
             return OrderSubType.Open;
         }
 
-        // Одна открытая позиция - определяем тип
-        if (openPos.Length == 1)
-        {
-            return DetermineOrderSubType(openPos[0], order);
-        }
-
-        // Больше одной позиции - ошибка
-        if (openPos.Length > 1)
-        {
-            _logger.LogError($"GetOrderSubType: Для OrderId {order.OrderId} Обнаружено {openPos.Length} открытых позиций (разнонаправленные) для {order.Symbol} у кошелька {order.Wallet} - возвращаем OrderSubType.None");
-            return OrderSubType.None;
-        }
-
-        return OrderSubType.None;
+        // Есть позиция (реальная или потенциальная) - определяем тип
+        return DetermineOrderSubType(potentialPosition, order);
     }
 
     /// <summary>
@@ -198,6 +225,54 @@ public class CurrentWalletPositionService(
         if(position is null) return null;
 
         return position.Leverage;
+    }
+
+    /// <summary>
+    /// Пересчитать SubType для всех pending оригинальных ордеров по указанному кошельку и символу
+    /// Вызывается при изменении статуса любого ордера для обновления SubType остальных pending ордеров
+    /// </summary>
+    public void RecalculateSubTypesForSymbol(Wallet wallet, string symbol)
+    {
+        try
+        {
+            // Получаем все pending оригинальные ордера для данного кошелька и символа из FillsOrderService
+            var pendingOrderFills = _fillsOrderService.GetPendingOrdersByWalletAndSymbol(wallet, symbol);
+
+            if (pendingOrderFills.Length == 0)
+            {
+                _logger.LogDebug($"RecalculateSubTypesForSymbol: Нет pending ордеров для {wallet}, {symbol}");
+                return;
+            }
+
+            _logger.LogInformation($"RecalculateSubTypesForSymbol: Пересчет SubType для {pendingOrderFills.Length} pending ордеров. Wallet={wallet}, Symbol={symbol}");
+
+            int updatedCount = 0;
+
+            // Пересчитываем SubType для каждого pending OriginalOrder
+            foreach (var orderFills in pendingOrderFills)
+            {
+                var originalOrder = orderFills.OriginalOrder;
+                var oldSubType = originalOrder.SubType;
+                var newSubType = GetOrderSubType(originalOrder);
+
+                // Обновляем только если SubType изменился
+                if (newSubType != oldSubType)
+                {
+                    _fillsOrderService.UpdateOrderSubType(originalOrder.OrderId, newSubType);
+                    updatedCount++;
+
+                    _logger.LogInformation(
+                        $"RecalculateSubTypesForSymbol: OrderSubType изменен для OriginalOrder ID={originalOrder.OrderId}: " +
+                        $"{oldSubType} -> {newSubType}");
+                }
+            }
+
+            _logger.LogInformation($"RecalculateSubTypesForSymbol: Пересчет завершен. Обновлено {updatedCount} из {pendingOrderFills.Length} ордеров");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"RecalculateSubTypesForSymbol: Ошибка при пересчете SubType для {wallet}, {symbol}");
+        }
     }
 
     /// <summary>
@@ -341,34 +416,42 @@ public class CurrentWalletPositionService(
     }
 
     /// <summary>
-    /// Определяет тип операции на основе текущей позиции и ордера
+    /// Определяет тип операции на основе потенциальной позиции (реальная + pending ордера) и нового ордера
     /// </summary>
-    private OrderSubType DetermineOrderSubType(Position position, OriginalOrder order)
+    /// <param name="potentialPosition">Потенциальная позиция (положительная = Long, отрицательная = Short)</param>
+    /// <param name="order">Новый ордер</param>
+    private OrderSubType DetermineOrderSubType(decimal potentialPosition, OriginalOrder order)
     {
+        // Определяем направление потенциальной позиции
+        Direction positionDirection = potentialPosition > 0 ? Direction.Long : Direction.Short;
+
         // Одинаковое направление = INCREASE
-        if (position.Direction == order.Direction)
+        if (positionDirection == order.Direction)
         {
-            _logger.LogInformation($"DetermineOrderSubType: Позиция {order.Symbol} в том же направлении {order.Direction} - возвращаем OrderSubType.Increase");
+            _logger.LogInformation($"DetermineOrderSubType: Потенциальная позиция {order.Symbol} ({potentialPosition}) в том же направлении {order.Direction} - возвращаем OrderSubType.Increase");
             return OrderSubType.Increase;
         }
 
         // Противоположное направление - определяем Close, Decrease или Flip
-        var newQuantity = position.Quantity + order.RealQuantity;
+        // Рассчитываем новую позицию после исполнения ордера
+        decimal newQuantity = potentialPosition + order.RealQuantity;
 
         if (newQuantity == 0)
         {
-            _logger.LogInformation($"DetermineOrderSubType: Позиция {order.Symbol} будет полностью закрыта - возвращаем OrderSubType.Close");
+            _logger.LogInformation($"DetermineOrderSubType: Потенциальная позиция {order.Symbol} ({potentialPosition}) будет полностью закрыта ордером {order.Quantity} - возвращаем OrderSubType.Close");
             return OrderSubType.Close;
         }
 
-        if (Math.Abs(position.Quantity) > Math.Abs(order.Quantity))
+        // Проверяем знак новой позиции
+        if (Math.Sign(newQuantity) == Math.Sign(potentialPosition))
         {
-            _logger.LogInformation($"DetermineOrderSubType: Позиция {order.Symbol} будет частично закрыта - возвращаем OrderSubType.Decrease");
+            // Знак не изменился = частичное закрытие
+            _logger.LogInformation($"DetermineOrderSubType: Потенциальная позиция {order.Symbol} ({potentialPosition}) будет частично закрыта ордером {order.Quantity}, новая позиция {newQuantity} - возвращаем OrderSubType.Decrease");
             return OrderSubType.Decrease;
         }
 
-        // Переворот позиции (Close текущей + Open противоположной)
-        _logger.LogError($"DetermineOrderSubType: Не удалось уменьшить позицию {order.Symbol} у кошелька {order.Wallet} - TradeVolume больше чем открытая позиция. OrderId {order.OrderId}");
+        // Знак изменился = переворот позиции (Flip)
+        _logger.LogWarning($"DetermineOrderSubType: Потенциальная позиция {order.Symbol} ({potentialPosition}) будет перевернута ордером {order.RealQuantity}, новая позиция {newQuantity} - возвращаем OrderSubType.Flip. OrderId {order.OrderId}");
         return OrderSubType.Flip;
     }
 

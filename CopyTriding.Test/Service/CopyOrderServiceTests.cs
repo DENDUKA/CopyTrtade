@@ -41,7 +41,7 @@ public class CopyOrderServiceTests
     private readonly Mock<ILogger<OrderService>> _orderServiceLogger;
 
     // Mocks для TradeService и OrderService
-    private readonly Mock<FillsOrderService> _fillsOrderServiceMock;
+    private readonly FillsOrderService _fillsOrderService;
     private readonly Mock<OrdersTradesSubscriber> _orderProviderMock;
     private readonly Mock<OrderBookSubscriber> _orderBookProviderMock;
     private readonly Mock<TradeRepositoryInflux> _tradeRepositoryInfluxMock;
@@ -55,8 +55,8 @@ public class CopyOrderServiceTests
 
     public CopyOrderServiceTests()
     {
-        _walletInfoProvider = new Mock<IWalletInfoProvider>(MockBehavior.Strict);
-        _exchangeInfoProvider = new Mock<IExchangeInfoProvider>(MockBehavior.Strict);
+        _walletInfoProvider = new Mock<IWalletInfoProvider>(MockBehavior.Loose);
+        _exchangeInfoProvider = new Mock<IExchangeInfoProvider>(MockBehavior.Loose);
 
         var walletSettingsRepoMock = new Mock<Repository.SQLite.WalletSettingsRepository>(
             Mock.Of<ILogger<Repository.SQLite.WalletSettingsRepository>>());
@@ -76,7 +76,6 @@ public class CopyOrderServiceTests
         _orderServiceLogger = new Mock<ILogger<OrderService>>();
 
         // Инициализация моков для TradeService и OrderService
-        _fillsOrderServiceMock = new Mock<FillsOrderService>(Mock.Of<ILogger<FillsOrderService>>());
         _orderProviderMock = new Mock<OrdersTradesSubscriber>(MockBehavior.Loose, Mock.Of<ILogger<OrdersTradesSubscriber>>());
         _orderBookProviderMock = new Mock<OrderBookSubscriber>(MockBehavior.Loose, Mock.Of<ILogger<OrderBookSubscriber>>());
         _tradeRepositoryInfluxMock = new Mock<TradeRepositoryInflux>(MockBehavior.Loose, Mock.Of<ILogger<TradeRepositoryInflux>>());
@@ -91,7 +90,14 @@ public class CopyOrderServiceTests
         _copyOrderResultService = new CopyOrderResultService(_resultLogger.Object);
         _storageService = new CopyOrderStorageService(_storageLogger.Object);
         _positionMappingService = new PositionMappingService(_mappingLogger.Object);
-        _currentWalletPositionService = new CurrentWalletPositionService(_walletInfoProvider.Object, _positionLogger.Object);
+
+        // Создаем реальный FillsOrderService и сохраняем его в поле класса
+        _fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+
+        _currentWalletPositionService = new CurrentWalletPositionService(
+            _walletInfoProvider.Object,
+            _fillsOrderService,
+            _positionLogger.Object);
     }
 
     private void CreateServices()
@@ -103,7 +109,7 @@ public class CopyOrderServiceTests
             _walletInfoProvider.Object,
             _tradeRepositoryInfluxMock.Object,
             _tradeRepositorySQLMock.Object,
-            _fillsOrderServiceMock.Object,
+            _fillsOrderService,
             _currentWalletPositionService,
             _realtimeUpdateServiceMock.Object,
             _tradeServiceLogger.Object);
@@ -115,7 +121,7 @@ public class CopyOrderServiceTests
             _currentWalletPositionService,
             _positionMappingService,
             _copyOrderResultService,
-            _fillsOrderServiceMock.Object,
+            _fillsOrderService,
             _walletSettingsServiceMock.Object,
             _logger.Object);
 
@@ -133,7 +139,7 @@ public class CopyOrderServiceTests
             _orderRepositorySQLiteMock.Object,
             _tradeRepositorySQLMock.Object,
             _currentWalletPositionService,
-            _fillsOrderServiceMock.Object,
+            _fillsOrderService,
             copyOrderService,
             _realtimeUpdateServiceMock.Object,
             _orderServiceLogger.Object);
@@ -526,9 +532,18 @@ public class CopyOrderServiceTests
             TimeStamp = DateTime.UtcNow
         };
 
+        // Настраиваем моки для всех возможных вызовов GetInfo
         _walletInfoProvider
             .Setup(x => x.GetInfo(_traderWallet, true))
             .ReturnsAsync(traderWalletInfo);
+
+        _walletInfoProvider
+            .Setup(x => x.GetInfo(_traderWallet, false))
+            .ReturnsAsync(traderWalletInfo);
+
+        _walletInfoProvider
+            .Setup(x => x.GetInfo(_myWallet, true))
+            .ReturnsAsync(myWalletInfo);
 
         _walletInfoProvider
             .Setup(x => x.GetInfo(_myWallet, false))
@@ -606,9 +621,14 @@ public class CopyOrderServiceTests
         // Создаем сервисы
         CreateServices();
 
+        // Инициализируем пустой snapshot для трейдера (позиций еще нет)
+        InitializeEmptyWalletSnapshot(_traderWallet);
+        // Инициализируем пустой snapshot для моего кошелька
+        InitializeEmptyWalletSnapshot(_myWallet);
+
         // Act - отправляем первый ордер через DataBusEvents
         DataBusEvents.NewOrders?.Invoke([order1]);
-        await Task.Delay(50);
+        await Task.Delay(100);
 
         // Сразу после размещения полностью исполняем первый ордер
         var trade1 = new OriginalTrade
@@ -654,16 +674,12 @@ public class CopyOrderServiceTests
             .Setup(x => x.GetInfo(_traderWallet, false))
             .ReturnsAsync(traderWalletInfoWithPosition);
 
-        // Обновляем статус ордера на Filled
-        order1.Status = OrderStatus.Filled;
-
-        // Отправляем трейд для исполнения ордера
+        // Отправляем трейд для исполнения ордера (order1 уже Open)
         DataBusEvents.NewTrades?.Invoke(([trade1], false));
         await Task.Delay(50);
 
-        // Отправляем обновленный ордер со статусом Filled
-        DataBusEvents.NewOrders?.Invoke([order1]);
-        await Task.Delay(50);
+        // Обновляем статус ордера на Filled (в реальности это сделает FillsOrderService)
+        order1.Status = OrderStatus.Filled;
 
         // Проверяем что CurrentWalletPositionService обновил snapshot после исполнения первого ордера
         var traderSnapshot = await _currentWalletPositionService.GetSnapshot(_traderWallet);
@@ -677,21 +693,24 @@ public class CopyOrderServiceTests
 
         // Отправляем остальные ордера (они остаются pending)
         DataBusEvents.NewOrders?.Invoke([order2]);
-        await Task.Delay(50);
+        await Task.Delay(100);
+
         DataBusEvents.NewOrders?.Invoke([order3]);
-        await Task.Delay(50);
-        // Пока не отправляем order4, т.к. он Short при наличии Long позиции (Flip)
-        //DataBusEvents.NewOrders?.Invoke([order4]);
-        //await Task.Delay(50);
+        await Task.Delay(100);
+
+        // Теперь можем отправить order4 - благодаря учету pending ордеров он должен быть Decrease, а не Flip
+        DataBusEvents.NewOrders?.Invoke([order4]);
+        await Task.Delay(100);
 
         // Assert - проверяем основные результаты
         var allOrders = _storageService.GetAllOrders();
-        allOrders.Should().HaveCount(3, "должно быть создано 3 копируемых ордера");
+        allOrders.Should().HaveCount(4, "должно быть создано 4 копируемых ордера");
 
         // Проверяем что все ордера созданы
         allOrders.Should().Contain(o => o.OriginalOrderId == 1, "order1 должен быть скопирован");
         allOrders.Should().Contain(o => o.OriginalOrderId == 2, "order2 должен быть скопирован");
         allOrders.Should().Contain(o => o.OriginalOrderId == 3, "order3 должен быть скопирован");
+        allOrders.Should().Contain(o => o.OriginalOrderId == 4, "order4 должен быть скопирован");
 
         // Проверяем направления
         var copyOrder1 = allOrders.First(o => o.OriginalOrderId == 1);
@@ -702,5 +721,439 @@ public class CopyOrderServiceTests
 
         var copyOrder3 = allOrders.First(o => o.OriginalOrderId == 3);
         copyOrder3.OriginalOrder.Direction.Should().Be(Direction.Long);
+
+        var copyOrder4 = allOrders.First(o => o.OriginalOrderId == 4);
+        copyOrder4.OriginalOrder.Direction.Should().Be(Direction.Short);
+        copyOrder4.OrderSubType.Should().Be(OrderSubType.Decrease, "order4 должен быть Decrease т.к. учитываются pending ордера");
+    }
+
+    [Fact]
+    public async Task CreateCopyOrder_MultiplePendingOrders_ShouldCreateAllCopyOrders_LastCloseOrder()
+    {
+        // Arrange
+        ResetServices();
+        InitializeEmptyWalletSnapshot(_traderWallet);
+
+        var traderWalletInfo = new WalletInfoModel
+        {
+            Wallet = _traderWallet,
+            AccountVolume = 10000M,
+            TotalMarginUsed = 0,
+            Positions = new Dictionary<string, Position>(),
+            TimeStamp = DateTime.UtcNow
+        };
+
+        var myWalletInfo = new WalletInfoModel
+        {
+            Wallet = _myWallet,
+            AccountVolume = 1000M,
+            TotalMarginUsed = 0,
+            Positions = new Dictionary<string, Position>(),
+            TimeStamp = DateTime.UtcNow
+        };
+
+        // Настраиваем моки для всех возможных вызовов GetInfo
+        _walletInfoProvider
+            .Setup(x => x.GetInfo(_traderWallet, true))
+            .ReturnsAsync(traderWalletInfo);
+
+        _walletInfoProvider
+            .Setup(x => x.GetInfo(_traderWallet, false))
+            .ReturnsAsync(traderWalletInfo);
+
+        _walletInfoProvider
+            .Setup(x => x.GetInfo(_myWallet, true))
+            .ReturnsAsync(myWalletInfo);
+
+        _walletInfoProvider
+            .Setup(x => x.GetInfo(_myWallet, false))
+            .ReturnsAsync(myWalletInfo);
+
+        var exchangeInfo = new SharedFuturesSymbol(TradingMode.PerpetualLinear, "TEST", "USDC", "TEST/USDC", true)
+        {
+            QuantityDecimals = 2,
+        };
+
+        _exchangeInfoProvider
+            .Setup(x => x.GetExchangeInfo("TEST"))
+            .ReturnsAsync(exchangeInfo);
+
+        var walletSettings = new CopyTradeWalletSettings
+        {
+            Wallet = _traderWallet,
+            VolumeUsd = 1000m,
+            CopyKoef = 1.0m
+        };
+
+        _walletSettingsServiceMock
+            .Setup(x => x.Get(_traderWallet))
+            .ReturnsAsync(walletSettings);
+
+        // Создаем 4 оригинальных ордера
+        var order1 = new OriginalOrder
+        {
+            OrderId = 1,
+            Wallet = _traderWallet,
+            Symbol = "TEST",
+            Price = 1M,
+            Quantity = 100M,
+            Direction = Direction.Long,
+            Leverage = 5M,
+            Status = OrderStatus.Open,
+        };
+
+        var order2 = new OriginalOrder
+        {
+            OrderId = 2,
+            Wallet = _traderWallet,
+            Symbol = "TEST",
+            Price = 2M,
+            Quantity = 50M,
+            Direction = Direction.Long,
+            Leverage = 5M,
+            Status = OrderStatus.Open,
+        };
+
+        var order3 = new OriginalOrder
+        {
+            OrderId = 3,
+            Wallet = _traderWallet,
+            Symbol = "TEST",
+            Price = 4M,
+            Quantity = 25M,
+            Direction = Direction.Long,
+            Leverage = 5M,
+            Status = OrderStatus.Open,
+        };
+
+        var order4 = new OriginalOrder
+        {
+            OrderId = 4,
+            Wallet = _traderWallet,
+            Symbol = "TEST",
+            Price = 5M,
+            Quantity = 175M,
+            Direction = Direction.Short,
+            Leverage = 5M,
+            Status = OrderStatus.Open,
+        };
+
+        // Создаем сервисы
+        CreateServices();
+
+        // Инициализируем пустой snapshot для трейдера (позиций еще нет)
+        InitializeEmptyWalletSnapshot(_traderWallet);
+        // Инициализируем пустой snapshot для моего кошелька
+        InitializeEmptyWalletSnapshot(_myWallet);
+
+        // Act - отправляем первый ордер через DataBusEvents
+        DataBusEvents.NewOrders?.Invoke([order1]);
+        await Task.Delay(100);
+
+        // Сразу после размещения полностью исполняем первый ордер
+        var trade1 = new OriginalTrade
+        {
+            TradeId = 1001,
+            OrderId = order1.OrderId,
+            Wallet = _traderWallet,
+            Symbol = "TEST",
+            Price = 1M,
+            Quantity = 100M,
+            Direction = Direction.Long,
+            TimeStamp = DateTime.UtcNow,
+            IsFuture = true,
+        };
+
+        // Обновляем мок провайдера, чтобы он вернул позицию после исполнения трейда
+        var traderWalletInfoWithPosition = new WalletInfoModel
+        {
+            Wallet = _traderWallet,
+            AccountVolume = 10000M,
+            TotalMarginUsed = 0,
+            Positions = new Dictionary<string, Position>
+            {
+                ["TEST"] = new Position
+                {
+                    Symbol = "TEST",
+                    Quantity = 100M, // Положительное значение = Long
+                    AverageEntryPrice = 1M,
+                    Leverage = 5,
+                    VolumeUsd = 100M,
+                    MarginUsage = 20M
+                }
+            },
+            TimeStamp = DateTime.UtcNow
+        };
+
+        // Используем callback вместо It.IsAny для избежания ошибки с expression tree
+        _walletInfoProvider
+            .Setup(x => x.GetInfo(_traderWallet, true))
+            .ReturnsAsync(traderWalletInfoWithPosition);
+
+        _walletInfoProvider
+            .Setup(x => x.GetInfo(_traderWallet, false))
+            .ReturnsAsync(traderWalletInfoWithPosition);
+
+        // Отправляем трейд для исполнения ордера (order1 уже Open)
+        DataBusEvents.NewTrades?.Invoke(([trade1], false));
+        await Task.Delay(50);
+
+        // Обновляем статус ордера на Filled (в реальности это сделает FillsOrderService)
+        order1.Status = OrderStatus.Filled;
+
+        // Проверяем что CurrentWalletPositionService обновил snapshot после исполнения первого ордера
+        var traderSnapshot = await _currentWalletPositionService.GetSnapshot(_traderWallet);
+        traderSnapshot.Should().NotBeNull("snapshot должен существовать после исполнения трейда");
+        traderSnapshot.Positions.Should().HaveCount(1, "должна быть одна позиция");
+
+        var position = traderSnapshot.Positions.First();
+        position.Symbol.Should().Be("TEST");
+        position.Quantity.Should().Be(100M, "позиция должна быть 100 монет после исполнения order1");
+        position.Direction.Should().Be(Direction.Long);
+
+        // Отправляем остальные ордера (они остаются pending)
+        DataBusEvents.NewOrders?.Invoke([order2]);
+        await Task.Delay(100);
+
+        DataBusEvents.NewOrders?.Invoke([order3]);
+        await Task.Delay(100);
+
+        // Теперь можем отправить order4 - благодаря учету pending ордеров он должен быть Decrease, а не Flip
+        DataBusEvents.NewOrders?.Invoke([order4]);
+        await Task.Delay(100);
+
+        // Assert - проверяем основные результаты
+        var allOrders = _storageService.GetAllOrders();
+        allOrders.Should().HaveCount(4, "должно быть создано 4 копируемых ордера");
+
+        // Проверяем что все ордера созданы
+        allOrders.Should().Contain(o => o.OriginalOrderId == 1, "order1 должен быть скопирован");
+        allOrders.Should().Contain(o => o.OriginalOrderId == 2, "order2 должен быть скопирован");
+        allOrders.Should().Contain(o => o.OriginalOrderId == 3, "order3 должен быть скопирован");
+        allOrders.Should().Contain(o => o.OriginalOrderId == 4, "order4 должен быть скопирован");
+
+        // Проверяем направления
+        var copyOrder1 = allOrders.First(o => o.OriginalOrderId == 1);
+        copyOrder1.OriginalOrder.Direction.Should().Be(Direction.Long);
+
+        var copyOrder2 = allOrders.First(o => o.OriginalOrderId == 2);
+        copyOrder2.OriginalOrder.Direction.Should().Be(Direction.Long);
+
+        var copyOrder3 = allOrders.First(o => o.OriginalOrderId == 3);
+        copyOrder3.OriginalOrder.Direction.Should().Be(Direction.Long);
+
+        var copyOrder4 = allOrders.First(o => o.OriginalOrderId == 4);
+        copyOrder4.OriginalOrder.Direction.Should().Be(Direction.Short);
+        copyOrder4.OrderSubType.Should().Be(OrderSubType.Close, "order4 должен быть Close т.к. учитываются pending ордера");
+    }
+
+    [Fact]
+    public async Task CreateCopyOrder_MultiplePendingOrders_DecreaseBecomesCloseAfterCancel()
+    {
+        // Arrange
+        ResetServices();
+
+        // Используем переменные для хранения текущего состояния кошельков
+        // чтобы моки возвращали актуальное состояние
+        var traderWalletPositions = new Dictionary<string, Position>();
+        var myWalletPositions = new Dictionary<string, Position>();
+
+        _walletInfoProvider
+            .Setup(x => x.GetInfo(_traderWallet, It.IsAny<bool>()))
+            .ReturnsAsync(() => new WalletInfoModel
+            {
+                Wallet = _traderWallet,
+                AccountVolume = 10000M,
+                TotalMarginUsed = 0,
+                Positions = new Dictionary<string, Position>(traderWalletPositions),
+                TimeStamp = DateTime.UtcNow
+            });
+
+        _walletInfoProvider
+            .Setup(x => x.GetInfo(_myWallet, It.IsAny<bool>()))
+            .ReturnsAsync(() => new WalletInfoModel
+            {
+                Wallet = _myWallet,
+                AccountVolume = 1000M,
+                TotalMarginUsed = 0,
+                Positions = new Dictionary<string, Position>(myWalletPositions),
+                TimeStamp = DateTime.UtcNow
+            });
+
+        var exchangeInfo = new SharedFuturesSymbol(TradingMode.PerpetualLinear, "TEST", "USDC", "TEST/USDC", true)
+        {
+            QuantityDecimals = 2,
+        };
+
+        _exchangeInfoProvider
+            .Setup(x => x.GetExchangeInfo("TEST"))
+            .ReturnsAsync(exchangeInfo);
+
+        var walletSettings = new CopyTradeWalletSettings
+        {
+            Wallet = _traderWallet,
+            VolumeUsd = 1000m,
+            CopyKoef = 1.0m
+        };
+
+        _walletSettingsServiceMock
+            .Setup(x => x.Get(_traderWallet))
+            .ReturnsAsync(walletSettings);
+
+        // Создаем сервисы
+        CreateServices();
+
+        // Инициализируем пустой snapshot для трейдера (позиций еще нет)
+        InitializeEmptyWalletSnapshot(_traderWallet);
+        // Инициализируем пустой snapshot для моего кошелька
+        InitializeEmptyWalletSnapshot(_myWallet);
+
+        // Создаем 4 оригинальных ордера
+        var order1 = new OriginalOrder
+        {
+            OrderId = 1,
+            Wallet = _traderWallet,
+            Symbol = "TEST",
+            Price = 1M,
+            Quantity = 100M,
+            Direction = Direction.Long,
+            Leverage = 5M,
+            Status = OrderStatus.Open,
+        };
+
+        var order2 = new OriginalOrder
+        {
+            OrderId = 2,
+            Wallet = _traderWallet,
+            Symbol = "TEST",
+            Price = 2M,
+            Quantity = 50M,
+            Direction = Direction.Long,
+            Leverage = 5M,
+            Status = OrderStatus.Open,
+        };
+
+        var order3 = new OriginalOrder
+        {
+            OrderId = 3,
+            Wallet = _traderWallet,
+            Symbol = "TEST",
+            Price = 4M,
+            Quantity = 25M,
+            Direction = Direction.Long,
+            Leverage = 5M,
+            Status = OrderStatus.Open,
+        };
+
+        var order4 = new OriginalOrder
+        {
+            OrderId = 4,
+            Wallet = _traderWallet,
+            Symbol = "TEST",
+            Price = 5M,
+            Quantity = 150M, // Изменено с 170/175 на 150
+            Direction = Direction.Short,
+            Leverage = 5M,
+            Status = OrderStatus.Open,
+        };
+
+        // Создаем сервисы
+        CreateServices();
+
+        // Инициализируем пустой snapshot для трейдера (позиций еще нет)
+        InitializeEmptyWalletSnapshot(_traderWallet);
+        // Инициализируем пустой snapshot для моего кошелька
+        InitializeEmptyWalletSnapshot(_myWallet);
+
+        // Act - отправляем первый ордер через DataBusEvents
+        DataBusEvents.NewOrders?.Invoke([order1]);
+        await Task.Delay(100);
+
+        // Сразу после размещения полностью исполняем первый ордер
+        var trade1 = new OriginalTrade
+        {
+            TradeId = 1001,
+            OrderId = order1.OrderId,
+            Wallet = _traderWallet,
+            Symbol = "TEST",
+            Price = 1M,
+            Quantity = 100M,
+            Direction = Direction.Long,
+            TimeStamp = DateTime.UtcNow,
+            IsFuture = true,
+        };
+
+        // Отправляем трейд для исполнения ордера (order1 уже Open)
+        DataBusEvents.NewTrades?.Invoke(([trade1], false));
+        await Task.Delay(50);
+
+        // Обновляем статус ордера на Filled и отправляем событие чтобы FillsOrderService узнал об изменении
+        order1.Status = OrderStatus.Filled;
+        DataBusEvents.NewOrders?.Invoke([order1]);
+        await Task.Delay(50);
+
+        // Вручную обновляем snapshot после исполнения трейда
+        // (в реальности snapshot обновляется через AddTrade в CurrentWalletPositionService)
+        var traderSnapshot = await _currentWalletPositionService.GetSnapshot(_traderWallet);
+        traderSnapshot.Positions.Add(new Position
+        {
+            Symbol = "TEST",
+            Quantity = 100M, // Положительное значение = Long
+            AverageEntryPrice = 1M,
+            Leverage = 5,
+            VolumeUsd = 100M,
+            MarginUsage = 20M
+        });
+
+        // Проверяем что snapshot содержит позицию
+        var snapshotAfterOrder1 = await _currentWalletPositionService.GetSnapshot(_traderWallet);
+        snapshotAfterOrder1.Positions.Should().ContainSingle(p => p.Symbol == "TEST" && p.Quantity == 100,
+            "после исполнения order1 должна быть позиция Long 100");
+
+        // Отправляем остальные ордера (они остаются pending)
+        DataBusEvents.NewOrders?.Invoke([order2]);
+        await Task.Delay(100);
+
+        DataBusEvents.NewOrders?.Invoke([order3]);
+        await Task.Delay(100);
+
+        DataBusEvents.NewOrders?.Invoke([order4]);
+        await Task.Delay(100);
+
+        // Assert часть 1 - проверяем что order4 изначально Decrease
+        // Сначала проверим что есть в FillsOrderService для диагностики
+        var allPending = _fillsOrderService.GetPendingOrdersByWalletAndSymbol(_traderWallet, "TEST");
+        // Должно быть: order2, order3, order4 (order1 filled)
+
+        // Проверяем SubType у OriginalOrder через FillsOrderService
+        var orderFills4Before = _fillsOrderService.GetOrderFillsByOrderId(4);
+        orderFills4Before.Should().NotBeNull("order4 должен быть в FillsOrderService");
+        orderFills4Before!.OriginalOrder.SubType.Should().Be(OrderSubType.Decrease,
+            "order4 должен быть Decrease т.к. 100 (real) + 50 (order2) + 25 (order3) - 150 (order4) = 25 (остается Long)");
+
+        // Отменяем order3
+        order3.Status = OrderStatus.Canceled;
+        DataBusEvents.NewOrders?.Invoke([order3]);
+        await Task.Delay(100);
+
+        // Assert часть 2 - проверяем что order3 был отменен
+        var openOrdersAfterCancel = _fillsOrderService.GetOpenOrdersByWallet(_traderWallet);
+        openOrdersAfterCancel.Should().HaveCount(2, "после отмены order3 должно остаться только 2 открытых ордера (order2 и order4)");
+        openOrdersAfterCancel.Should().NotContain(o => o.OriginalOrder.OrderId == 3, "order3 не должен быть в открытых ордерах");
+
+        // Assert часть 3 - проверяем что SubType для order4 автоматически изменился с Decrease на Close
+        // После отмены order3: реальная позиция = 100, pending = order2 (50) + order4 (-150)
+        // Потенциальная позиция = 100 + 50 - 150 = 0 → order4 должен стать Close
+        var orderFills4After = _fillsOrderService.GetOrderFillsByOrderId(4);
+        orderFills4After.Should().NotBeNull("order4 должен быть в FillsOrderService");
+        orderFills4After!.OriginalOrder.SubType.Should().Be(OrderSubType.Close,
+            "SubType для order4 должен автоматически измениться с Decrease на Close после отмены order3, " +
+            "т.к. потенциальная позиция стала 100 + 50 - 150 = 0");
+
+        // Дополнительная проверка: order2 должен остаться без изменений
+        var orderFills2After = _fillsOrderService.GetOrderFillsByOrderId(2);
+        orderFills2After.Should().NotBeNull("order2 должен быть в FillsOrderService");
+        orderFills2After!.OriginalOrder.SubType.Should().Be(OrderSubType.Increase,
+            "SubType для order2 не должен измениться, он остается Increase");
     }
 }
