@@ -11,7 +11,8 @@ namespace CopyTrading.Providers.Hyperliquid.Subscribers;
 public class OrdersTradesSubscriber(
     ILogger<OrdersTradesSubscriber> _logger,
     OrdersProvider _ordersProvider,
-    FillsOrderService _fillsOrderService)
+    FillsOrderService _fillsOrderService,
+    CurrentWalletPositionService _currentWalletPositionService)
 {
     private static readonly HashSet<Wallet> _orderSubscribes = [];
     private static readonly HashSet<Wallet> _pendingOrderSubscribes = [];
@@ -177,6 +178,16 @@ public class OrdersTradesSubscriber(
             _logger.LogInformation(
                 $"LoadActiveOrdersForWallet: Для {wallet} загружено {activeOrders.Length} открытых ордеров, " +
                 $"добавлено {addedCount} новых");
+
+            // Пересчитываем SubType для всех загруженных ордеров
+            var uniqueSymbols = activeOrders.Select(o => o.Symbol).Distinct().ToArray();
+            foreach (var symbol in uniqueSymbols)
+            {
+                _currentWalletPositionService.RecalculateSubTypesForSymbol(wallet, symbol);
+            }
+
+            _logger.LogInformation(
+                $"LoadActiveOrdersForWallet: Пересчитан SubType для {uniqueSymbols.Length} символов");
         }
         catch (Exception ex)
         {

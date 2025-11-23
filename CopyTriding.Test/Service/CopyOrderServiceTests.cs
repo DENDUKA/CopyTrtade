@@ -75,12 +75,22 @@ public class CopyOrderServiceTests
         _orderServiceLogger = new Mock<ILogger<OrderService>>();
 
         // Инициализация моков для TradeService и OrderService
+        // Создаем реальный FillsOrderService и сохраняем его в поле класса
+        _fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+
+        _currentWalletPositionService = new CurrentWalletPositionService(
+            _walletInfoProvider.Object,
+            _fillsOrderService,
+            _positionLogger.Object);
+
+        // Создаем мок OrdersTradesSubscriber после создания _currentWalletPositionService
         var ordersProviderMock = new Mock<Providers.Hyperliquid.Providers.OrdersProvider>(MockBehavior.Loose, Mock.Of<ILogger<Providers.Hyperliquid.Providers.OrdersProvider>>());
         _orderProviderMock = new Mock<OrdersTradesSubscriber>(
             MockBehavior.Loose,
             Mock.Of<ILogger<OrdersTradesSubscriber>>(),
             ordersProviderMock.Object,
-            _fillsOrderService);
+            _fillsOrderService,
+            _currentWalletPositionService);
         _orderBookProviderMock = new Mock<OrderBookSubscriber>(MockBehavior.Loose, Mock.Of<ILogger<OrderBookSubscriber>>());
         _tradeRepositoryInfluxMock = new Mock<TradeRepositoryInflux>(MockBehavior.Loose, Mock.Of<ILogger<TradeRepositoryInflux>>());
         _tradeRepositorySQLMock = new Mock<TradeRepositoreySQL>(MockBehavior.Loose, Mock.Of<ILogger<TradeRepositoreySQL>>());
@@ -94,14 +104,6 @@ public class CopyOrderServiceTests
         _copyOrderResultService = new CopyOrderResultService(_resultLogger.Object);
         _storageService = new CopyOrderStorageService(_storageLogger.Object);
         _positionMappingService = new PositionMappingService(_mappingLogger.Object);
-
-        // Создаем реальный FillsOrderService и сохраняем его в поле класса
-        _fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
-
-        _currentWalletPositionService = new CurrentWalletPositionService(
-            _walletInfoProvider.Object,
-            _fillsOrderService,
-            _positionLogger.Object);
     }
 
     private void CreateServices()

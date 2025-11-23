@@ -227,6 +227,8 @@ dotnet clean CopyTrading.sln
     - Вызывает `OrdersProvider.GetActiveOrders()` для получения ордеров из API
     - Добавляет их в `FillsOrderService` через метод `AddHistoricalOrders()`
     - Дубликаты по OrderId игнорируются (если ордер пришел через WebSocket раньше)
+    - **Пересчет SubType:** После загрузки ордеров вызывает `CurrentWalletPositionService.RecalculateSubTypesForSymbol()` для каждого уникального символа
+    - Это гарантирует что исторические ордера получают корректный SubType с учетом текущих позиций и других pending ордеров
 - `OrderBookSubscriber` - Подписывается на обновления книги ордеров
 
 #### Хранение данных
