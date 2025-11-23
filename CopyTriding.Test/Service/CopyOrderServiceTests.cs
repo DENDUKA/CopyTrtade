@@ -75,7 +75,12 @@ public class CopyOrderServiceTests
         _orderServiceLogger = new Mock<ILogger<OrderService>>();
 
         // Инициализация моков для TradeService и OrderService
-        _orderProviderMock = new Mock<OrdersTradesSubscriber>(MockBehavior.Loose, Mock.Of<ILogger<OrdersTradesSubscriber>>());
+        var ordersProviderMock = new Mock<Providers.Hyperliquid.Providers.OrdersProvider>(MockBehavior.Loose, Mock.Of<ILogger<Providers.Hyperliquid.Providers.OrdersProvider>>());
+        _orderProviderMock = new Mock<OrdersTradesSubscriber>(
+            MockBehavior.Loose,
+            Mock.Of<ILogger<OrdersTradesSubscriber>>(),
+            ordersProviderMock.Object,
+            _fillsOrderService);
         _orderBookProviderMock = new Mock<OrderBookSubscriber>(MockBehavior.Loose, Mock.Of<ILogger<OrderBookSubscriber>>());
         _tradeRepositoryInfluxMock = new Mock<TradeRepositoryInflux>(MockBehavior.Loose, Mock.Of<ILogger<TradeRepositoryInflux>>());
         _tradeRepositorySQLMock = new Mock<TradeRepositoreySQL>(MockBehavior.Loose, Mock.Of<ILogger<TradeRepositoreySQL>>());

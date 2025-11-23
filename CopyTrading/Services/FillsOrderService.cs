@@ -89,6 +89,42 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger)
         return false;
     }
 
+    /// <summary>
+    /// Добавляет исторические (открытые) ордера в систему.
+    /// Используется при первичной инициализации для загрузки ордеров, которые уже были открыты до подписки.
+    /// Игнорирует ордера, которые уже есть в системе (по OrderId).
+    /// НЕ вызывает события, НЕ сохраняет в БД, НЕ отправляет в UI.
+    /// </summary>
+    /// <param name="orders">Массив исторических ордеров</param>
+    /// <returns>Количество добавленных ордеров</returns>
+    public int AddHistoricalOrders(OriginalOrder[] orders)
+    {
+        int addedCount = 0;
+        int skippedCount = 0;
+
+        foreach (var order in orders)
+        {
+            // Игнорируем ордера, которые уже есть в системе
+            if (_orders.ContainsKey(order.OrderId))
+            {
+                skippedCount++;
+                _logger.LogDebug($"AddHistoricalOrders: Ордер ID={order.OrderId} уже существует, пропускаем");
+                continue;
+            }
+
+            // Создаем новый OrderFills для исторического ордера
+            var orderFills = new OrderFills(order);
+
+            _orders.TryAdd(order.OrderId, orderFills);
+            addedCount++;
+        }
+
+        _logger.LogInformation(
+            $"AddHistoricalOrders: Добавлено {addedCount} исторических ордеров, пропущено {skippedCount} дубликатов");
+
+        return addedCount;
+    }
+
     public void OnNewOrders(OriginalOrder[] orders)
     {
         foreach (var newOrder in orders)
