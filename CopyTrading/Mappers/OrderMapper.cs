@@ -23,6 +23,21 @@ public static class OrderMapper
         };
     }
 
+    public static OriginalOrder ToBll(this HyperLiquidOpenOrder data, Wallet wallet)
+    {
+        return new OriginalOrder()
+        {
+            OrderId = data.OrderId,
+            Symbol = data.Symbol,
+            Direction = data.OrderSide == HyperLiquid.Net.Enums.OrderSide.Buy ? Direction.Long : Direction.Short,
+            Price = data.Price,
+            Quantity = data.Quantity,
+            Time = DateTime.SpecifyKind(data.Timestamp, DateTimeKind.Utc).ToLocalTime(),
+            Status = Models.Models.Enums.Order.OrderStatus.Open, // Открытые ордера всегда имеют статус Open
+            Wallet = wallet
+        };
+    }
+
     public static CopiedOrderMeasurement ToMeasurement(this OriginalOrder order)
     {
         return new CopiedOrderMeasurement

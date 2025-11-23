@@ -1,11 +1,13 @@
-﻿using CopyTrading.Models.Models.Orders;
+using CopyTrading.Mappers;
+using CopyTrading.Models.Models.Orders;
+using CopyTrading.Models.Values;
 using HyperLiquid.Net.Clients;
 using HyperLiquid.Net.Enums;
 using HyperLiquid.Net.Objects.Options;
 
 namespace CopyTrading.Providers.Hyperliquid.Providers;
 
-public class OrdersProvider 
+public class OrdersProvider
 {
     private readonly HyperLiquidRestClient _hyperLiquidRestClient;
     private readonly ILogger<OrdersProvider> _logger;
@@ -21,6 +23,35 @@ public class OrdersProvider
             options.ApiCredentials = new CryptoExchange.Net.Authentication.ApiCredentials(key, secret);
         }));
         _logger = logger;
+    }
+
+    /// <summary>
+    /// Получает все активные (открытые) ордера для указанного кошелька
+    /// </summary>
+    /// <param name="wallet">Кошелек трейдера</param>
+    /// <returns>Массив активных ордеров или пустой массив при ошибке</returns>
+    public async Task<OriginalOrder[]> GetActiveOrders(Wallet wallet)
+    {
+        try
+        {
+            var response = await _hyperLiquidRestClient.FuturesApi.Trading.GetOpenOrdersAsync(wallet.Value);
+
+            if (response.Success)
+            {
+                _logger.LogInformation($"GetActiveOrders: Получено {response.Data.Count()} активных ордеров для {wallet}");
+                return response.Data.Select(x => x.ToBll(wallet)).ToArray();
+            }
+            else
+            {
+                _logger.LogError($"GetActiveOrders: Ошибка при получении активных ордеров для {wallet}: {response.Error?.Message}");
+                return Array.Empty<OriginalOrder>();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"GetActiveOrders: Исключение при получении активных ордеров для {wallet}");
+            return Array.Empty<OriginalOrder>();
+        }
     }
 
     public async Task<long?> UpdateLeverage(NewLeverageModel newLeverage)
