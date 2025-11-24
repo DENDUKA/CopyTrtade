@@ -32,11 +32,13 @@ public class Startup
 
     public void ConfigureServices(IServiceCollection services)
     {
+        // Logging
         services.AddLogging(loggingBuilder =>
             loggingBuilder.AddSerilog(dispose: true));
 
         services.AddMemoryCache();
 
+        // ASP.NET Core Services
         services.AddControllers();
         services.AddEndpointsApiExplorer();
         services.AddSwaggerGen();
@@ -44,47 +46,48 @@ public class Startup
         // Blazor Server
         services.AddRazorPages();
         services.AddServerSideBlazor();
-
-        // SignalR (для real-time обновлений)
         services.AddSignalR();
+
+        // Core Business Services
+        services.AddSingleton<OrderService>();
+        services.AddSingleton<TradeService>();
+        services.AddSingleton<CandleService>();
+        services.AddSingleton<FillsOrderService>();
+        services.AddSingleton<CurrentWalletPositionService>();
+
+        // Copy Trading Services
+        services.AddSingleton<CopyOrderService>();
+        services.AddSingleton<CopyOrderResultService>();
+        services.AddSingleton<CopyOrderStorageService>();
+        services.AddSingleton<PositionMappingService>();
+        services.AddSingleton<CopyTradeWalletSettingsService>();
 
         // UI Services
         services.AddSingleton<BlazorUI.Services.RealtimeUpdateService>();
 
-        //Services
-        services.AddSingleton<OrderService>();
-        services.AddSingleton<TradeService>();
-        services.AddSingleton<CopyOrderService>();
-        services.AddSingleton<CopyOrderResultService>();
-        services.AddSingleton<FillsOrderService>();
-        services.AddSingleton<CandleService>();
-        services.AddSingleton<CurrentWalletPositionService>();
-        services.AddSingleton<PositionMappingService>();
-        services.AddSingleton<CopyOrderStorageService>();
-        services.AddSingleton<CopyTradeWalletSettingsService>();
-
-        //HyperLiquid Providers
-        services.AddSingleton<IWalletInfoProvider, WalletInfoProvider>();        
-        services.AddSingleton<OrdersProvider>(); 
+        // HyperLiquid Providers
+        services.AddSingleton<IWalletInfoProvider, WalletInfoProvider>();
+        services.AddSingleton<OrdersProvider>();
         services.AddSingleton<IExchangeInfoProvider, ExchangeInfoProvider>();
         services.AddSingleton<CandlesProvider>();
 
-        //HyperLiquid Subscribers
+        // HyperLiquid Subscribers
         services.AddSingleton<OrderBookSubscriber>();
         services.AddSingleton<OrdersTradesSubscriber>();
 
-        //InfluxDB
+        // InfluxDB Repositories
         services.AddSingleton<OrderRepository>();
         services.AddSingleton<TradeRepository>();
         services.AddSingleton<CandlesRepository>();
 
-        //SQL
+        // SQLite Repositories
         services.AddSingleton<Repository.SQLite.OrderRepository>();
         services.AddSingleton<Repository.SQLite.TradeRepository>();
         services.AddSingleton<Repository.SQLite.WalletInfoRepository>();
         services.AddSingleton<Repository.SQLite.WalletSettingsRepository>();
         services.AddSingleton<Repository.SQLite.LogRepository>();
 
+        // Serilog UI
         services.AddSerilogUi(options =>
         {
             options.UseSqliteServer(sqlLiteOptions =>
@@ -98,46 +101,43 @@ public class Startup
 
     public void Configure(IApplicationBuilder app, IHostEnvironment env, IServiceProvider serviceProvider)
     {
+        // Exception handling и HSTS должны быть первыми
+        app.UseExceptionHandler("/Error");
+        app.UseHsts();
+
         app.UseHttpsRedirection();
-
-        // Перемещаем UseStaticFiles() перед Serilog UI
         app.UseStaticFiles();
-
         app.UseRouting();
 
-        // Serilog UI должен быть зарегистрирован ДО endpoints
-        app.UseSerilogUi(option=> option.WithHomeUrl(@"/serilog-ui"));
+        // Serilog UI
+        app.UseSerilogUi(option => option.WithHomeUrl(@"/serilog-ui"));
 
-        // Swagger доступен по /swagger, но не запускается автоматически
+        // Swagger
         app.UseSwagger();
         app.UseSwaggerUI(c =>
         {
-            c.RoutePrefix = "swagger"; // Swagger доступен по /swagger
+            c.RoutePrefix = "swagger";
         });
 
         app.UseEndpoints(endpoints =>
         {
             endpoints.MapControllers();
-
-            // SignalR Hub для real-time обновлений
             endpoints.MapHub<BlazorUI.Hubs.CopyTradingHub>("/copytradinghub");
-
-            // Blazor Server endpoints
             endpoints.MapBlazorHub();
             endpoints.MapFallbackToPage("/_Host");
         });
 
-        app.UseExceptionHandler("/Error");
-
-        app.UseHsts();
-
+        // Инициализация singleton сервисов для подписки на события
+        // FillsOrderService - корреляция трейдов с ордерами, генерация OrderFinished событий
         serviceProvider.GetService<FillsOrderService>();
+
+        // CopyOrderService - автоматическое копирование ордеров от отслеживаемых кошельков
         serviceProvider.GetService<CopyOrderService>();
 
-        // Инициализируем CopyOrderStorageService для подписки на события создания/закрытия копируемых ордеров
+        // CopyOrderStorageService - хранение и управление копируемыми ордерами
         serviceProvider.GetRequiredService<CopyOrderStorageService>();
 
-        // Инициализируем RealtimeUpdateService для подписки на DataBusEvents
+        // RealtimeUpdateService - отправка обновлений в UI через SignalR
         serviceProvider.GetRequiredService<BlazorUI.Services.RealtimeUpdateService>();
     }
 }
