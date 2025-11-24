@@ -28,6 +28,8 @@ public class CopyOrderService(
 
     public async Task OnNewOrders(OriginalOrder[] orders)
     {
+        ArgumentNullException.ThrowIfNull(orders, nameof(orders));
+
         try
         {
             foreach (var order in orders)
@@ -107,40 +109,30 @@ public class CopyOrderService(
     /// </summary>
     private async Task HandleOpenOrder(OriginalOrder order)
     {
-        _logger.LogInformation($"HandleOpenOrder START: {order.Symbol} {order.Direction}, OrderId={order.OrderId}");
-
-        _logger.LogInformation($"CopyOrderService HandleOpenOrder: OrderId={order.OrderId} {order.Symbol} {order.Direction} SubType={order.SubType}");
+        _logger.LogInformation($"HandleOpenOrder: OrderId={order.OrderId} {order.Symbol} {order.Direction} SubType={order.SubType}");
 
         switch (order.SubType)
         {
             case OrderSubType.Open:
-                _logger.LogInformation($"HandleOpenOrder: Вызываем OpenNewPosition для {order.OrderId}");
                 await OpenNewPosition(order);
-                _logger.LogInformation($"HandleOpenOrder: OpenNewPosition завершен для {order.OrderId}");
                 break;
 
             case OrderSubType.Increase:
-                _logger.LogInformation($"HandleOpenOrder: Вызываем IncreasePosition для {order.OrderId}");
                 await IncreasePosition(order);
-                _logger.LogInformation($"HandleOpenOrder: IncreasePosition завершен для {order.OrderId}");
                 break;
 
             case OrderSubType.Decrease:
-                _logger.LogInformation($"HandleOpenOrder: Вызываем DecreasePosition для {order.OrderId}");
                 await DecreasePosition(order);
-                _logger.LogInformation($"HandleOpenOrder: DecreasePosition завершен для {order.OrderId}");
                 break;
 
             case OrderSubType.Close:
-                _logger.LogInformation($"HandleOpenOrder: Вызываем ClosePosition для {order.OrderId}");
                 await ClosePosition(order);
-                _logger.LogInformation($"HandleOpenOrder: ClosePosition завершен для {order.OrderId}");
                 break;
 
             case OrderSubType.None:
                 {
                     var errorMsg = "OrderSubType.None - невозможно определить тип ордера";
-                    _logger.LogError($"CopyOrderService HandleOpenOrder: OrderId={order.OrderId} {errorMsg} - CopyOrder НЕ БУДЕТ СОЗДАН!");
+                    _logger.LogError($"HandleOpenOrder: OrderId={order.OrderId} {errorMsg}");
                     SaveFailureResult(order, errorMsg);
                     break;
                 }
@@ -148,13 +140,11 @@ public class CopyOrderService(
             default:
                 {
                     var errorMsg = $"Неизвестный OrderSubType {order.SubType}";
-                    _logger.LogError($"CopyOrderService HandleOpenOrder: OrderId={order.OrderId} {errorMsg} - CopyOrder НЕ БУДЕТ СОЗДАН!");
+                    _logger.LogError($"HandleOpenOrder: OrderId={order.OrderId} {errorMsg}");
                     SaveFailureResult(order, errorMsg);
                     break;
                 }
         }
-
-        _logger.LogInformation($"HandleOpenOrder END: {order.Symbol} {order.Direction}, OrderId={order.OrderId}");
     }
 
     /// <summary>
@@ -225,18 +215,14 @@ public class CopyOrderService(
     /// </summary>
     private async Task OpenNewPosition(OriginalOrder order)
     {
-        _logger.LogInformation($"OpenNewPosition START: {order.Symbol} {order.Direction}, Quantity={order.Quantity}, OrderId={order.OrderId}");
+        _logger.LogInformation($"OpenNewPosition: OrderId={order.OrderId} {order.Symbol} {order.Direction} Qty={order.Quantity}");
 
         try
         {
             var copyOrder = await CreateCopyOrder(order, OrderSubType.Open);
 
-            // Публикуем событие
             PublishCopyOrderCreated(order, copyOrder);
-
             SaveCopyOrderMapping(order, copyOrder);
-
-            // Сохраняем результат
             SaveSuccessResult(order, copyOrder);
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("не найдены") || ex.Message.Contains("должен быть > 0"))
@@ -244,11 +230,10 @@ public class CopyOrderService(
             // Настройки не найдены или VolumeUsd=0 - это НЕ ошибка, просто не копируем
             _logger.LogWarning($"OpenNewPosition: {ex.Message}");
             SaveWarningResult(order, ex.Message);
-            // НЕ бросаем исключение дальше - это нормальная ситуация
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, $"OpenNewPosition ОШИБКА при создании копируемого ордера для {order.OrderId}");
+            _logger.LogError(ex, $"OpenNewPosition: Ошибка для OrderId={order.OrderId}");
             SaveFailureResult(order, ex.Message);
             throw;
         }
@@ -261,7 +246,7 @@ public class CopyOrderService(
     /// </summary>
     private async Task IncreasePosition(OriginalOrder order)
     {
-        _logger.LogInformation($"IncreasePosition START: {order.Symbol} {order.Direction}, Quantity={order.Quantity}, OrderId={order.OrderId}");
+        _logger.LogInformation($"IncreasePosition: OrderId={order.OrderId} {order.Symbol} {order.Direction} Qty={order.Quantity}");
 
         try
         {
@@ -278,7 +263,7 @@ public class CopyOrderService(
             if (mapping.PositionRatio == 0)
             {
                 var errorMsg = "mapping.PositionRatio = 0 - позиция была открыта с Quantity=0";
-                _logger.LogError($"IncreasePosition: OrderId={order.OrderId} {errorMsg}. CopyOrder НЕ БУДЕТ СОЗДАН!");
+                _logger.LogError($"IncreasePosition: OrderId={order.OrderId} {errorMsg}");
                 SaveFailureResult(order, errorMsg);
                 return;
             }
@@ -291,30 +276,27 @@ public class CopyOrderService(
             var myIncreaseQuantity = order.Quantity * mapping.PositionRatio;
             myIncreaseQuantity = RoundQuantity(myIncreaseQuantity, exchangeInfo);
 
-            // Получаем настройки кошелька
+            // Получаем настройки кошелька и применяем коэффициент
             var walletSettings = await _walletSettingsService.Get(order.Wallet);
-
             myIncreaseQuantity *= walletSettings.CopyKoef;
 
             // Создаем копируемый ордер
-            _logger.LogInformation($"IncreasePosition: Создаем CopyOrder для {order.OrderId}");
             var copyOrder = await CreateCopyOrderFromQuantity(order, myIncreaseQuantity, mapping.PositionRatio, OrderSubType.Increase, walletSettings);
-            _logger.LogInformation($"IncreasePosition: CopyOrder создан для {order.OrderId}, CopyOrderId={copyOrder.OrderId}");
 
-            // Публикуем событие и сохраняем результат
+            // Публикуем событие
             PublishCopyOrderCreated(order, copyOrder);
 
             // Обновляем только MyQuantity в маппинге (TraderQuantity берем из snapshot, не храним)
             mapping.MyQuantity += myIncreaseQuantity;
             _positionMappingService.SaveOrUpdateMapping(mapping);
 
-            _logger.LogInformation($"IncreasePosition SUCCESS: {order.OrderId} Увеличиваем на {myIncreaseQuantity}, новая позиция: {mapping.MyQuantity}");
+            _logger.LogInformation($"IncreasePosition: Success. Увеличили на {myIncreaseQuantity}, новая позиция: {mapping.MyQuantity}");
 
             SaveSuccessResult(order, copyOrder);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, $"IncreasePosition ОШИБКА при увеличении позиции для {order.OrderId}");
+            _logger.LogError(ex, $"IncreasePosition: Ошибка для OrderId={order.OrderId}");
             SaveFailureResult(order, ex.Message);
             throw;
         }
@@ -502,7 +484,7 @@ public class CopyOrderService(
     /// </summary>
     private async Task DecreasePosition(OriginalOrder order)
     {
-        _logger.LogInformation($"DecreasePosition START: {order.Symbol} {order.Direction}, Quantity={order.Quantity}, OrderId={order.OrderId}");
+        _logger.LogInformation($"DecreasePosition: OrderId={order.OrderId} {order.Symbol} {order.Direction} Qty={order.Quantity}");
 
         try
         {
@@ -511,7 +493,7 @@ public class CopyOrderService(
             if (mapping == null)
             {
                 var errorMsg = "Невозможно скопировать decrease - у нас нет открытой позиции (маппинг не найден)";
-                _logger.LogWarning($"DecreasePosition: OrderId={order.OrderId} {errorMsg}. CopyOrder НЕ БУДЕТ СОЗДАН!");
+                _logger.LogWarning($"DecreasePosition: OrderId={order.OrderId} {errorMsg}");
                 SaveWarningResult(order, errorMsg);
                 return;
             }
@@ -520,7 +502,7 @@ public class CopyOrderService(
             if (mapping.MyQuantity == 0)
             {
                 var errorMsg = "mapping.MyQuantity = 0 - позиция не была открыта или уже закрыта";
-                _logger.LogWarning($"DecreasePosition: OrderId={order.OrderId} {errorMsg}. CopyOrder НЕ БУДЕТ СОЗДАН!");
+                _logger.LogWarning($"DecreasePosition: OrderId={order.OrderId} {errorMsg}");
                 SaveWarningResult(order, errorMsg);
                 return;
             }
@@ -532,20 +514,17 @@ public class CopyOrderService(
             // Рассчитываем количество для закрытия
             var myDecreaseQuantity = CalculateDecreaseQuantity(order, mapping, actualTraderQuantity.Value);
 
+            // Применяем коэффициент и округляем
             var walletSettings = await _walletSettingsService.Get(order.Wallet);
-
             myDecreaseQuantity *= walletSettings.CopyKoef;
 
-            // Получаем exchangeInfo и округляем
             var exchangeInfo = await TryGetExchangeInfo(order);
             if (exchangeInfo == null) return;
 
             myDecreaseQuantity = RoundQuantity(myDecreaseQuantity, exchangeInfo);
 
             // Создаем копируемый ордер
-            _logger.LogInformation($"DecreasePosition: Создаем CopyOrder для {order.OrderId}");
             var copyOrder = await CreateCopyOrderFromQuantity(order, myDecreaseQuantity, mapping.PositionRatio, OrderSubType.Decrease, walletSettings);
-            _logger.LogInformation($"DecreasePosition: CopyOrder создан для {order.OrderId}, CopyOrderId={copyOrder.OrderId}");
 
             // Публикуем событие
             PublishCopyOrderCreated(order, copyOrder);
@@ -558,7 +537,7 @@ public class CopyOrderService(
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, $"DecreasePosition ОШИБКА при частичном закрытии позиции для {order.OrderId}");
+            _logger.LogError(ex, $"DecreasePosition: Ошибка для OrderId={order.OrderId}");
             SaveFailureResult(order, ex.Message);
             throw;
         }
@@ -570,7 +549,7 @@ public class CopyOrderService(
     /// </summary>
     private async Task ClosePosition(OriginalOrder order)
     {
-        _logger.LogInformation($"ClosePosition START: {order.Symbol} {order.Direction}, Quantity={order.Quantity}, OrderId={order.OrderId}");
+        _logger.LogInformation($"ClosePosition: OrderId={order.OrderId} {order.Symbol} {order.Direction} Qty={order.Quantity}");
 
         try
         {
@@ -581,7 +560,7 @@ public class CopyOrderService(
             if (mapping == null)
             {
                 var errorMsg = "Невозможно скопировать close - у нас нет открытой позиции (маппинг не найден)";
-                _logger.LogWarning($"ClosePosition: OrderId={order.OrderId} {errorMsg}. CopyOrder НЕ БУДЕТ СОЗДАН!");
+                _logger.LogWarning($"ClosePosition: OrderId={order.OrderId} {errorMsg}");
                 SaveWarningResult(order, errorMsg);
                 return;
             }
@@ -593,25 +572,27 @@ public class CopyOrderService(
             if (myCloseQuantity == 0)
             {
                 var errorMsg = "mapping.MyQuantity = 0 - позиция не была открыта";
-                _logger.LogWarning($"ClosePosition: OrderId={order.OrderId} {errorMsg}. Удаляем маппинг без создания CopyOrder.");
-                // FIX: используем Opposite() для корректного удаления маппинга
+                _logger.LogWarning($"ClosePosition: OrderId={order.OrderId} {errorMsg}. Удаляем маппинг.");
                 _positionMappingService.DeleteMapping(order.Wallet, _myWallet, order.Symbol, order.Direction.Opposite());
                 SaveWarningResult(order, errorMsg);
                 return;
             }
 
+            // Округляем количество
+            var exchangeInfo = await TryGetExchangeInfo(order);
+            if (exchangeInfo == null) return;
+
+            myCloseQuantity = RoundQuantity(myCloseQuantity, exchangeInfo);
+
             // Создаем копируемый ордер
-            _logger.LogInformation($"ClosePosition: Создаем CopyOrder для {order.OrderId}");
             var copyOrder = await CreateCopyOrderFromQuantity(order, myCloseQuantity, mapping.PositionRatio, OrderSubType.Close);
-            _logger.LogInformation($"ClosePosition: CopyOrder создан для {order.OrderId}, CopyOrderId={copyOrder.OrderId}");
 
             // Публикуем событие
             PublishCopyOrderCreated(order, copyOrder);
 
-            _logger.LogInformation($"ClosePosition SUCCESS: {order.OrderId} Закрываем полностью {myCloseQuantity}");
+            _logger.LogInformation($"ClosePosition: Success. Закрываем полностью {myCloseQuantity}");
 
             // Удаляем маппинг (позиция полностью закрыта)
-            // FIX: используем Opposite() для корректного удаления маппинга
             _positionMappingService.DeleteMapping(order.Wallet, _myWallet, order.Symbol, order.Direction.Opposite());
 
             // Сохраняем результат
@@ -621,7 +602,7 @@ public class CopyOrderService(
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, $"ClosePosition ОШИБКА при полном закрытии позиции для {order.OrderId}");
+            _logger.LogError(ex, $"ClosePosition: Ошибка для OrderId={order.OrderId}");
             SaveFailureResult(order, ex.Message);
             throw;
         }
@@ -629,10 +610,8 @@ public class CopyOrderService(
 
     private async Task<CopyOrderV2> CreateCopyOrder(OriginalOrder order, OrderSubType orderSubType)
     {
-		_logger.LogInformation($"OpenNewPosition: Вызываем CreateCopyOrder для {order.OrderId}");
-
-		// Получаем информацию о кошельке трейдера (копируемый кошелек)
-		var traderWalletInfo = await _walletProvider.GetInfo(order.Wallet);
+        // Получаем информацию о кошельке трейдера (копируемый кошелек)
+        var traderWalletInfo = await _walletProvider.GetInfo(order.Wallet);
 
         // Получаем настройки для кошелька трейдера
         var walletSettings = await _walletSettingsService.Get(order.Wallet);
@@ -649,7 +628,6 @@ public class CopyOrderService(
 
         // Используем VolumeUsd из настроек как наш виртуальный баланс
         var myAccountValue = walletSettings.VolumeUsd;
-        _logger.LogInformation($"CreateCopyOrder: Используем VolumeUsd из настроек для {order.Wallet}: {myAccountValue}");
 
         // Вычисляем долю от капитала трейдера (какой % от счета он вкладывает)
         var orderRatio = order.VolumeUsd / traderWalletInfo.AccountVolume;
@@ -661,7 +639,6 @@ public class CopyOrderService(
         if (walletSettings != null && walletSettings.CopyKoef != 1.0m)
         {
             myVolumeUsd *= walletSettings.CopyKoef;
-            _logger.LogInformation($"CreateCopyOrder: Применен CopyKoef={walletSettings.CopyKoef}, итоговый myVolumeUsd={myVolumeUsd}");
         }
 
         // Вычисляем количество монет по той же цене
@@ -689,9 +666,7 @@ public class CopyOrderService(
 
         await CorrectCopyOrder(newCopyOrder);
 
-		_logger.LogInformation($"OpenNewPosition: CreateCopyOrder завершен для {order.OrderId}, CopyOrderId={newCopyOrder.OrderId}");
-
-		return newCopyOrder;
+        return newCopyOrder;
     }
 
     /// <summary>
@@ -725,35 +700,17 @@ public class CopyOrderService(
     /// </summary>
     private async Task CorrectCopyOrder(CopyOrderV2 copyOrder)
     {
-        _logger.LogInformation($"CorrectCopyOrder: OrderId={copyOrder.OriginalOrderId} Получаем ExchangeInfo для {copyOrder.OriginalOrder.Symbol}");
         var exchangeInfo = await _exchangeInfoProvider.GetExchangeInfo(copyOrder.OriginalOrder.Symbol);
 
         if (exchangeInfo == null)
         {
-            _logger.LogError($"CorrectCopyOrder: OrderId={copyOrder.OriginalOrderId} Не удалось получить ExchangeInfo для {copyOrder.OriginalOrder.Symbol} - используем Quantity без округления!");
+            _logger.LogError($"CorrectCopyOrder: OrderId={copyOrder.OriginalOrderId} Не удалось получить ExchangeInfo для {copyOrder.OriginalOrder.Symbol}");
             return;
         }
 
-        _logger.LogInformation($"CorrectCopyOrder: OrderId={copyOrder.OriginalOrderId} ExchangeInfo получен, QuantityDecimals={exchangeInfo.QuantityDecimals}");
         copyOrder.Quantity = Math.Round(copyOrder.Quantity, exchangeInfo.QuantityDecimals!.Value, MidpointRounding.ToPositiveInfinity);
     }
 
-    private async Task<bool> ValidatePLacedOrder(CopyOrder copyOrder)
-    {
-        var exchangeInfo = await _exchangeInfoProvider.GetExchangeInfo(copyOrder.Symbol);
-
-        if (copyOrder.VolumeUsd < exchangeInfo.MinNotionalValue.Value)
-        {
-            return false;
-        }
-
-        if (copyOrder.Quantity < exchangeInfo.MinTradeQuantity.Value)
-        {
-            return false;
-        }
-
-        return true;
-    }
 
     #region Helper Methods
 
@@ -779,7 +736,6 @@ public class CopyOrderService(
     /// </summary>
     private async Task<SharedFuturesSymbol?> TryGetExchangeInfo(OriginalOrder order)
     {
-        _logger.LogInformation($"TryGetExchangeInfo: OrderId={order.OrderId} Получаем ExchangeInfo для {order.Symbol}");
         var exchangeInfo = await _exchangeInfoProvider.GetExchangeInfo(order.Symbol);
 
         if (exchangeInfo == null)
@@ -787,10 +743,6 @@ public class CopyOrderService(
             var errorMsg = $"Не удалось получить ExchangeInfo для {order.Symbol}";
             _logger.LogError($"TryGetExchangeInfo: OrderId={order.OrderId} {errorMsg}");
             SaveFailureResult(order, errorMsg);
-        }
-        else
-        {
-            _logger.LogInformation($"TryGetExchangeInfo: OrderId={order.OrderId} ExchangeInfo получен, QuantityDecimals={exchangeInfo.QuantityDecimals}");
         }
 
         return exchangeInfo;
@@ -809,9 +761,7 @@ public class CopyOrderService(
     /// </summary>
     private void PublishCopyOrderCreated(OriginalOrder originalOrder, CopyOrderV2 copyOrder)
     {
-        _logger.LogInformation($"PublishCopyOrderCreated: Публикуем CopyOrderCreated для OrderId={originalOrder.OrderId}");
         DataBusEvents.CopyOrderCreated?.Invoke(copyOrder);
-        _logger.LogInformation($"PublishCopyOrderCreated: CopyOrderCreated опубликован для OrderId={originalOrder.OrderId}");
     }
 
     private void SaveCopyOrderMapping(OriginalOrder order, CopyOrderV2 copyOrder)

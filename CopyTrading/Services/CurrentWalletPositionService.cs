@@ -20,6 +20,8 @@ public class CurrentWalletPositionService(
 
     public async Task OnNewTrades((OriginalTrade[] Trades, bool IsSnapshot) newTrades)
     {
+        ArgumentNullException.ThrowIfNull(newTrades.Trades, nameof(newTrades.Trades));
+
         // Если это snapshot - инициализируем кошельки из данных трейдов
         if (newTrades.IsSnapshot)
         {
@@ -52,6 +54,8 @@ public class CurrentWalletPositionService(
     /// </summary>
     public void InitializeWalletSnapshot(WalletPositionsSnapshot snapshot)
     {
+        ArgumentNullException.ThrowIfNull(snapshot, nameof(snapshot));
+
         if (_walletPositionSnapshot.ContainsKey(snapshot.Wallet)) return;
 
         if (!_walletPositionSnapshot.TryAdd(snapshot.Wallet, snapshot))
@@ -61,13 +65,60 @@ public class CurrentWalletPositionService(
     }
 
     /// <summary>
-    /// Очищает все snapshots (используется для тестирования)
+    /// Удаляет snapshot и семафор для указанного кошелька
+    /// </summary>
+    public void RemoveWalletSnapshot(Wallet wallet)
+    {
+        ArgumentNullException.ThrowIfNull(wallet, nameof(wallet));
+
+        bool snapshotRemoved = _walletPositionSnapshot.TryRemove(wallet, out _);
+        bool semaphoreRemoved = _walletSemaphores.TryRemove(wallet, out var semaphore);
+
+        // Освобождаем ресурсы семафора
+        if (semaphore != null)
+        {
+            try
+            {
+                semaphore.Dispose();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, $"Ошибка при освобождении семафора для {wallet}");
+            }
+        }
+
+        if (snapshotRemoved || semaphoreRemoved)
+        {
+            _logger.LogInformation($"Удален snapshot и семафор для кошелька {wallet}");
+        }
+    }
+
+    /// <summary>
+    /// Очищает все snapshots и семафоры
+    /// Используется для: тестирования, управления памятью в runtime, полного сброса состояния
     /// </summary>
     public void ClearAllSnapshots()
     {
-        var count = _walletPositionSnapshot.Count;
+        var snapshotCount = _walletPositionSnapshot.Count;
+        var semaphoreCount = _walletSemaphores.Count;
+
+        // Освобождаем все семафоры перед удалением
+        foreach (var kvp in _walletSemaphores)
+        {
+            try
+            {
+                kvp.Value?.Dispose();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, $"Ошибка при освобождении семафора для {kvp.Key}");
+            }
+        }
+
         _walletPositionSnapshot.Clear();
-        _logger.LogInformation($"Все snapshots очищены (было {count})");
+        _walletSemaphores.Clear();
+
+        _logger.LogInformation($"Все snapshots и семафоры очищены (было snapshots: {snapshotCount}, семафоров: {semaphoreCount})");
     }
 
     /// <summary>
@@ -94,49 +145,48 @@ public class CurrentWalletPositionService(
         var realPositions = GetPositionsFromSnapshot(wallet, symbol);
         decimal realQuantity = realPositions.Length > 0 ? realPositions[0].Quantity : 0;
 
-        // Получаем все открытые pending ордера из FillsOrderService
-        var openOrderFills = _fillsOrderService.GetOpenOrdersByWallet(wallet);
-        var allPendingOrdersForSymbol = openOrderFills
-            .Where(of => of.OriginalOrder.Symbol == symbol)
-            .Where(of => of.OriginalOrder.OrderId != excludeOrderId)  // Исключаем сам ордер
-            .Select(of => of.OriginalOrder)
-            .ToArray();
+        // Получаем pending ордера для данного кошелька и символа (уже отфильтровано)
+        var pendingOrderFills = _fillsOrderService.GetPendingOrdersByWalletAndSymbol(wallet, symbol);
 
-        // Фильтруем pending ордера в зависимости от направления и цены текущего ордера
-        OriginalOrder[] pendingOrdersToConsider;
-
-        if (orderDirection == Direction.Short)
-        {
-            // Для Short ордера at price P: учитываем ВСЕ Long ордера + Short ордера с price < P
-            pendingOrdersToConsider = allPendingOrdersForSymbol
-                .Where(o => o.Direction == Direction.Long || o.Price < orderPrice)
-                .ToArray();
-        }
-        else // Direction.Long
-        {
-            // Для Long ордера at price P: учитываем только Long ордера с price > P
-            pendingOrdersToConsider = allPendingOrdersForSymbol
-                .Where(o => o.Direction == Direction.Long && o.Price > orderPrice)
-                .ToArray();
-        }
-
-        // Суммируем pending ордера (Long = положительные, Short = отрицательные)
+        // Суммируем pending ордера с фильтрацией по цене в одном проходе
         decimal pendingQuantity = 0;
-        foreach (var pendingOrder in pendingOrdersToConsider)
+        int totalPendingCount = pendingOrderFills.Length;
+        int consideredCount = 0;
+
+        foreach (var orderFills in pendingOrderFills)
         {
-            decimal orderQuantity = pendingOrder.Direction == Direction.Long ? pendingOrder.Quantity : -pendingOrder.Quantity;
-            pendingQuantity += orderQuantity;
+            var pendingOrder = orderFills.OriginalOrder;
+
+            // Исключаем сам ордер
+            if (pendingOrder.OrderId == excludeOrderId)
+                continue;
+
+            // Фильтруем по направлению и цене в зависимости от текущего ордера
+            bool shouldConsider = orderDirection == Direction.Short
+                ? pendingOrder.Direction == Direction.Long || pendingOrder.Price < orderPrice
+                : pendingOrder.Direction == Direction.Long && pendingOrder.Price > orderPrice;
+
+            if (shouldConsider)
+            {
+                decimal orderQuantity = pendingOrder.Direction == Direction.Long
+                    ? pendingOrder.Quantity
+                    : -pendingOrder.Quantity;
+                pendingQuantity += orderQuantity;
+                consideredCount++;
+            }
         }
 
         decimal potentialPosition = realQuantity + pendingQuantity;
 
-        _logger.LogDebug($"CalculatePotentialPosition: {wallet} {symbol} OrderDirection={orderDirection} OrderPrice={orderPrice} Real={realQuantity}, Pending={pendingQuantity} ({pendingOrdersToConsider.Length}/{allPendingOrdersForSymbol.Length} orders considered), Potential={potentialPosition}, ExcludeOrderId={excludeOrderId}");
+        _logger.LogDebug($"CalculatePotentialPosition: {wallet} {symbol} OrderDirection={orderDirection} OrderPrice={orderPrice} Real={realQuantity}, Pending={pendingQuantity} ({consideredCount}/{totalPendingCount} orders considered), Potential={potentialPosition}, ExcludeOrderId={excludeOrderId}");
 
         return potentialPosition;
     }
 
     public async Task<OrderSubType> AddTrade(OriginalTrade trade)
     {
+        ArgumentNullException.ThrowIfNull(trade, nameof(trade));
+
         if (!_walletPositionSnapshot.ContainsKey(trade.Wallet))
         {
             _logger.LogError($"AddTrade: Snapshot для {trade.Wallet} не инициализирован");
@@ -181,6 +231,8 @@ public class CurrentWalletPositionService(
     /// </summary>
     public async Task<WalletPositionsSnapshot> GetSnapshot(Wallet wallet)
     {
+        ArgumentNullException.ThrowIfNull(wallet, nameof(wallet));
+
         // Быстрая проверка без блокировки
         if (_walletPositionSnapshot.TryGetValue(wallet, out WalletPositionsSnapshot snapshot))
         {
@@ -223,6 +275,8 @@ public class CurrentWalletPositionService(
 
     public OrderSubType GetOrderSubType(OriginalOrder order)
     {
+        ArgumentNullException.ThrowIfNull(order, nameof(order));
+
         if (!_walletPositionSnapshot.TryGetValue(order.Wallet, out var snapshot))
         {
             _logger.LogError($"GetOrderSubType: Для OrderId {order.OrderId} walletPositionSnapshot для {order.Wallet} не инициализирован - возвращаем OrderSubType.None");
@@ -249,6 +303,9 @@ public class CurrentWalletPositionService(
     /// </summary>
     public async Task<int?> TryGetLeverage(Wallet wallet, string symbol)
     {
+        ArgumentNullException.ThrowIfNull(wallet, nameof(wallet));
+        ArgumentException.ThrowIfNullOrWhiteSpace(symbol, nameof(symbol));
+
         var snapshot = await GetSnapshot(wallet);
         var position = snapshot.Positions.FirstOrDefault(p => p.Symbol == symbol);
 
@@ -263,6 +320,9 @@ public class CurrentWalletPositionService(
     /// </summary>
     public void RecalculateSubTypesForSymbol(Wallet wallet, string symbol)
     {
+        ArgumentNullException.ThrowIfNull(wallet, nameof(wallet));
+        ArgumentException.ThrowIfNullOrWhiteSpace(symbol, nameof(symbol));
+
         try
         {
             // Получаем все pending оригинальные ордера для данного кошелька и символа из FillsOrderService
@@ -313,6 +373,14 @@ public class CurrentWalletPositionService(
         return [.. _walletPositionSnapshot.Keys];
     }
 
+    /// <summary>
+    /// Получить статистику по использованию ресурсов
+    /// </summary>
+    public (int SnapshotCount, int SemaphoreCount) GetResourceStats()
+    {
+        return (_walletPositionSnapshot.Count, _walletSemaphores.Count);
+    }
+
     #region Private Event Handlers
 
     private async Task CreateSnapshotByTradesSnapshot((OriginalTrade[] Trades, bool IsSnapshot) newTrades)
@@ -351,24 +419,25 @@ public class CurrentWalletPositionService(
     /// </summary>
     private Position[] GetPositionsFromSnapshot(Wallet wallet, string symbol)
     {
-        return [.. _walletPositionSnapshot[wallet].Positions.Where(p => p.Symbol == symbol)];
-    }
+        var snapshot = _walletPositionSnapshot[wallet];
+        var positions = snapshot.Positions;
 
-    /// <summary>
-    /// Рассчитывает новую среднюю цену входа
-    /// </summary>
-    private decimal CalculateNewAverageEntryPrice(decimal currentQuantity, decimal currentVolumeUsd, decimal tradeQuantity, decimal tradeVolumeUsd)
-    {
-        var newQuantity = currentQuantity + tradeQuantity;
-        var newVolumeUsd = currentVolumeUsd + tradeVolumeUsd;
+        // Быстрая проверка - если нет позиций вообще
+        if (positions.Count == 0)
+            return Array.Empty<Position>();
 
-        if (newQuantity == 0)
+        // Ищем позиции с указанным символом
+        List<Position>? result = null;
+        foreach (var position in positions)
         {
-            _logger.LogError($"CalculateNewAverageEntryPrice: Деление на ноль! Quantity: {newQuantity}");
-            return 0;
+            if (position.Symbol == symbol)
+            {
+                result ??= new List<Position>(1); // Обычно будет только одна позиция
+                result.Add(position);
+            }
         }
 
-        return newVolumeUsd / newQuantity;
+        return result?.ToArray() ?? Array.Empty<Position>();
     }
 
     /// <summary>
@@ -379,13 +448,15 @@ public class CurrentWalletPositionService(
         var newQuantity = position.Quantity + trade.RealQuantity;
         var newVolumeUsd = position.VolumeUsd + trade.VolumeUsd;
 
-        try
+        // Рассчитываем среднюю цену входа, проверяя деление на ноль
+        if (newQuantity != 0)
         {
-            position.AverageEntryPrice = CalculateNewAverageEntryPrice(position.Quantity, position.VolumeUsd, trade.RealQuantity, trade.VolumeUsd);
+            position.AverageEntryPrice = newVolumeUsd / newQuantity;
         }
-        catch (Exception ex)
+        else
         {
-            _logger.LogError($"UpdatePositionForIncrease: Ошибка расчета AverageEntryPrice для {trade.Symbol}: {ex.Message}");
+            _logger.LogError($"UpdatePositionForIncrease: Деление на ноль при расчете AverageEntryPrice для {trade.Symbol}! NewQuantity={newQuantity}");
+            position.AverageEntryPrice = 0;
         }
 
         position.Quantity = newQuantity;
@@ -402,13 +473,15 @@ public class CurrentWalletPositionService(
         var newQuantity = position.Quantity + trade.RealQuantity;
         var newVolumeUsd = position.VolumeUsd - trade.VolumeUsd;
 
-        try
+        // Рассчитываем среднюю цену входа, проверяя деление на ноль
+        if (newQuantity != 0)
         {
             position.AverageEntryPrice = newVolumeUsd / newQuantity;
         }
-        catch (Exception ex)
+        else
         {
-            _logger.LogError($"UpdatePositionForDecrease: Деление на ноль при Decrease! Quantity: {newQuantity}, Volume: {newVolumeUsd}");
+            _logger.LogError($"UpdatePositionForDecrease: Деление на ноль при расчете AverageEntryPrice для {trade.Symbol}! NewQuantity={newQuantity}, NewVolume={newVolumeUsd}");
+            position.AverageEntryPrice = 0;
         }
 
         position.Quantity = newQuantity;

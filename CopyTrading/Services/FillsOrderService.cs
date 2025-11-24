@@ -11,7 +11,6 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger)
 {
     private readonly ConcurrentDictionary<long, OrderFills> _orders = [];
     private readonly ConcurrentDictionary<long, OriginalTrade> _pendingTrades = [];
-
     internal readonly ConcurrentDictionary<long, string> _ordersWithError = [];
 
     private readonly OrderStatus[] _orderFinalStatuses = [OrderStatus.Canceled, OrderStatus.Filled, OrderStatus.Rejected];
@@ -19,6 +18,7 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger)
     // Константы для управления размером кэша
     private const int MaxOrdersThreshold = 2000;  // Порог для начала очистки
     private const int TargetOrdersCount = 500;    // Целевое количество после очистки
+    private const decimal ExpectedCanceledQuantity = 0;  // Ожидаемое количество для отмененного ордера
 
     public OrderFills[] GetAllOrderFills()
     {
@@ -43,9 +43,7 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger)
     public OrderFills[] GetOpenOrdersByWallet(Models.Values.Wallet wallet)
     {
         return _orders.Values
-            .Where(orderFills =>
-                orderFills.OriginalOrder.Wallet.Value == wallet.Value &&
-                !IsFinalStatus(orderFills.OriginalOrder.Status))
+            .Where(orderFills => IsOpenOrderForWallet(orderFills, wallet))
             .ToArray();
     }
 
@@ -58,10 +56,7 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger)
     public OrderFills[] GetPendingOrdersByWalletAndSymbol(Models.Values.Wallet wallet, string symbol)
     {
         return _orders.Values
-            .Where(orderFills =>
-                orderFills.OriginalOrder.Wallet.Value == wallet.Value &&
-                orderFills.OriginalOrder.Symbol == symbol &&
-                !IsFinalStatus(orderFills.OriginalOrder.Status))
+            .Where(orderFills => IsPendingOrderForWalletAndSymbol(orderFills, wallet, symbol))
             .ToArray();
     }
 
@@ -147,20 +142,16 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger)
 
     public void OnNewTrades((OriginalTrade[] Trades, bool IsSnapshot) trades)
     {
-        if (trades.IsSnapshot) return;
+        if (trades.IsSnapshot)
+        {
+            LogTradeSnapshot();
+            return;
+        }
 
         foreach (var trade in trades.Trades)
         {
-            _logger.LogInformation($"FillsOrderService OnNewTrades: Новый trade {trade}");
-
-            if (_orders.TryGetValue(trade.OrderId, out var orderFills))
-            {
-                ProcessTradeForExistingOrder(trade, orderFills);
-            }
-            else
-            {
-                AddTradeToPending(trade);
-            }
+            LogNewTrade(trade);
+            ProcessTrade(trade);
         }
     }
 
@@ -243,21 +234,35 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger)
 
     private void AddTradesFromPending(OrderFills newOrderFills)
     {
-        foreach (var pendingTrade in _pendingTrades.Values.Where(t => t.OrderId == newOrderFills.OriginalOrder.OrderId))
+        var pendingTradesForOrder = _pendingTrades.Values
+            .Where(t => t.OrderId == newOrderFills.OriginalOrder.OrderId)
+            .ToArray();
+
+        foreach (var pendingTrade in pendingTradesForOrder)
         {
             newOrderFills.Trades.Add(pendingTrade);
             _pendingTrades.TryRemove(pendingTrade.TradeId, out _);
         }
+
+        if (pendingTradesForOrder.Length > 0)
+        {
+            LogPendingTradesAdded(newOrderFills.OriginalOrder.OrderId, pendingTradesForOrder.Length);
+        }
     }
 
-    #region Helper Methods
-
     /// <summary>
-    /// Проверяет является ли статус финальным
+    /// Обрабатывает трейд (новый или из pending)
     /// </summary>
-    private bool IsFinalStatus(OrderStatus status)
+    private void ProcessTrade(OriginalTrade trade)
     {
-        return _orderFinalStatuses.Contains(status);
+        if (_orders.TryGetValue(trade.OrderId, out var orderFills))
+        {
+            ProcessTradeForExistingOrder(trade, orderFills);
+        }
+        else
+        {
+            AddTradeToPending(trade);
+        }
     }
 
     /// <summary>
@@ -292,12 +297,12 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger)
     {
         if (IsDuplicateTrade(orderFills, trade))
         {
-            _logger.LogInformation($"FillsOrderService OnNewTrades: Дубликат trade {trade.TradeId} для ордера {trade.OrderId}");
+            LogDuplicateTrade(trade);
             return;
         }
 
         orderFills.Trades.Add(trade);
-        _logger.LogInformation($"FillsOrderService OnNewTrades: ордер {trade.OrderId} fillStatus : {orderFills.FillStatus}");
+        LogTradeAdded(trade, orderFills);
         OnOrderFinished(orderFills.OriginalOrder);
     }
 
@@ -307,23 +312,7 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger)
     private void AddTradeToPending(OriginalTrade trade)
     {
         _pendingTrades.TryAdd(trade.TradeId, trade);
-        _logger.LogWarning($"FillsOrderService OnNewTrades: не удалось найти ордер {trade.OrderId}");
-    }
-
-    /// <summary>
-    /// Проверяет является ли трейд дубликатом
-    /// </summary>
-    private static bool IsDuplicateTrade(OrderFills orderFills, OriginalTrade trade)
-    {
-        return orderFills.Trades.Any(x => x.TradeId == trade.TradeId);
-    }
-
-    /// <summary>
-    /// Проверяет соответствует ли заполненное количество ожидаемому
-    /// </summary>
-    private static bool IsQuantityMatched(OrderFills orderFills, decimal expectedQuantity)
-    {
-        return orderFills.FilledQuantity == expectedQuantity;
+        LogOrderNotFoundForTrade(trade);
     }
 
     /// <summary>
@@ -361,8 +350,6 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger)
             changes += $"{propertyName}: {oldValue} -> {newValue};\n";
         }
     }
-
-    #endregion
 
     #region Memory Management
 
@@ -439,18 +426,17 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger)
     /// </summary>
     private void HandleCanceledOrder(OriginalOrder order, OrderFills orderFills)
     {
-        if (IsQuantityMatched(orderFills, 0))
+        PublishOrderFinished(orderFills);
+        RemoveOrderError(order.OrderId);
+
+        if (IsQuantityMatched(orderFills, ExpectedCanceledQuantity))
         {
             // Закрытие Order: ордер не был выполнен
-            PublishOrderFinished(orderFills);
-            RemoveOrderError(order.OrderId);
             _logger.LogInformation($"OnOrderFinished Canceled {order.OrderId} Success");
         }
         else
         {
             // Закрытие Order: ордер был выполнен частично
-            PublishOrderFinished(orderFills);
-            RemoveOrderError(order.OrderId);
             _logger.LogWarning($"OnOrderFinished Canceled {order.OrderId} Order был выполнен частично");
         }
     }
@@ -463,6 +449,87 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger)
         string error = $"Неизвестная ошибка OrderId: {order.OrderId}";
         AddOrderError(order.OrderId, error);
         _logger.LogWarning(error);
+    }
+
+    #endregion
+
+    #region Validation and Predicates
+
+    /// <summary>
+    /// Проверяет является ли статус финальным
+    /// </summary>
+    private bool IsFinalStatus(OrderStatus status)
+    {
+        return _orderFinalStatuses.Contains(status);
+    }
+
+    /// <summary>
+    /// Проверяет является ли ордер открытым для указанного кошелька
+    /// </summary>
+    private bool IsOpenOrderForWallet(OrderFills orderFills, Models.Values.Wallet wallet)
+    {
+        return orderFills.OriginalOrder.Wallet.Value == wallet.Value &&
+               !IsFinalStatus(orderFills.OriginalOrder.Status);
+    }
+
+    /// <summary>
+    /// Проверяет является ли ордер pending для указанного кошелька и символа
+    /// </summary>
+    private bool IsPendingOrderForWalletAndSymbol(OrderFills orderFills, Models.Values.Wallet wallet, string symbol)
+    {
+        return orderFills.OriginalOrder.Wallet.Value == wallet.Value &&
+               orderFills.OriginalOrder.Symbol == symbol &&
+               !IsFinalStatus(orderFills.OriginalOrder.Status);
+    }
+
+    /// <summary>
+    /// Проверяет является ли трейд дубликатом
+    /// </summary>
+    private static bool IsDuplicateTrade(OrderFills orderFills, OriginalTrade trade)
+    {
+        return orderFills.Trades.Any(x => x.TradeId == trade.TradeId);
+    }
+
+    /// <summary>
+    /// Проверяет соответствует ли заполненное количество ожидаемому
+    /// </summary>
+    private static bool IsQuantityMatched(OrderFills orderFills, decimal expectedQuantity)
+    {
+        return orderFills.FilledQuantity == expectedQuantity;
+    }
+
+    #endregion
+
+    #region Logging Helpers
+
+    private void LogNewTrade(OriginalTrade trade)
+    {
+        _logger.LogInformation($"FillsOrderService OnNewTrades: Новый trade {trade}");
+    }
+
+    private void LogTradeSnapshot()
+    {
+        _logger.LogDebug("FillsOrderService OnNewTrades: Пропускаем snapshot");
+    }
+
+    private void LogDuplicateTrade(OriginalTrade trade)
+    {
+        _logger.LogInformation($"FillsOrderService OnNewTrades: Дубликат trade {trade.TradeId} для ордера {trade.OrderId}");
+    }
+
+    private void LogTradeAdded(OriginalTrade trade, OrderFills orderFills)
+    {
+        _logger.LogInformation($"FillsOrderService OnNewTrades: ордер {trade.OrderId} fillStatus: {orderFills.FillStatus}");
+    }
+
+    private void LogOrderNotFoundForTrade(OriginalTrade trade)
+    {
+        _logger.LogWarning($"FillsOrderService OnNewTrades: не удалось найти ордер {trade.OrderId}");
+    }
+
+    private void LogPendingTradesAdded(long orderId, int count)
+    {
+        _logger.LogInformation($"FillsOrderService: Добавлено {count} pending трейдов для ордера {orderId}");
     }
 
     #endregion
