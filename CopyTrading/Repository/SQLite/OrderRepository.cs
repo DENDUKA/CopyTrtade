@@ -5,7 +5,7 @@ using Microsoft.Data.Sqlite;
 
 namespace CopyTrading.Repository.SQLite;
 
-public class OrderRepository(ILogger<OrderRepository> _logger)
+public class OrderRepository(ILogger<OrderRepository> _logger) : IOrderRepository
 {
     public async Task WriteOrder(
         OriginalOrder order)

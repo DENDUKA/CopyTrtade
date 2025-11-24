@@ -6,8 +6,8 @@ using CopyTrading.Models.Values;
 using CopyTrading.Providers.Hyperliquid.Subscribers;
 using CopyTrading.Services.Interfaces;
 using CopyTrading.Settings;
-using TradeRepositoreySQL = CopyTrading.Repository.SQLite.TradeRepository;
-using TradeRepositoryInflux = CopyTrading.Repository.Influx.TradeRepository;
+using ITradeRepositorySQL = CopyTrading.Repository.SQLite.ITradeRepository;
+using ITradeRepositoryInflux = CopyTrading.Repository.Influx.ITradeRepository;
 
 namespace CopyTrading.Services;
 
@@ -16,8 +16,8 @@ public class TradeService
     private readonly OrdersTradesSubscriber _orderProvider;
     private readonly OrderBookSubscriber _orderBookProvider;
     private readonly IWalletInfoProvider _walletInfoProvider;
-    private readonly TradeRepositoryInflux _tradeRepositoryInflux;
-    private readonly TradeRepositoreySQL _tradeRepositorySQL;
+    private readonly ITradeRepositoryInflux _tradeRepositoryInflux;
+    private readonly ITradeRepositorySQL _tradeRepositorySQL;
     private readonly FillsOrderService _fillsOrderService;
     private readonly CurrentWalletPositionService _currentWalletPositionService;
     private readonly RealtimeUpdateService _realtimeUpdateService;
@@ -27,8 +27,8 @@ public class TradeService
         OrdersTradesSubscriber orderProvider,
         OrderBookSubscriber orderBookProvider,
         IWalletInfoProvider walletInfoProvider,
-        TradeRepositoryInflux tradeRepositoryInflux,
-        TradeRepositoreySQL tradeRepositorySQL,
+        ITradeRepositoryInflux tradeRepositoryInflux,
+        ITradeRepositorySQL tradeRepositorySQL,
         FillsOrderService fillsOrderService,
         CurrentWalletPositionService currentWalletPositionService,
         RealtimeUpdateService realtimeUpdateService,

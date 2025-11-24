@@ -13,7 +13,7 @@ namespace CopyTrading.Repository.SQLite;
 ///       ValueUsd REAL NOT NULL
 ///   );
 /// </summary>
-public class WalletSettingsRepository(ILogger<WalletSettingsRepository> _logger)
+public class WalletSettingsRepository(ILogger<WalletSettingsRepository> _logger) : IWalletSettingsRepository
 {
     private static string ConnectionString => $"Data Source={SQLLiteSettings.Path}";
 

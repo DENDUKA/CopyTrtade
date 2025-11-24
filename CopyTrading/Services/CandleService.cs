@@ -5,7 +5,7 @@ namespace CopyTrading.Services;
 
 public class CandleService(
     CandlesProvider _candlesProvider,
-    CandlesRepository _candlesRepository)
+    ICandlesRepository _candlesRepository)
 {
     public async Task CollectCandles(string symbol)
     {

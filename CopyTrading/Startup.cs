@@ -76,16 +76,16 @@ public class Startup
         services.AddSingleton<OrdersTradesSubscriber>();
 
         // InfluxDB Repositories
-        services.AddSingleton<OrderRepository>();
-        services.AddSingleton<TradeRepository>();
-        services.AddSingleton<CandlesRepository>();
+        services.AddSingleton<Repository.Influx.IOrderRepository, Repository.Influx.OrderRepository>();
+        services.AddSingleton<Repository.Influx.ITradeRepository, Repository.Influx.TradeRepository>();
+        services.AddSingleton<Repository.Influx.ICandlesRepository, Repository.Influx.CandlesRepository>();
 
         // SQLite Repositories
-        services.AddSingleton<Repository.SQLite.OrderRepository>();
-        services.AddSingleton<Repository.SQLite.TradeRepository>();
-        services.AddSingleton<Repository.SQLite.WalletInfoRepository>();
-        services.AddSingleton<Repository.SQLite.WalletSettingsRepository>();
-        services.AddSingleton<Repository.SQLite.LogRepository>();
+        services.AddSingleton<Repository.SQLite.IOrderRepository, Repository.SQLite.OrderRepository>();
+        services.AddSingleton<Repository.SQLite.ITradeRepository, Repository.SQLite.TradeRepository>();
+        services.AddSingleton<Repository.SQLite.IWalletInfoRepository, Repository.SQLite.WalletInfoRepository>();
+        services.AddSingleton<Repository.SQLite.IWalletSettingsRepository, Repository.SQLite.WalletSettingsRepository>();
+        services.AddSingleton<Repository.SQLite.ILogRepository, Repository.SQLite.LogRepository>();
 
         // Serilog UI
         services.AddSerilogUi(options =>

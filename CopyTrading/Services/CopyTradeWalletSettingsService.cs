@@ -13,11 +13,11 @@ namespace CopyTrading.Services;
 public class CopyTradeWalletSettingsService
 {
     private readonly ILogger<CopyTradeWalletSettingsService> _logger;
-    private readonly WalletSettingsRepository _repository;
+    private readonly IWalletSettingsRepository _repository;
     private readonly ConcurrentDictionary<Wallet, CopyTradeWalletSettings> _settings = new();
 
     public CopyTradeWalletSettingsService(
-        WalletSettingsRepository repository,
+        IWalletSettingsRepository repository,
         ILogger<CopyTradeWalletSettingsService> logger)
     {
         _repository = repository;

@@ -5,7 +5,7 @@ using Microsoft.Data.Sqlite;
 
 namespace CopyTrading.Repository.SQLite;
 
-public class WalletInfoRepository(ILogger<WalletInfoRepository> _logger)
+public class WalletInfoRepository(ILogger<WalletInfoRepository> _logger) : IWalletInfoRepository
 {
     public async Task WriteCurrentPositions(WalletSnapshotPositionsDto dto)
     {

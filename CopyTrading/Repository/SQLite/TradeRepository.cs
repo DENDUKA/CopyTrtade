@@ -8,7 +8,7 @@ using Microsoft.Data.Sqlite;
 
 namespace CopyTrading.Repository.SQLite;
 
-public class TradeRepository(ILogger<TradeRepository> _logger)
+public class TradeRepository(ILogger<TradeRepository> _logger) : ITradeRepository
 {
     private readonly string _databasePath = SQLLiteSettings.Path;
 

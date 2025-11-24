@@ -6,7 +6,7 @@ using InfluxDB.Client.Api.Domain;
 
 namespace CopyTrading.Repository.Influx;
 
-public class CandlesRepository
+public class CandlesRepository : ICandlesRepository
 {
     private const string bucket = "Candles";
     private const string org = "CopyTrade";

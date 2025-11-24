@@ -3,7 +3,7 @@ using Microsoft.Data.Sqlite;
 
 namespace CopyTrading.Repository.SQLite;
 
-public class LogRepository(ILogger<OrderRepository> _logger)
+public class LogRepository(ILogger<OrderRepository> _logger) : ILogRepository
 {
     public async Task ClearAll()
     {

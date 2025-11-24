@@ -6,8 +6,9 @@ using CopyTrading.Providers.Hyperliquid.Subscribers;
 using CopyTrading.Repository.Influx;
 using CopyTrading.Services.Interfaces;
 using CopyTrading.Settings;
-using SQLLiteOrderRepository = CopyTrading.Repository.SQLite.OrderRepository;
-using TradeRepositorySQL = CopyTrading.Repository.SQLite.TradeRepository;
+using ISQLLiteOrderRepository = CopyTrading.Repository.SQLite.IOrderRepository;
+using ITradeRepositorySQL = CopyTrading.Repository.SQLite.ITradeRepository;
+using IOrderRepositoryInflux = CopyTrading.Repository.Influx.IOrderRepository;
 
 namespace CopyTrading.Services;
 
@@ -15,10 +16,10 @@ public class OrderService
 {
     private readonly OrdersTradesSubscriber _orderProvider;
     private readonly IWalletInfoProvider _walletInfo;
-    private readonly OrderRepository _orderDBProvider;
+    private readonly IOrderRepositoryInflux _orderDBProvider;
     private readonly IExchangeInfoProvider _exchangeInfoProvider;
-    private readonly SQLLiteOrderRepository _orderSQLLiteRepository;
-    private readonly TradeRepositorySQL _tradeRepositorySQL;
+    private readonly ISQLLiteOrderRepository _orderSQLLiteRepository;
+    private readonly ITradeRepositorySQL _tradeRepositorySQL;
     private readonly CurrentWalletPositionService _currentWalletPositionService;
     private readonly FillsOrderService _fillsOrderService;
     private readonly CopyOrderService _copyOrderService;
@@ -28,10 +29,10 @@ public class OrderService
     public OrderService(
         OrdersTradesSubscriber orderProvider,
         IWalletInfoProvider walletInfo,
-        OrderRepository orderDBProvider,
+        IOrderRepositoryInflux orderDBProvider,
         IExchangeInfoProvider exchangeInfoProvider,
-        SQLLiteOrderRepository orderSQLLiteProvider,
-        TradeRepositorySQL tradeRepositorySQL,
+        ISQLLiteOrderRepository orderSQLLiteProvider,
+        ITradeRepositorySQL tradeRepositorySQL,
         CurrentWalletPositionService currentWalletPositionService,
         FillsOrderService fillsOrderService,
         CopyOrderService copyOrderService,
