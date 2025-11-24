@@ -82,7 +82,7 @@ public class TradeService
                 continue;
             }
 
-            _logger.LogInformation($"Новый trade : {trade.ToString()}");
+            _logger.LogInformation($"TradeService.OnNewTrades: TradeId={trade.TradeId} Новый trade: {trade.ToString()}");
 
             LogDelayWithServer(trade);
         }
@@ -105,8 +105,7 @@ public class TradeService
         var bestAsk = orderBook.Levels.Asks.First().Price;
         var bestBid = orderBook.Levels.Bids.First().Price;
 
-        _logger.LogInformation($"Trade Time : {trade.TimeStamp}\n" +
-                          $"OB    Time : {orderBook.Timestamp}");
+        _logger.LogInformation($"TradeService.ActualSpreadAndDeltaTime: TradeId={trade.TradeId} Trade Time: {trade.TimeStamp}, OB Time: {orderBook.Timestamp}");
 
         var deltaTimeS = (decimal)(orderBook.Timestamp - trade.TimeStamp).TotalSeconds;
         decimal spread;
@@ -117,11 +116,11 @@ public class TradeService
 
             if (trade.Price >= bestAsk || spread < spreadDelta)
             {
-                _logger.LogInformation($"Цена сделки {trade.TradeId} {trade.Direction} {trade.Price} сейчас {bestAsk} актуальна для покупки. {spread:F5} % d времени Trade и OrderBook {deltaTimeS} Sec");
+                _logger.LogInformation($"TradeService.ActualSpreadAndDeltaTime: TradeId={trade.TradeId} Direction={trade.Direction} Цена сделки {trade.Price} сейчас {bestAsk} актуальна для покупки. Spread={spread:F5}%, DeltaTime={deltaTimeS}s");
             }
             else
             {
-                _logger.LogInformation($"Цена сделки {trade.TradeId} {trade.Direction} {trade.Price} сейчас {bestAsk} не актуальна для покупки. {spread:F5} % d времени Trade и OrderBook {deltaTimeS} Sec");
+                _logger.LogInformation($"TradeService.ActualSpreadAndDeltaTime: TradeId={trade.TradeId} Direction={trade.Direction} Цена сделки {trade.Price} сейчас {bestAsk} не актуальна для покупки. Spread={spread:F5}%, DeltaTime={deltaTimeS}s");
             }
         }
         else
@@ -130,11 +129,11 @@ public class TradeService
 
             if (trade.Price <= bestBid || spread < spreadDelta)
             {
-                _logger.LogInformation($"Цена сделки {trade.TradeId} {trade.Direction} {trade.Price} сейчас {bestBid} актуальна для продажи. {spread:F5} % d времени Trade и OrderBook {deltaTimeS} Sec");
+                _logger.LogInformation($"TradeService.ActualSpreadAndDeltaTime: TradeId={trade.TradeId} Direction={trade.Direction} Цена сделки {trade.Price} сейчас {bestBid} актуальна для продажи. Spread={spread:F5}%, DeltaTime={deltaTimeS}s");
             }
             else
             {
-                _logger.LogInformation($"Цена сделки {trade.TradeId} {trade.Direction} {trade.Price} сейчас {bestBid} не актуальна для продажи. {spread:F5} % d времени Trade и OrderBook {deltaTimeS} Sec");
+                _logger.LogInformation($"TradeService.ActualSpreadAndDeltaTime: TradeId={trade.TradeId} Direction={trade.Direction} Цена сделки {trade.Price} сейчас {bestBid} не актуальна для продажи. Spread={spread:F5}%, DeltaTime={deltaTimeS}s");
             }
         }
 
@@ -144,6 +143,6 @@ public class TradeService
     private void LogDelayWithServer(OriginalTrade trade)
     {
         var now = DateTime.Now;
-        _logger.LogInformation($"LogDelayWithServer Trade {trade.OrderId} {(now - trade.TimeStamp).TotalSeconds} ");
+        _logger.LogInformation($"TradeService.LogDelayWithServer: TradeId={trade.TradeId} OrderId={trade.OrderId} Delay={(now - trade.TimeStamp).TotalSeconds}s");
     }
 }

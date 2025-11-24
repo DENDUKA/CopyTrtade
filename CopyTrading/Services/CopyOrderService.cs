@@ -39,7 +39,7 @@ public class CopyOrderService(
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при обработке массива ордеров в CopyOrderService");
+            _logger.LogError(ex, "CopyOrderService.OnNewOrders: Ошибка при обработке массива ордеров");
         }
     }
 
@@ -47,7 +47,7 @@ public class CopyOrderService(
     {
         try
         {
-            _logger.LogInformation($"CopyOrderService OnNewOrder: {order.Symbol} {order.Direction} OrderId={order.OrderId}, Status={order.Status}");
+            _logger.LogInformation($"CopyOrderService.OnNewOrder: OrderId={order.OrderId} {order.Symbol} {order.Direction} Status={order.Status}");
 
             switch (order.Status)
             {
@@ -69,14 +69,14 @@ public class CopyOrderService(
 
                 case OrderStatus.Triggered:
                     // Triggered ордер уже размещен на бирже, ждем когда станет Open или Filled
-                    _logger.LogInformation($"CopyOrderService: Ордер {order.OrderId} триггернулся, ждем исполнения");
+                    _logger.LogInformation($"CopyOrderService.OnNewOrder: OrderId={order.OrderId} Triggered, ждем исполнения");
                     // Для Triggered не записываем результат, так как это промежуточный статус
                     break;
 
                 case OrderStatus.Unknown:
                     {
                         var errorMsg = "Неизвестный статус ордера (Unknown)";
-                        _logger.LogWarning($"CopyOrderService OnNewOrder: OrderId={order.OrderId} {errorMsg}");
+                        _logger.LogWarning($"CopyOrderService.OnNewOrder: OrderId={order.OrderId} {errorMsg}");
                         SaveFailureResult(order, errorMsg);
                         break;
                     }
@@ -84,7 +84,7 @@ public class CopyOrderService(
                 case OrderStatus.MarginCanceled:
                     {
                         var errorMsg = "Ордер отменен по марже (MarginCanceled)";
-                        _logger.LogWarning($"CopyOrderService OnNewOrder: OrderId={order.OrderId} {errorMsg}");
+                        _logger.LogWarning($"CopyOrderService.OnNewOrder: OrderId={order.OrderId} {errorMsg}");
                         SaveFailureResult(order, errorMsg);
                         break;
                     }
@@ -92,7 +92,7 @@ public class CopyOrderService(
                 default:
                     {
                         var errorMsg = $"Необработанный статус ордера: {order.Status}";
-                        _logger.LogWarning($"CopyOrderService OnNewOrder: OrderId={order.OrderId} {errorMsg}");
+                        _logger.LogWarning($"CopyOrderService.OnNewOrder: OrderId={order.OrderId} {errorMsg}");
                         SaveFailureResult(order, errorMsg);
                         break;
                     }
@@ -100,7 +100,7 @@ public class CopyOrderService(
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, $"Ошибка при обработке ордера {order.OrderId} в CopyOrderService");
+            _logger.LogError(ex, $"CopyOrderService.OnNewOrder: OrderId={order.OrderId} Ошибка при обработке");
         }
     }
 
@@ -109,7 +109,7 @@ public class CopyOrderService(
     /// </summary>
     private async Task HandleOpenOrder(OriginalOrder order)
     {
-        _logger.LogInformation($"HandleOpenOrder: OrderId={order.OrderId} {order.Symbol} {order.Direction} SubType={order.SubType}");
+        _logger.LogInformation($"CopyOrderService.HandleOpenOrder: OrderId={order.OrderId} {order.Symbol} {order.Direction} SubType={order.SubType}");
 
         switch (order.SubType)
         {
@@ -132,7 +132,7 @@ public class CopyOrderService(
             case OrderSubType.None:
                 {
                     var errorMsg = "OrderSubType.None - невозможно определить тип ордера";
-                    _logger.LogError($"HandleOpenOrder: OrderId={order.OrderId} {errorMsg}");
+                    _logger.LogError($"CopyOrderService.HandleOpenOrder: OrderId={order.OrderId} {errorMsg}");
                     SaveFailureResult(order, errorMsg);
                     break;
                 }
@@ -140,7 +140,7 @@ public class CopyOrderService(
             default:
                 {
                     var errorMsg = $"Неизвестный OrderSubType {order.SubType}";
-                    _logger.LogError($"HandleOpenOrder: OrderId={order.OrderId} {errorMsg}");
+                    _logger.LogError($"CopyOrderService.HandleOpenOrder: OrderId={order.OrderId} {errorMsg}");
                     SaveFailureResult(order, errorMsg);
                     break;
                 }
@@ -152,7 +152,7 @@ public class CopyOrderService(
     /// </summary>
     private Task HandleFilledOrder(OriginalOrder order)
     {
-        _logger.LogInformation($"HandleFilledOrder: {order.Symbol} {order.Direction}, OrderId={order.OrderId}");
+        _logger.LogInformation($"CopyOrderService.HandleFilledOrder: OrderId={order.OrderId} {order.Symbol} {order.Direction}");
 
         // Проверяем был ли ордер скопирован
         if (!EnsureOrderWasCopied(order, nameof(HandleFilledOrder)))
@@ -164,7 +164,7 @@ public class CopyOrderService(
         // Если наш ордер не исполнен полностью - залогировать ошибку или предпринять действия
         // Можно получить наш ордер по OrderId трейдера из маппинга
 
-        _logger.LogWarning($"HandleFilledOrder: TODO - проверка исполнения копируемого ордера для {order.OrderId}");
+        _logger.LogWarning($"CopyOrderService.HandleFilledOrder: OrderId={order.OrderId} TODO - проверка исполнения копируемого ордера");
 
         return Task.CompletedTask;
     }
@@ -174,7 +174,7 @@ public class CopyOrderService(
     /// </summary>
     private Task HandleCanceledOrder(OriginalOrder order)
     {
-        _logger.LogInformation($"HandleCanceledOrder: {order.Symbol} {order.Direction}, OrderId={order.OrderId}");
+        _logger.LogInformation($"CopyOrderService.HandleCanceledOrder: OrderId={order.OrderId} {order.Symbol} {order.Direction}");
 
         // Проверяем был ли ордер скопирован
         if (!EnsureOrderWasCopied(order, nameof(HandleCanceledOrder)))
@@ -184,7 +184,7 @@ public class CopyOrderService(
         DataBusEvents.CopyOrderClosed?.Invoke((order, OrderStatus.Canceled));
 
         // TODO: Отменить наш копируемый ордер через OrdersProvider
-        _logger.LogWarning($"HandleCanceledOrder: TODO - отмена копируемого ордера на бирже для {order.OrderId}");
+        _logger.LogWarning($"CopyOrderService.HandleCanceledOrder: OrderId={order.OrderId} TODO - отмена копируемого ордера на бирже");
 
         return Task.CompletedTask;
     }
@@ -194,7 +194,7 @@ public class CopyOrderService(
     /// </summary>
     private Task HandleRejectedOrder(OriginalOrder order)
     {
-        _logger.LogInformation($"HandleRejectedOrder: {order.Symbol} {order.Direction}, OrderId={order.OrderId}");
+        _logger.LogInformation($"CopyOrderService.HandleRejectedOrder: OrderId={order.OrderId} {order.Symbol} {order.Direction}");
 
         // Проверяем был ли ордер скопирован
         if (!EnsureOrderWasCopied(order, nameof(HandleRejectedOrder)))
@@ -204,7 +204,7 @@ public class CopyOrderService(
         DataBusEvents.CopyOrderClosed?.Invoke((order, OrderStatus.Rejected));
 
         // TODO: Отменить наш копируемый ордер через OrdersProvider (если он был размещен)
-        _logger.LogWarning($"HandleRejectedOrder: TODO - отмена копируемого ордера на бирже для {order.OrderId}");
+        _logger.LogWarning($"CopyOrderService.HandleRejectedOrder: OrderId={order.OrderId} TODO - отмена копируемого ордера на бирже");
 
         return Task.CompletedTask;
     }
@@ -215,7 +215,7 @@ public class CopyOrderService(
     /// </summary>
     private async Task OpenNewPosition(OriginalOrder order)
     {
-        _logger.LogInformation($"OpenNewPosition: OrderId={order.OrderId} {order.Symbol} {order.Direction} Qty={order.Quantity}");
+        _logger.LogInformation($"CopyOrderService.OpenNewPosition: OrderId={order.OrderId} {order.Symbol} {order.Direction} Qty={order.Quantity}");
 
         try
         {
@@ -228,12 +228,12 @@ public class CopyOrderService(
         catch (InvalidOperationException ex) when (ex.Message.Contains("не найдены") || ex.Message.Contains("должен быть > 0"))
         {
             // Настройки не найдены или VolumeUsd=0 - это НЕ ошибка, просто не копируем
-            _logger.LogWarning($"OpenNewPosition: {ex.Message}");
+            _logger.LogWarning($"CopyOrderService.OpenNewPosition: OrderId={order.OrderId} {ex.Message}");
             SaveWarningResult(order, ex.Message);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, $"OpenNewPosition: Ошибка для OrderId={order.OrderId}");
+            _logger.LogError(ex, $"CopyOrderService.OpenNewPosition: OrderId={order.OrderId} Ошибка");
             SaveFailureResult(order, ex.Message);
             throw;
         }
@@ -246,7 +246,7 @@ public class CopyOrderService(
     /// </summary>
     private async Task IncreasePosition(OriginalOrder order)
     {
-        _logger.LogInformation($"IncreasePosition: OrderId={order.OrderId} {order.Symbol} {order.Direction} Qty={order.Quantity}");
+        _logger.LogInformation($"CopyOrderService.IncreasePosition: OrderId={order.OrderId} {order.Symbol} {order.Direction} Qty={order.Quantity}");
 
         try
         {
@@ -263,7 +263,7 @@ public class CopyOrderService(
             if (mapping.PositionRatio == 0)
             {
                 var errorMsg = "mapping.PositionRatio = 0 - позиция была открыта с Quantity=0";
-                _logger.LogError($"IncreasePosition: OrderId={order.OrderId} {errorMsg}");
+                _logger.LogError($"CopyOrderService.IncreasePosition: OrderId={order.OrderId} {errorMsg}");
                 SaveFailureResult(order, errorMsg);
                 return;
             }
@@ -290,13 +290,13 @@ public class CopyOrderService(
             mapping.MyQuantity += myIncreaseQuantity;
             _positionMappingService.SaveOrUpdateMapping(mapping);
 
-            _logger.LogInformation($"IncreasePosition: Success. Увеличили на {myIncreaseQuantity}, новая позиция: {mapping.MyQuantity}");
+            _logger.LogInformation($"CopyOrderService.IncreasePosition: OrderId={order.OrderId} Success, увеличили на {myIncreaseQuantity}, новая позиция {mapping.MyQuantity}");
 
             SaveSuccessResult(order, copyOrder);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, $"IncreasePosition: Ошибка для OrderId={order.OrderId}");
+            _logger.LogError(ex, $"CopyOrderService.IncreasePosition: OrderId={order.OrderId} Ошибка");
             SaveFailureResult(order, ex.Message);
             throw;
         }
@@ -309,7 +309,7 @@ public class CopyOrderService(
 
         if (traderPosition == null)
         {
-            _logger.LogError($"GetTraderQuantityBeforeOrderAsync: OrderId={orderId} Позиция трейдера не найдена в snapshot для символа {symbol}");
+            _logger.LogError($"CopyOrderService.GetTraderQuantityBeforeOrder: OrderId={orderId} Позиция трейдера не найдена для {symbol}");
             return null;
         }
 
@@ -323,11 +323,11 @@ public class CopyOrderService(
         var fillQuantityInOrder = orderFills.Trades.Sum(x => x.Quantity);
 
         var traderTotalQuantity = Math.Abs(traderPosition.Quantity);
-        _logger.LogInformation($"GetTraderQuantityBeforeOrderAsync: OrderId={orderId} Итоговая позиция трейдера из snapshot: {traderTotalQuantity}");
+        _logger.LogInformation($"CopyOrderService.GetTraderQuantityBeforeOrder: OrderId={orderId} Итоговая позиция трейдера {traderTotalQuantity}");
 
         // Вычисляем базовую линию - позицию трейдера ДО increase
         var traderQuantityBeforeIncrease = traderTotalQuantity - Math.Abs(fillQuantityInOrder);
-        _logger.LogInformation($"GetTraderQuantityBeforeOrderAsync: OrderId={orderId} Позиция трейдера ДО increase: {traderQuantityBeforeIncrease}, увеличение на: {orderQuantity}");
+        _logger.LogInformation($"CopyOrderService.GetTraderQuantityBeforeOrder: OrderId={orderId} Позиция ДО increase {traderQuantityBeforeIncrease}, увеличение {orderQuantity}");
 
         return traderQuantityBeforeIncrease;
     }
@@ -340,7 +340,7 @@ public class CopyOrderService(
     /// </summary>
     private async Task HandleMissingMappingForIncrease(OriginalOrder order)
     {
-        _logger.LogWarning($"IncreasePosition: Маппинг не найден для {order.OrderId} {order.Symbol} {order.Direction}. Синхронизируем с текущей позицией трейдера.");
+        _logger.LogWarning($"CopyOrderService.HandleMissingMappingForIncrease: OrderId={order.OrderId} Маппинг не найден, синхронизируем с позицией трейдера");
 
         // Получаем базовую линию - позицию трейдера ДО increase
         var traderQuantityBeforeIncrease = await GetTraderQuantityBeforeOrder(order.Wallet, order.Symbol, order.OrderId, order.Quantity);
@@ -348,7 +348,7 @@ public class CopyOrderService(
         if (traderQuantityBeforeIncrease is null || traderQuantityBeforeIncrease < 0)
         {
             var errorMsg = "Позиция трейдера не найдена в snapshot или некорректна";
-            _logger.LogError($"IncreasePosition: OrderId={order.OrderId} {errorMsg}. CopyOrder НЕ БУДЕТ СОЗДАН!");
+            _logger.LogError($"CopyOrderService.HandleMissingMappingForIncrease: OrderId={order.OrderId} {errorMsg}");
             SaveFailureResult(order, errorMsg);
             return;
         }
@@ -356,7 +356,7 @@ public class CopyOrderService(
         // Создаем "синтетический" ордер на открытие позиции
         var syntheticOrder = CreateSyntheticOrderForIncrease(order);
 
-        _logger.LogInformation($"IncreasePosition: OrderId={order.OrderId} Открываем синхронизированную позицию с количеством {syntheticOrder.Quantity}");
+        _logger.LogInformation($"CopyOrderService.HandleMissingMappingForIncrease: OrderId={order.OrderId} Открываем синхронизированную позицию Qty={syntheticOrder.Quantity}");
         await OpenNewPosition(syntheticOrder);
 
         // Устанавливаем базовую линию - позицию трейдера ДО increase
@@ -393,7 +393,7 @@ public class CopyOrderService(
         {
             createdMapping.TraderQuantityAtEntry = traderQuantityAtEntry;
             _positionMappingService.SaveOrUpdateMapping(createdMapping);
-            _logger.LogInformation($"IncreasePosition: OrderId={order.OrderId} Установлена базовая линия TraderQuantityAtEntry={createdMapping.TraderQuantityAtEntry}");
+            _logger.LogInformation($"CopyOrderService.SetBaselineForNewMapping: OrderId={order.OrderId} Базовая линия TraderQuantityAtEntry={createdMapping.TraderQuantityAtEntry}");
         }
     }
 
@@ -414,20 +414,20 @@ public class CopyOrderService(
     /// </summary>
     private async Task<decimal?> TryGetTraderPosition(OriginalOrder order)
     {
-        _logger.LogInformation($"DecreasePosition: OrderId={order.OrderId} Получаем snapshot для определения реальной позиции трейдера");
+        _logger.LogInformation($"CopyOrderService.TryGetTraderPosition: OrderId={order.OrderId} Получаем snapshot позиции трейдера");
         var snapshot = await _currentWalletPositionService.GetSnapshot(order.Wallet);
         var traderPosition = snapshot.Positions.FirstOrDefault(p => p.Symbol == order.Symbol);
 
         if (traderPosition == null)
         {
             var errorMsg = "Позиция трейдера не найдена в snapshot";
-            _logger.LogError($"DecreasePosition: OrderId={order.OrderId} {errorMsg} для {order.Symbol} - CopyOrder НЕ БУДЕТ СОЗДАН!");
+            _logger.LogError($"CopyOrderService.TryGetTraderPosition: OrderId={order.OrderId} {errorMsg} для {order.Symbol}");
             SaveFailureResult(order, errorMsg);
             return null;
         }
 
         var actualTraderQuantity = Math.Abs(traderPosition.Quantity);
-        _logger.LogInformation($"DecreasePosition: OrderId={order.OrderId} Реальная позиция трейдера из snapshot: {actualTraderQuantity}");
+        _logger.LogInformation($"CopyOrderService.TryGetTraderPosition: OrderId={order.OrderId} Позиция трейдера {actualTraderQuantity}");
         return actualTraderQuantity;
     }
 
@@ -436,20 +436,20 @@ public class CopyOrderService(
     /// </summary>
     private decimal CalculateDecreaseQuantity(OriginalOrder order, PositionMapping mapping, decimal actualTraderQuantity)
     {
-        _logger.LogInformation($"DecreasePosition: OrderId={order.OrderId} Базовая линия: {mapping.TraderQuantityAtEntry}");
+        _logger.LogInformation($"CopyOrderService.CalculateDecreaseQuantity: OrderId={order.OrderId} Базовая линия {mapping.TraderQuantityAtEntry}");
 
         // Проверяем: трейдер ушел ниже базовой линии?
         if (actualTraderQuantity - order.Quantity <= mapping.TraderQuantityAtEntry)
         {
             // Трейдер закрыл всё что было после нашего входа (и даже больше) - закрываем ВСЮ позицию
-            _logger.LogWarning($"DecreasePosition: OrderId={order.OrderId} Трейдер ушел ниже базовой линии ({actualTraderQuantity} <= {mapping.TraderQuantityAtEntry}). Закрываем ВСЮ позицию {mapping.MyQuantity}!");
+            _logger.LogWarning($"CopyOrderService.CalculateDecreaseQuantity: OrderId={order.OrderId} Трейдер ниже базовой линии, закрываем ВСЮ позицию {mapping.MyQuantity}");
             return mapping.MyQuantity;
         }
 
         // Трейдер выше базовой линии - закрываем пропорционально от "позиции над базовой"
         var traderAboveBaseline = actualTraderQuantity - mapping.TraderQuantityAtEntry;
         var closeRatio = order.Quantity / traderAboveBaseline;
-        _logger.LogInformation($"DecreasePosition: OrderId={order.OrderId} Трейдер закрывает {closeRatio:P2} от позиции над базовой ({order.Quantity} из {traderAboveBaseline})");
+        _logger.LogInformation($"CopyOrderService.CalculateDecreaseQuantity: OrderId={order.OrderId} Закрываем {closeRatio:P2} от позиции над базовой");
 
         return mapping.MyQuantity * closeRatio;
     }
@@ -463,7 +463,7 @@ public class CopyOrderService(
         if (myCloseQuantity >= mapping.MyQuantity)
         {
             // Закрыли ВСЁ - удаляем маппинг
-            _logger.LogInformation($"DecreasePosition SUCCESS: {order.OrderId} Закрываем ВСЮ позицию {myCloseQuantity}. Удаляем маппинг.");
+            _logger.LogInformation($"CopyOrderService.UpdateOrDeleteMappingAfterDecrease: OrderId={order.OrderId} Закрываем ВСЮ позицию {myCloseQuantity}, удаляем маппинг");
             _positionMappingService.DeleteMapping(order.Wallet, _myWallet, order.Symbol, order.Direction.Opposite());
         }
         else
@@ -471,7 +471,7 @@ public class CopyOrderService(
             // Частично закрыли - обновляем маппинг
             mapping.MyQuantity -= myCloseQuantity;
             _positionMappingService.SaveOrUpdateMapping(mapping);
-            _logger.LogInformation($"DecreasePosition SUCCESS: {order.OrderId} Закрываем {myCloseQuantity}, осталось: {mapping.MyQuantity}");
+            _logger.LogInformation($"CopyOrderService.UpdateOrDeleteMappingAfterDecrease: OrderId={order.OrderId} Закрыли {myCloseQuantity}, осталось {mapping.MyQuantity}");
         }
     }
 
@@ -484,7 +484,7 @@ public class CopyOrderService(
     /// </summary>
     private async Task DecreasePosition(OriginalOrder order)
     {
-        _logger.LogInformation($"DecreasePosition: OrderId={order.OrderId} {order.Symbol} {order.Direction} Qty={order.Quantity}");
+        _logger.LogInformation($"CopyOrderService.DecreasePosition: OrderId={order.OrderId} {order.Symbol} {order.Direction} Qty={order.Quantity}");
 
         try
         {
@@ -493,7 +493,7 @@ public class CopyOrderService(
             if (mapping == null)
             {
                 var errorMsg = "Невозможно скопировать decrease - у нас нет открытой позиции (маппинг не найден)";
-                _logger.LogWarning($"DecreasePosition: OrderId={order.OrderId} {errorMsg}");
+                _logger.LogWarning($"CopyOrderService.DecreasePosition: OrderId={order.OrderId} {errorMsg}");
                 SaveWarningResult(order, errorMsg);
                 return;
             }
@@ -502,7 +502,7 @@ public class CopyOrderService(
             if (mapping.MyQuantity == 0)
             {
                 var errorMsg = "mapping.MyQuantity = 0 - позиция не была открыта или уже закрыта";
-                _logger.LogWarning($"DecreasePosition: OrderId={order.OrderId} {errorMsg}");
+                _logger.LogWarning($"CopyOrderService.DecreasePosition: OrderId={order.OrderId} {errorMsg}");
                 SaveWarningResult(order, errorMsg);
                 return;
             }
@@ -537,7 +537,7 @@ public class CopyOrderService(
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, $"DecreasePosition: Ошибка для OrderId={order.OrderId}");
+            _logger.LogError(ex, $"CopyOrderService.DecreasePosition: OrderId={order.OrderId} Ошибка");
             SaveFailureResult(order, ex.Message);
             throw;
         }
@@ -549,7 +549,7 @@ public class CopyOrderService(
     /// </summary>
     private async Task ClosePosition(OriginalOrder order)
     {
-        _logger.LogInformation($"ClosePosition: OrderId={order.OrderId} {order.Symbol} {order.Direction} Qty={order.Quantity}");
+        _logger.LogInformation($"CopyOrderService.ClosePosition: OrderId={order.OrderId} {order.Symbol} {order.Direction} Qty={order.Quantity}");
 
         try
         {
@@ -560,7 +560,7 @@ public class CopyOrderService(
             if (mapping == null)
             {
                 var errorMsg = "Невозможно скопировать close - у нас нет открытой позиции (маппинг не найден)";
-                _logger.LogWarning($"ClosePosition: OrderId={order.OrderId} {errorMsg}");
+                _logger.LogWarning($"CopyOrderService.ClosePosition: OrderId={order.OrderId} {errorMsg}");
                 SaveWarningResult(order, errorMsg);
                 return;
             }
@@ -572,7 +572,7 @@ public class CopyOrderService(
             if (myCloseQuantity == 0)
             {
                 var errorMsg = "mapping.MyQuantity = 0 - позиция не была открыта";
-                _logger.LogWarning($"ClosePosition: OrderId={order.OrderId} {errorMsg}. Удаляем маппинг.");
+                _logger.LogWarning($"CopyOrderService.ClosePosition: OrderId={order.OrderId} {errorMsg}, удаляем маппинг");
                 _positionMappingService.DeleteMapping(order.Wallet, _myWallet, order.Symbol, order.Direction.Opposite());
                 SaveWarningResult(order, errorMsg);
                 return;
@@ -590,7 +590,7 @@ public class CopyOrderService(
             // Публикуем событие
             PublishCopyOrderCreated(order, copyOrder);
 
-            _logger.LogInformation($"ClosePosition: Success. Закрываем полностью {myCloseQuantity}");
+            _logger.LogInformation($"CopyOrderService.ClosePosition: OrderId={order.OrderId} Success, закрываем полностью {myCloseQuantity}");
 
             // Удаляем маппинг (позиция полностью закрыта)
             _positionMappingService.DeleteMapping(order.Wallet, _myWallet, order.Symbol, order.Direction.Opposite());
@@ -602,7 +602,7 @@ public class CopyOrderService(
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, $"ClosePosition: Ошибка для OrderId={order.OrderId}");
+            _logger.LogError(ex, $"CopyOrderService.ClosePosition: OrderId={order.OrderId} Ошибка");
             SaveFailureResult(order, ex.Message);
             throw;
         }
@@ -622,7 +622,7 @@ public class CopyOrderService(
                 ? $"Настройки для кошелька {order.Wallet} не найдены - ордер не копируется"
                 : $"VolumeUsd для кошелька {order.Wallet} = {walletSettings.VolumeUsd} (должен быть > 0) - ордер не копируется";
 
-            _logger.LogWarning($"CreateCopyOrder: {errorMsg}");
+            _logger.LogWarning($"CopyOrderService.CreateCopyOrder: OrderId={order.OrderId} {errorMsg}");
             throw new InvalidOperationException(errorMsg);
         }
 
@@ -704,7 +704,7 @@ public class CopyOrderService(
 
         if (exchangeInfo == null)
         {
-            _logger.LogError($"CorrectCopyOrder: OrderId={copyOrder.OriginalOrderId} Не удалось получить ExchangeInfo для {copyOrder.OriginalOrder.Symbol}");
+            _logger.LogError($"CopyOrderService.CorrectCopyOrder: OrderId={copyOrder.OriginalOrderId} Не удалось получить ExchangeInfo для {copyOrder.OriginalOrder.Symbol}");
             return;
         }
 
@@ -724,7 +724,7 @@ public class CopyOrderService(
         if (existingResult == null)
         {
             var errorMsg = "Ордер не был скопирован - отсутствует открывающий ордер";
-            _logger.LogWarning($"CopyOrderService {methodName}: OrderId={order.OrderId} {errorMsg}");
+            _logger.LogWarning($"CopyOrderService.{methodName}: OrderId={order.OrderId} {errorMsg}");
             SaveWarningResult(order, errorMsg);
             return false;
         }
@@ -741,7 +741,7 @@ public class CopyOrderService(
         if (exchangeInfo == null)
         {
             var errorMsg = $"Не удалось получить ExchangeInfo для {order.Symbol}";
-            _logger.LogError($"TryGetExchangeInfo: OrderId={order.OrderId} {errorMsg}");
+            _logger.LogError($"CopyOrderService.TryGetExchangeInfo: OrderId={order.OrderId} {errorMsg}");
             SaveFailureResult(order, errorMsg);
         }
 
@@ -781,7 +781,7 @@ public class CopyOrderService(
 
         _positionMappingService.SaveOrUpdateMapping(mapping);
 
-        _logger.LogInformation($"OpenNewPosition создан маппинг: {mapping}");
+        _logger.LogInformation($"CopyOrderService.SaveCopyOrderMapping: OrderId={order.OrderId} Создан маппинг {mapping}");
     }
 
     /// <summary>

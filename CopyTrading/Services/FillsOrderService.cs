@@ -74,13 +74,13 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger)
             orderFills.OriginalOrder.SubType = newSubType;
 
             _logger.LogInformation(
-                $"OrderSubType обновлен для OriginalOrder ID={orderId}: {oldSubType} -> {newSubType}, " +
+                $"FillsOrderService.UpdateOrderSubType: OrderId={orderId} {oldSubType} -> {newSubType}, " +
                 $"Wallet={orderFills.OriginalOrder.Wallet}, Symbol={orderFills.OriginalOrder.Symbol}");
 
             return true;
         }
 
-        _logger.LogWarning($"Ордер ID={orderId} не найден для обновления SubType");
+        _logger.LogWarning($"FillsOrderService.UpdateOrderSubType: OrderId={orderId} Ордер не найден");
         return false;
     }
 
@@ -103,7 +103,7 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger)
             if (_orders.ContainsKey(order.OrderId))
             {
                 skippedCount++;
-                _logger.LogDebug($"AddHistoricalOrders: Ордер ID={order.OrderId} уже существует, пропускаем");
+                _logger.LogDebug($"FillsOrderService.AddHistoricalOrders: OrderId={order.OrderId} Уже существует, пропускаем");
                 continue;
             }
 
@@ -115,7 +115,7 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger)
         }
 
         _logger.LogInformation(
-            $"AddHistoricalOrders: Добавлено {addedCount} исторических ордеров, пропущено {skippedCount} дубликатов");
+            $"FillsOrderService.AddHistoricalOrders: Добавлено {addedCount} исторических ордеров, пропущено {skippedCount} дубликатов");
 
         return addedCount;
     }
@@ -157,13 +157,13 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger)
 
     private void OnOrderFinished(OriginalOrder order)
     {
-        _logger.LogInformation($"OnOrderFinished {order.OrderId} status: {order.Status}");
+        _logger.LogInformation($"FillsOrderService.OnOrderFinished: OrderId={order.OrderId} Status={order.Status}");
 
         if (!IsFinalStatus(order.Status)) return;
 
         if (!_orders.TryGetValue(order.OrderId, out var orderFills))
         {
-            _logger.LogWarning($"OnOrderFinished: OrderFills не найден для ордера {order.OrderId}");
+            _logger.LogWarning($"FillsOrderService.OnOrderFinished: OrderId={order.OrderId} OrderFills не найден");
             return;
         }
 
@@ -224,11 +224,11 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger)
     {
         if (string.IsNullOrEmpty(changesString))
         {
-            _logger.LogInformation($"Изменения в ордере {orderId}: нет");
+            _logger.LogInformation($"FillsOrderService.LogOrderChanges: OrderId={orderId} Нет изменений");
         }
         else
         {
-            _logger.LogInformation($"Изменения в ордере {orderId}:\n{changesString}");
+            _logger.LogInformation($"FillsOrderService.LogOrderChanges: OrderId={orderId} Изменения:\n{changesString}");
         }
     }
 
@@ -283,7 +283,7 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger)
 
         if (!_orders.TryAdd(newOrder.OrderId, newOrderFills))
         {
-            _logger.LogError($"FillsOrderService OnNewOrders: не удалось добавить ордер {newOrder.OrderId}");
+            _logger.LogError($"FillsOrderService.CreateNewOrderFills: OrderId={newOrder.OrderId} Не удалось добавить ордер");
             return;
         }
 
@@ -329,7 +329,7 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger)
     private void AddOrderError(long orderId, string errorMessage)
     {
         _ordersWithError.TryAdd(orderId, errorMessage);
-        _logger.LogError(errorMessage);
+        _logger.LogError($"FillsOrderService.AddOrderError: OrderId={orderId} {errorMessage}");
     }
 
     /// <summary>
@@ -364,7 +364,7 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger)
             return;
         }
 
-        _logger.LogInformation($"Начинаем очистку старых ордеров. Текущее количество: {_orders.Count}");
+        _logger.LogInformation($"FillsOrderService.CleanupOldCompletedOrdersIfNeeded: Начинаем очистку, текущее количество {_orders.Count}");
 
         // Получаем все завершенные ордера, отсортированные по времени (от старых к новым)
         var completedOrders = _orders.Values
@@ -372,7 +372,7 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger)
             .OrderBy(orderFills => orderFills.OriginalOrder.Time)
             .ToList();
 
-        _logger.LogInformation($"Найдено {completedOrders.Count} завершенных ордеров");
+        _logger.LogInformation($"FillsOrderService.CleanupOldCompletedOrdersIfNeeded: Найдено {completedOrders.Count} завершенных ордеров");
 
         // Вычисляем сколько нужно удалить
         int ordersToRemove = _orders.Count - TargetOrdersCount;
@@ -390,11 +390,11 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger)
             {
                 removedCount++;
                 _ordersWithError.TryRemove(orderFills.OriginalOrder.OrderId, out _);
-                _logger.LogDebug($"Удален завершенный ордер {orderFills.OriginalOrder.OrderId} (время: {orderFills.OriginalOrder.Time})");
+                _logger.LogDebug($"FillsOrderService.CleanupOldCompletedOrdersIfNeeded: OrderId={orderFills.OriginalOrder.OrderId} Удален завершенный ордер");
             }
         }
 
-        _logger.LogInformation($"Очистка завершена. Удалено: {removedCount} ордеров. Осталось: {_orders.Count}");
+        _logger.LogInformation($"FillsOrderService.CleanupOldCompletedOrdersIfNeeded: Очистка завершена, удалено {removedCount}, осталось {_orders.Count}");
     }
 
     #endregion
@@ -411,12 +411,12 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger)
             // Успех: весь Order заполнен/выполнен, соответствует статусу
             PublishOrderFinished(orderFills);
             RemoveOrderError(order.OrderId);
-            _logger.LogInformation($"OnOrderFinished Filled {order.OrderId} Success");
+            _logger.LogInformation($"FillsOrderService.HandleFilledOrder: OrderId={order.OrderId} Success");
         }
         else
         {
             // Ошибка: сумма всех trades не соответствует order.Quantity
-            string error = $"OnOrderFinished Filled {order.OrderId} не сходится сумма всех trades и order.Quantity";
+            string error = $"FillsOrderService.HandleFilledOrder: OrderId={order.OrderId} Не сходится сумма всех trades и order.Quantity";
             AddOrderError(order.OrderId, error);
         }
     }
@@ -432,12 +432,12 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger)
         if (IsQuantityMatched(orderFills, ExpectedCanceledQuantity))
         {
             // Закрытие Order: ордер не был выполнен
-            _logger.LogInformation($"OnOrderFinished Canceled {order.OrderId} Success");
+            _logger.LogInformation($"FillsOrderService.HandleCanceledOrder: OrderId={order.OrderId} Success");
         }
         else
         {
             // Закрытие Order: ордер был выполнен частично
-            _logger.LogWarning($"OnOrderFinished Canceled {order.OrderId} Order был выполнен частично");
+            _logger.LogWarning($"FillsOrderService.HandleCanceledOrder: OrderId={order.OrderId} Ордер был выполнен частично");
         }
     }
 
@@ -446,9 +446,9 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger)
     /// </summary>
     private void HandleUnknownFinalStatus(OriginalOrder order)
     {
-        string error = $"Неизвестная ошибка OrderId: {order.OrderId}";
+        string error = $"Неизвестная ошибка";
         AddOrderError(order.OrderId, error);
-        _logger.LogWarning(error);
+        _logger.LogWarning($"FillsOrderService.HandleUnknownFinalStatus: OrderId={order.OrderId} {error}");
     }
 
     #endregion
@@ -504,32 +504,32 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger)
 
     private void LogNewTrade(OriginalTrade trade)
     {
-        _logger.LogInformation($"FillsOrderService OnNewTrades: Новый trade {trade}");
+        _logger.LogInformation($"FillsOrderService.LogNewTrade: OrderId={trade.OrderId} TradeId={trade.TradeId} Новый trade");
     }
 
     private void LogTradeSnapshot()
     {
-        _logger.LogDebug("FillsOrderService OnNewTrades: Пропускаем snapshot");
+        _logger.LogDebug("FillsOrderService.LogTradeSnapshot: Пропускаем snapshot");
     }
 
     private void LogDuplicateTrade(OriginalTrade trade)
     {
-        _logger.LogInformation($"FillsOrderService OnNewTrades: Дубликат trade {trade.TradeId} для ордера {trade.OrderId}");
+        _logger.LogInformation($"FillsOrderService.LogDuplicateTrade: OrderId={trade.OrderId} TradeId={trade.TradeId} Дубликат trade");
     }
 
     private void LogTradeAdded(OriginalTrade trade, OrderFills orderFills)
     {
-        _logger.LogInformation($"FillsOrderService OnNewTrades: ордер {trade.OrderId} fillStatus: {orderFills.FillStatus}");
+        _logger.LogInformation($"FillsOrderService.LogTradeAdded: OrderId={trade.OrderId} FillStatus={orderFills.FillStatus}");
     }
 
     private void LogOrderNotFoundForTrade(OriginalTrade trade)
     {
-        _logger.LogWarning($"FillsOrderService OnNewTrades: не удалось найти ордер {trade.OrderId}");
+        _logger.LogWarning($"FillsOrderService.LogOrderNotFoundForTrade: OrderId={trade.OrderId} Ордер не найден");
     }
 
     private void LogPendingTradesAdded(long orderId, int count)
     {
-        _logger.LogInformation($"FillsOrderService: Добавлено {count} pending трейдов для ордера {orderId}");
+        _logger.LogInformation($"FillsOrderService.LogPendingTradesAdded: OrderId={orderId} Добавлено {count} pending трейдов");
     }
 
     #endregion

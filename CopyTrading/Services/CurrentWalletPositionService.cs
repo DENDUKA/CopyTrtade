@@ -44,7 +44,7 @@ public class CurrentWalletPositionService(
             }
             catch (Exception ex)
             {
-                _logger.LogError($"CurrentWalletPositionService OnNewTrades ошибка обработки трейда {trade.TradeId}: {ex.Message}");
+                _logger.LogError($"CurrentWalletPositionService.OnNewTrades: TradeId={trade.TradeId} Ошибка обработки трейда: {ex.Message}");
             }
         }
     }
@@ -60,7 +60,7 @@ public class CurrentWalletPositionService(
 
         if (!_walletPositionSnapshot.TryAdd(snapshot.Wallet, snapshot))
         {
-            _logger.LogError($"CurrentWalletPositionService Initialize не получилось инициализировать Snapshot для {snapshot.Wallet}");
+            _logger.LogError($"CurrentWalletPositionService.InitializeWalletSnapshot: Wallet={snapshot.Wallet} Не получилось инициализировать Snapshot");
         }
     }
 
@@ -83,13 +83,13 @@ public class CurrentWalletPositionService(
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, $"Ошибка при освобождении семафора для {wallet}");
+                _logger.LogWarning(ex, $"CurrentWalletPositionService.RemoveWalletSnapshot: Wallet={wallet} Ошибка при освобождении семафора");
             }
         }
 
         if (snapshotRemoved || semaphoreRemoved)
         {
-            _logger.LogInformation($"Удален snapshot и семафор для кошелька {wallet}");
+            _logger.LogInformation($"CurrentWalletPositionService.RemoveWalletSnapshot: Wallet={wallet} Удален snapshot и семафор");
         }
     }
 
@@ -111,14 +111,14 @@ public class CurrentWalletPositionService(
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, $"Ошибка при освобождении семафора для {kvp.Key}");
+                _logger.LogWarning(ex, $"CurrentWalletPositionService.ClearAllSnapshots: Wallet={kvp.Key} Ошибка при освобождении семафора");
             }
         }
 
         _walletPositionSnapshot.Clear();
         _walletSemaphores.Clear();
 
-        _logger.LogInformation($"Все snapshots и семафоры очищены (было snapshots: {snapshotCount}, семафоров: {semaphoreCount})");
+        _logger.LogInformation($"CurrentWalletPositionService.ClearAllSnapshots: Все snapshots и семафоры очищены (было snapshots: {snapshotCount}, семафоров: {semaphoreCount})");
     }
 
     /// <summary>
@@ -178,7 +178,7 @@ public class CurrentWalletPositionService(
 
         decimal potentialPosition = realQuantity + pendingQuantity;
 
-        _logger.LogDebug($"CalculatePotentialPosition: {wallet} {symbol} OrderDirection={orderDirection} OrderPrice={orderPrice} Real={realQuantity}, Pending={pendingQuantity} ({consideredCount}/{totalPendingCount} orders considered), Potential={potentialPosition}, ExcludeOrderId={excludeOrderId}");
+        _logger.LogDebug($"CurrentWalletPositionService.CalculatePotentialPosition: Wallet={wallet} Symbol={symbol} OrderId={excludeOrderId} OrderDirection={orderDirection} OrderPrice={orderPrice} Real={realQuantity}, Pending={pendingQuantity} ({consideredCount}/{totalPendingCount} orders considered), Potential={potentialPosition}");
 
         return potentialPosition;
     }
@@ -189,7 +189,7 @@ public class CurrentWalletPositionService(
 
         if (!_walletPositionSnapshot.ContainsKey(trade.Wallet))
         {
-            _logger.LogError($"AddTrade: Snapshot для {trade.Wallet} не инициализирован");
+            _logger.LogError($"CurrentWalletPositionService.AddTrade: TradeId={trade.TradeId} Wallet={trade.Wallet} Snapshot не инициализирован");
             return OrderSubType.None;
         }
 
@@ -214,7 +214,7 @@ public class CurrentWalletPositionService(
             // Больше одной позиции - ошибка
             if (openPos.Length > 1)
             {
-                _logger.LogError($"AddTrade: Обнаружено {openPos.Length} открытых позиций (разнонаправленные) для {trade.Symbol} у кошелька {trade.Wallet}");
+                _logger.LogError($"CurrentWalletPositionService.AddTrade: TradeId={trade.TradeId} Wallet={trade.Wallet} Symbol={trade.Symbol} Обнаружено {openPos.Length} открытых позиций (разнонаправленные)");
                 return OrderSubType.None;
             }
 
@@ -258,13 +258,13 @@ public class CurrentWalletPositionService(
             // Добавляем в dictionary
             if (_walletPositionSnapshot.TryAdd(wallet, walletSnapshot))
             {
-                _logger.LogInformation($"CurrentWalletPositionService GetSnapshot создан новый snapshot для {wallet}");
+                _logger.LogInformation($"CurrentWalletPositionService.GetSnapshot: Wallet={wallet} Создан новый snapshot");
                 return walletSnapshot;
             }
 
             // Если TryAdd вернул false (другой поток успел добавить между проверкой и добавлением)
             // возвращаем ту версию что в dictionary
-            _logger.LogWarning($"CurrentWalletPositionService GetSnapshot snapshot для {wallet} уже был добавлен другим потоком");
+            _logger.LogWarning($"CurrentWalletPositionService.GetSnapshot: Wallet={wallet} Snapshot уже был добавлен другим потоком");
             return _walletPositionSnapshot[wallet];
         }
         finally
@@ -279,7 +279,7 @@ public class CurrentWalletPositionService(
 
         if (!_walletPositionSnapshot.TryGetValue(order.Wallet, out var snapshot))
         {
-            _logger.LogError($"GetOrderSubType: Для OrderId {order.OrderId} walletPositionSnapshot для {order.Wallet} не инициализирован - возвращаем OrderSubType.None");
+            _logger.LogError($"CurrentWalletPositionService.GetOrderSubType: OrderId={order.OrderId} Wallet={order.Wallet} walletPositionSnapshot не инициализирован - возвращаем OrderSubType.None");
             return OrderSubType.None;
         }
 
@@ -290,7 +290,7 @@ public class CurrentWalletPositionService(
         // Нет ни реальной позиции, ни pending ордеров - это Open
         if (potentialPosition == 0)
         {
-            _logger.LogInformation($"GetOrderSubType: Для OrderId {order.OrderId} Нет позиций (реальных и pending) для {order.Symbol} у {order.Wallet} - возвращаем OrderSubType.Open");
+            _logger.LogInformation($"CurrentWalletPositionService.GetOrderSubType: OrderId={order.OrderId} Wallet={order.Wallet} Symbol={order.Symbol} Нет позиций (реальных и pending) - возвращаем OrderSubType.Open");
             return OrderSubType.Open;
         }
 
@@ -330,11 +330,11 @@ public class CurrentWalletPositionService(
 
             if (pendingOrderFills.Length == 0)
             {
-                _logger.LogDebug($"RecalculateSubTypesForSymbol: Нет pending ордеров для {wallet}, {symbol}");
+                _logger.LogDebug($"CurrentWalletPositionService.RecalculateSubTypesForSymbol: Wallet={wallet} Symbol={symbol} Нет pending ордеров");
                 return;
             }
 
-            _logger.LogInformation($"RecalculateSubTypesForSymbol: Пересчет SubType для {pendingOrderFills.Length} pending ордеров. Wallet={wallet}, Symbol={symbol}");
+            _logger.LogInformation($"CurrentWalletPositionService.RecalculateSubTypesForSymbol: Wallet={wallet} Symbol={symbol} Пересчет SubType для {pendingOrderFills.Length} pending ордеров");
 
             int updatedCount = 0;
 
@@ -351,17 +351,15 @@ public class CurrentWalletPositionService(
                     _fillsOrderService.UpdateOrderSubType(originalOrder.OrderId, newSubType);
                     updatedCount++;
 
-                    _logger.LogInformation(
-                        $"RecalculateSubTypesForSymbol: OrderSubType изменен для OriginalOrder ID={originalOrder.OrderId}: " +
-                        $"{oldSubType} -> {newSubType}");
+                    _logger.LogInformation($"CurrentWalletPositionService.RecalculateSubTypesForSymbol: OrderId={originalOrder.OrderId} OrderSubType изменен: {oldSubType} -> {newSubType}");
                 }
             }
 
-            _logger.LogInformation($"RecalculateSubTypesForSymbol: Пересчет завершен. Обновлено {updatedCount} из {pendingOrderFills.Length} ордеров");
+            _logger.LogInformation($"CurrentWalletPositionService.RecalculateSubTypesForSymbol: Wallet={wallet} Symbol={symbol} Пересчет завершен. Обновлено {updatedCount} из {pendingOrderFills.Length} ордеров");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, $"RecalculateSubTypesForSymbol: Ошибка при пересчете SubType для {wallet}, {symbol}");
+            _logger.LogError(ex, $"CurrentWalletPositionService.RecalculateSubTypesForSymbol: Wallet={wallet} Symbol={symbol} Ошибка при пересчете SubType");
         }
     }
 
@@ -389,7 +387,7 @@ public class CurrentWalletPositionService(
 
         if (firstFutureTrade == null)
         {
-            _logger.LogError("CurrentWalletPositionService CreateSnapshotByTradesSnapshot не найдено фьючерсных трейдов");
+            _logger.LogError("CurrentWalletPositionService.CreateSnapshotByTradesSnapshot: Не найдено фьючерсных трейдов");
             return;
         }
 
@@ -402,11 +400,11 @@ public class CurrentWalletPositionService(
 
             InitializeWalletSnapshot(walletSnapshot);
 
-            _logger.LogInformation($"CurrentWalletPositionService инициализирован snapshot для {wallet} с {walletSnapshot.Positions.Count} позициями");
+            _logger.LogInformation($"CurrentWalletPositionService.CreateSnapshotByTradesSnapshot: Wallet={wallet} Инициализирован snapshot с {walletSnapshot.Positions.Count} позициями");
         }
         catch (Exception ex)
         {
-            _logger.LogError($"CurrentWalletPositionService CreateSnapshotByTradesSnapshot ошибка инициализации snapshot для {firstFutureTrade.Wallet}: {ex.Message}");
+            _logger.LogError($"CurrentWalletPositionService.CreateSnapshotByTradesSnapshot: Wallet={firstFutureTrade.Wallet} Ошибка инициализации snapshot: {ex.Message}");
         }
     }
 
@@ -455,14 +453,14 @@ public class CurrentWalletPositionService(
         }
         else
         {
-            _logger.LogError($"UpdatePositionForIncrease: Деление на ноль при расчете AverageEntryPrice для {trade.Symbol}! NewQuantity={newQuantity}");
+            _logger.LogError($"CurrentWalletPositionService.UpdatePositionForIncrease: Symbol={trade.Symbol} Деление на ноль при расчете AverageEntryPrice! NewQuantity={newQuantity}");
             position.AverageEntryPrice = 0;
         }
 
         position.Quantity = newQuantity;
         position.VolumeUsd = newVolumeUsd;
 
-        _logger.LogInformation($"UpdatePositionForIncrease: {trade.Symbol} обновлена, новая Quantity={newQuantity}, VolumeUsd={newVolumeUsd}");
+        _logger.LogInformation($"CurrentWalletPositionService.UpdatePositionForIncrease: Symbol={trade.Symbol} Позиция обновлена, Quantity={newQuantity}, VolumeUsd={newVolumeUsd}");
     }
 
     /// <summary>
@@ -480,14 +478,14 @@ public class CurrentWalletPositionService(
         }
         else
         {
-            _logger.LogError($"UpdatePositionForDecrease: Деление на ноль при расчете AverageEntryPrice для {trade.Symbol}! NewQuantity={newQuantity}, NewVolume={newVolumeUsd}");
+            _logger.LogError($"CurrentWalletPositionService.UpdatePositionForDecrease: Symbol={trade.Symbol} Деление на ноль при расчете AverageEntryPrice! NewQuantity={newQuantity}, NewVolume={newVolumeUsd}");
             position.AverageEntryPrice = 0;
         }
 
         position.Quantity = newQuantity;
         position.VolumeUsd = newVolumeUsd;
 
-        _logger.LogInformation($"UpdatePositionForDecrease: {trade.Symbol} уменьшена, новая Quantity={newQuantity}, VolumeUsd={newVolumeUsd}");
+        _logger.LogInformation($"CurrentWalletPositionService.UpdatePositionForDecrease: Symbol={trade.Symbol} Позиция уменьшена, Quantity={newQuantity}, VolumeUsd={newVolumeUsd}");
     }
 
     /// <summary>
@@ -496,7 +494,7 @@ public class CurrentWalletPositionService(
     private void RemovePositionFromSnapshot(Wallet wallet, Position position)
     {
         _walletPositionSnapshot[wallet].Positions.Remove(position);
-        _logger.LogInformation($"RemovePositionFromSnapshot: Позиция {position.Symbol} удалена из snapshot для {wallet}");
+        _logger.LogInformation($"CurrentWalletPositionService.RemovePositionFromSnapshot: Wallet={wallet} Symbol={position.Symbol} Позиция удалена из snapshot");
     }
 
     /// <summary>
@@ -508,12 +506,12 @@ public class CurrentWalletPositionService(
 
         if (!walletInfo.Positions.TryGetValue(symbol, out var position))
         {
-            _logger.LogError($"AddPositionToSnapshotFromProvider: Не удалось найти позицию {symbol} у кошелька {wallet}");
+            _logger.LogError($"CurrentWalletPositionService.AddPositionToSnapshotFromServer: Wallet={wallet} Symbol={symbol} Не удалось найти позицию");
             return null;
         }
 
         _walletPositionSnapshot[wallet].Positions.Add(position);
-        _logger.LogInformation($"AddPositionToSnapshotFromProvider: Позиция {symbol} добавлена в snapshot для {wallet}");
+        _logger.LogInformation($"CurrentWalletPositionService.AddPositionToSnapshotFromServer: Wallet={wallet} Symbol={symbol} Позиция добавлена в snapshot");
 
         return position;
     }
@@ -531,7 +529,7 @@ public class CurrentWalletPositionService(
         // Одинаковое направление = INCREASE
         if (positionDirection == order.Direction)
         {
-            _logger.LogInformation($"DetermineOrderSubType: Потенциальная позиция {order.Symbol} ({potentialPosition}) в том же направлении {order.Direction} - возвращаем OrderSubType.Increase");
+            _logger.LogInformation($"CurrentWalletPositionService.DetermineOrderSubType: Symbol={order.Symbol} Потенциальная позиция ({potentialPosition}) в том же направлении {order.Direction} - возвращаем OrderSubType.Increase");
             return OrderSubType.Increase;
         }
 
@@ -541,7 +539,7 @@ public class CurrentWalletPositionService(
 
         if (newQuantity == 0)
         {
-            _logger.LogInformation($"DetermineOrderSubType: Потенциальная позиция {order.Symbol} ({potentialPosition}) будет полностью закрыта ордером {order.Quantity} - возвращаем OrderSubType.Close");
+            _logger.LogInformation($"CurrentWalletPositionService.DetermineOrderSubType: Symbol={order.Symbol} Потенциальная позиция ({potentialPosition}) будет полностью закрыта ордером {order.Quantity} - возвращаем OrderSubType.Close");
             return OrderSubType.Close;
         }
 
@@ -549,12 +547,12 @@ public class CurrentWalletPositionService(
         if (Math.Sign(newQuantity) == Math.Sign(potentialPosition))
         {
             // Знак не изменился = частичное закрытие
-            _logger.LogInformation($"DetermineOrderSubType: Потенциальная позиция {order.Symbol} ({potentialPosition}) будет частично закрыта ордером {order.Quantity}, новая позиция {newQuantity} - возвращаем OrderSubType.Decrease");
+            _logger.LogInformation($"CurrentWalletPositionService.DetermineOrderSubType: Symbol={order.Symbol} Потенциальная позиция ({potentialPosition}) будет частично закрыта ордером {order.Quantity}, новая позиция {newQuantity} - возвращаем OrderSubType.Decrease");
             return OrderSubType.Decrease;
         }
 
         // Знак изменился = переворот позиции (Flip)
-        _logger.LogWarning($"DetermineOrderSubType: Потенциальная позиция {order.Symbol} ({potentialPosition}) будет перевернута ордером {order.RealQuantity}, новая позиция {newQuantity} - возвращаем OrderSubType.Flip. OrderId {order.OrderId}");
+        _logger.LogWarning($"CurrentWalletPositionService.DetermineOrderSubType: OrderId={order.OrderId} Symbol={order.Symbol} Потенциальная позиция ({potentialPosition}) будет перевернута ордером {order.RealQuantity}, новая позиция {newQuantity} - возвращаем OrderSubType.Flip");
         return OrderSubType.Flip;
     }
 
@@ -574,7 +572,7 @@ public class CurrentWalletPositionService(
             return OrderSubType.None;
         }
 
-        _logger.LogInformation($"HandleOpenPosition: Открыта новая позиция {trade.Symbol} для {trade.Wallet}");
+        _logger.LogInformation($"CurrentWalletPositionService.HandleOpenPosition: Wallet={trade.Wallet} Symbol={trade.Symbol} Открыта новая позиция");
         return OrderSubType.Open;
     }
 
@@ -583,7 +581,7 @@ public class CurrentWalletPositionService(
     /// </summary>
     private OrderSubType HandleIncreasePosition(Position position, OriginalTrade trade)
     {
-        _logger.LogInformation($"HandleIncreasePosition: Увеличение позиции {trade.Symbol}, Direction={trade.Direction}");
+        _logger.LogInformation($"CurrentWalletPositionService.HandleIncreasePosition: Symbol={trade.Symbol} Direction={trade.Direction} Увеличение позиции");
 
         UpdatePositionForIncrease(position, trade);
 
@@ -595,7 +593,7 @@ public class CurrentWalletPositionService(
     /// </summary>
     private OrderSubType HandleDecreasePosition(Position position, OriginalTrade trade)
     {
-        _logger.LogInformation($"HandleDecreasePosition: Уменьшение позиции {trade.Symbol}, Direction={trade.Direction}");
+        _logger.LogInformation($"CurrentWalletPositionService.HandleDecreasePosition: Symbol={trade.Symbol} Direction={trade.Direction} Уменьшение позиции");
 
         UpdatePositionForDecrease(position, trade);
 
@@ -607,7 +605,7 @@ public class CurrentWalletPositionService(
     /// </summary>
     private OrderSubType HandleClosePosition(Wallet wallet, Position position, OriginalTrade trade)
     {
-        _logger.LogInformation($"HandleClosePosition: Полное закрытие позиции {trade.Symbol} для {wallet}");
+        _logger.LogInformation($"CurrentWalletPositionService.HandleClosePosition: Wallet={wallet} Symbol={trade.Symbol} Полное закрытие позиции");
 
         RemovePositionFromSnapshot(wallet, position);
 
@@ -619,9 +617,7 @@ public class CurrentWalletPositionService(
     /// </summary>
     private async Task<OrderSubType> HandleFlipPosition(Wallet wallet, Position position, OriginalTrade trade)
     {
-        _logger.LogWarning($"HandleFlipPosition: ПЕРЕВОРОТ позиции {trade.Symbol} у {wallet}! " +
-                         $"Было: {position.Direction} {position.Quantity}, " +
-                         $"Trade: {trade.Direction} {trade.RealQuantity}");
+        _logger.LogWarning($"CurrentWalletPositionService.HandleFlipPosition: Wallet={wallet} Symbol={trade.Symbol} ПЕРЕВОРОТ позиции! Было: {position.Direction} {position.Quantity}, Trade: {trade.Direction} {trade.RealQuantity}");
 
         // Удаляем старую позицию
         RemovePositionFromSnapshot(wallet, position);
@@ -631,7 +627,7 @@ public class CurrentWalletPositionService(
 
         if (newPosition != null)
         {
-            _logger.LogInformation($"HandleFlipPosition: После переворота добавлена новая позиция: {newPosition}");
+            _logger.LogInformation($"CurrentWalletPositionService.HandleFlipPosition: Wallet={wallet} Symbol={trade.Symbol} После переворота добавлена новая позиция: {newPosition}");
         }
 
         // Возвращаем Close (так как текущая позиция закрылась)

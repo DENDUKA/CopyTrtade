@@ -71,7 +71,7 @@ public class OrderService
 
             _orderDBProvider.WriteOrder(orders);
 
-            _logger.LogInformation($"Исторические ордера для кошелька {wallet} собраны. {orders.Length}");
+            _logger.LogInformation($"OrderService.Activate: Wallet={wallet} Собрано {orders.Length} исторических ордеров");
         }
     }
 
@@ -79,7 +79,7 @@ public class OrderService
     {
         foreach (var order in orders)
         {
-            _logger.LogInformation($"Получен новый ордер: {order}");
+            _logger.LogInformation($"OrderService.OnNewOrders: OrderId={order.OrderId} Получен новый ордер {order.Symbol} {order.Direction} Status={order.Status}");
 
             // Рассчитываем SubType для каждого нового ордера
             order.SubType = _currentWalletPositionService.GetOrderSubType(order);
@@ -140,6 +140,6 @@ public class OrderService
     private void LogDelayWithServer(OriginalOrder order)
     {
         var now = DateTime.Now;
-        _logger.LogInformation($"LogDelayWithServer Order {order.Status.ToString()} {order.OrderId} {(now - order.Time).TotalSeconds} ");
+        _logger.LogInformation($"OrderService.LogDelayWithServer: OrderId={order.OrderId} Status={order.Status} Delay={(now - order.Time).TotalSeconds}s");
     }
 }
