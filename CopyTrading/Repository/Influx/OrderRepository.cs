@@ -13,7 +13,6 @@ public class OrderRepository : IOrderRepository
 
     private readonly ILogger<OrderRepository> _logger;
     private readonly InfluxDBClient _client;
-    private readonly WriteApi _writeApi;
 
     public OrderRepository(ILogger<OrderRepository> logger)
     {
