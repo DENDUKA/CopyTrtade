@@ -111,7 +111,6 @@ public class CopyOrderServiceTests
         // Создаем TradeService
         var tradeService = new TradeService(
             _orderProviderMock.Object,
-            _orderBookProviderMock.Object,
             _walletInfoProvider.Object,
             _tradeRepositoryInfluxMock.Object,
             _tradeRepositorySQLMock.Object,

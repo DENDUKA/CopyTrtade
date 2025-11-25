@@ -21,7 +21,7 @@ public static class WalletSettings
         new Wallet("0x5a8e21c3a73cc4742ecf1f422379a6fbf1992a42"),
 
         new Wallet("0x1e37a337ed460039d1b15bd3bc489de789768d5e"),
-        new Wallet("0xc2d4ff17906940004b25884779c74aecda24fb83"),
+        
 
         new Wallet("0xa844d7ac9fa3424c4fd38a25baa23e460ec3e802"),
         new Wallet("0xff9152cce6fbd30988b1aef70df6f086c99e2c55"),
@@ -33,12 +33,10 @@ public static class WalletSettings
         new Wallet("0xb5418352d0a149c36964d56ae6ece340cacb842b"),
         new Wallet("0xfce053a5e461683454bf37ad66d20344c0e3f4c0"),
 
+        //new Wallet("0xc2d4ff17906940004b25884779c74aecda24fb83"),
 
        //использую для тестов (сеточник)
        //new Wallet("0xdb6995164092fc54a0c33fdf032450d1f6f558a6"),
-
-
-
     ];
 
     //https://trysuper.co/copytrade

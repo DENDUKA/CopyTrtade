@@ -1,6 +1,5 @@
-﻿using CopyTrading.BlazorUI.Services;
+using CopyTrading.BlazorUI.Services;
 using CopyTrading.DataEvents;
-using CopyTrading.Models.Models.Enums;
 using CopyTrading.Models.Models.Trade;
 using CopyTrading.Models.Values;
 using CopyTrading.Providers.Hyperliquid.Subscribers;
@@ -14,7 +13,6 @@ namespace CopyTrading.Services;
 public class TradeService
 {
     private readonly OrdersTradesSubscriber _orderProvider;
-    private readonly OrderBookSubscriber _orderBookProvider;
     private readonly IWalletInfoProvider _walletInfoProvider;
     private readonly ITradeRepositoryInflux _tradeRepositoryInflux;
     private readonly ITradeRepositorySQL _tradeRepositorySQL;
@@ -25,7 +23,6 @@ public class TradeService
 
     public TradeService(
         OrdersTradesSubscriber orderProvider,
-        OrderBookSubscriber orderBookProvider,
         IWalletInfoProvider walletInfoProvider,
         ITradeRepositoryInflux tradeRepositoryInflux,
         ITradeRepositorySQL tradeRepositorySQL,
@@ -35,7 +32,6 @@ public class TradeService
         ILogger<TradeService> logger)
     {
         _orderProvider = orderProvider;
-        _orderBookProvider = orderBookProvider;
         _walletInfoProvider = walletInfoProvider;
         _tradeRepositoryInflux = tradeRepositoryInflux;
         _tradeRepositorySQL = tradeRepositorySQL;
@@ -57,11 +53,22 @@ public class TradeService
         await SubscribeToWallet(WalletSettings.TrackedWallets);
     }
 
-    public async Task CollectHystoricalTrades(Wallet wallet)
+    public async Task CollectHistoricalTrades(Wallet wallet)
     {
-        var trades = await _walletInfoProvider.GetHistoricalTrades(wallet);
+        try
+        {
+            _logger.LogInformation($"TradeService.CollectHistoricalTrades: Wallet={wallet} Начало сбора исторических трейдов");
 
-        _tradeRepositoryInflux.WriteTrades(trades);
+            var trades = await _walletInfoProvider.GetHistoricalTrades(wallet);
+            _tradeRepositoryInflux.WriteTrades(trades);
+
+            _logger.LogInformation($"TradeService.CollectHistoricalTrades: Wallet={wallet} Собрано {trades.Length} исторических трейдов");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"TradeService.CollectHistoricalTrades: Wallet={wallet} Ошибка при сборе исторических трейдов");
+            throw;
+        }
     }
 
     private async Task SubscribeToWallet(Wallet[] wallets)
@@ -71,78 +78,68 @@ public class TradeService
 
     private async void OnNewTrades((OriginalTrade[] Trades, bool IsSnapshot) newTrades)
     {
-        foreach (var trade in newTrades.Trades)
+        try
         {
-            if (!trade.IsFuture) continue;
-
-            _tradeRepositorySQL.WriteTrade(trade);
-
-            if (newTrades.IsSnapshot)
-            {
-                continue;
-            }
-
-            _logger.LogInformation($"TradeService.OnNewTrades: TradeId={trade.TradeId} Новый trade: {trade.ToString()}");
-
-            LogDelayWithServer(trade);
+            await ProcessNewTrades(newTrades);
         }
-
-
-        _realtimeUpdateService.OnNewTrades(newTrades);
-        _fillsOrderService.OnNewTrades(newTrades);
-        await _currentWalletPositionService.OnNewTrades(newTrades);
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"TradeService.OnNewTrades: Критическая ошибка при обработке трейдов. IsSnapshot={newTrades.IsSnapshot}, Count={newTrades.Trades.Length}");
+        }
     }
 
-
-    private async Task<(decimal spread, decimal deltaTimeS)> ActualSpreadAndDeltaTime(OriginalTrade trade)
+    private async Task ProcessNewTrades((OriginalTrade[] Trades, bool IsSnapshot) newTrades)
     {
-        var spreadDelta = 0.01M;
+        // Фильтруем только фьючерсные трейды
+        var futureTrades = newTrades.Trades.Where(t => t.IsFuture).ToArray();
 
-        var orderBook = await _orderBookProvider.GetOrderBook(trade.Symbol, trade.TimeStamp);
-
-        if (orderBook is null) return (0, 0);
-
-        var bestAsk = orderBook.Levels.Asks.First().Price;
-        var bestBid = orderBook.Levels.Bids.First().Price;
-
-        _logger.LogInformation($"TradeService.ActualSpreadAndDeltaTime: TradeId={trade.TradeId} Trade Time: {trade.TimeStamp}, OB Time: {orderBook.Timestamp}");
-
-        var deltaTimeS = (decimal)(orderBook.Timestamp - trade.TimeStamp).TotalSeconds;
-        decimal spread;
-
-        if (trade.Direction == Direction.Long)
+        if (futureTrades.Length == 0)
         {
-            spread = (bestAsk - trade.Price) / bestAsk * 100;
-
-            if (trade.Price >= bestAsk || spread < spreadDelta)
-            {
-                _logger.LogInformation($"TradeService.ActualSpreadAndDeltaTime: TradeId={trade.TradeId} Direction={trade.Direction} Цена сделки {trade.Price} сейчас {bestAsk} актуальна для покупки. Spread={spread:F5}%, DeltaTime={deltaTimeS}s");
-            }
-            else
-            {
-                _logger.LogInformation($"TradeService.ActualSpreadAndDeltaTime: TradeId={trade.TradeId} Direction={trade.Direction} Цена сделки {trade.Price} сейчас {bestAsk} не актуальна для покупки. Spread={spread:F5}%, DeltaTime={deltaTimeS}s");
-            }
-        }
-        else
-        {
-            spread = (bestBid - trade.Price) / bestBid * 100;
-
-            if (trade.Price <= bestBid || spread < spreadDelta)
-            {
-                _logger.LogInformation($"TradeService.ActualSpreadAndDeltaTime: TradeId={trade.TradeId} Direction={trade.Direction} Цена сделки {trade.Price} сейчас {bestBid} актуальна для продажи. Spread={spread:F5}%, DeltaTime={deltaTimeS}s");
-            }
-            else
-            {
-                _logger.LogInformation($"TradeService.ActualSpreadAndDeltaTime: TradeId={trade.TradeId} Direction={trade.Direction} Цена сделки {trade.Price} сейчас {bestBid} не актуальна для продажи. Spread={spread:F5}%, DeltaTime={deltaTimeS}s");
-            }
+            _logger.LogDebug($"TradeService.ProcessNewTrades: Нет фьючерсных трейдов для обработки. Total={newTrades.Trades.Length}");
+            return;
         }
 
-        return (spread, deltaTimeS);
+        // Записываем трейды в БД (fire-and-forget - не ждем ответа от БД)
+        SaveTrades(futureTrades, newTrades.IsSnapshot);
+
+        // Создаем новый tuple с отфильтрованными трейдами
+        var filteredNewTrades = (futureTrades, newTrades.IsSnapshot);
+
+        // Распространяем события в другие сервисы
+        _realtimeUpdateService.OnNewTrades(filteredNewTrades);
+        _fillsOrderService.OnNewTrades(filteredNewTrades);
+        await _currentWalletPositionService.OnNewTrades(filteredNewTrades);
+
+        _logger.LogDebug($"TradeService.ProcessNewTrades: Обработано {futureTrades.Length} фьючерсных трейдов. IsSnapshot={newTrades.IsSnapshot}");
     }
 
-    private void LogDelayWithServer(OriginalTrade trade)
+    private void SaveTrades(OriginalTrade[] trades, bool isSnapshot)
     {
-        var now = DateTime.Now;
-        _logger.LogInformation($"TradeService.LogDelayWithServer: TradeId={trade.TradeId} OrderId={trade.OrderId} Delay={(now - trade.TimeStamp).TotalSeconds}s");
+        foreach (var trade in trades)
+        {
+            try
+            {
+                // Fire-and-forget: не ждем ответа от БД для максимальной производительности
+                _ = _tradeRepositorySQL.WriteTrade(trade);
+
+                // Логируем только новые трейды (не snapshot) и только с DEBUG уровнем для уменьшения шума
+                if (!isSnapshot)
+                {
+                    _logger.LogDebug($"TradeService.SaveTrades: TradeId={trade.TradeId} OrderId={trade.OrderId} Symbol={trade.Symbol} Direction={trade.Direction} Price={trade.Price} Quantity={trade.Quantity}");
+
+                    // Логируем задержку с сервером для анализа производительности
+                    var delay = (DateTime.Now - trade.TimeStamp).TotalSeconds;
+                    if (delay > 1.0) // Логируем только если задержка > 1 секунды
+                    {
+                        _logger.LogWarning($"TradeService.SaveTrades: TradeId={trade.TradeId} OrderId={trade.OrderId} Большая задержка с сервером: {delay:F2}s");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"TradeService.SaveTrades: TradeId={trade.TradeId} OrderId={trade.OrderId} Ошибка при записи трейда в БД");
+                // Продолжаем обработку остальных трейдов даже при ошибке
+            }
+        }
     }
 }

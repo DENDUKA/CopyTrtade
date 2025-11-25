@@ -12,18 +12,18 @@ public class TradesController(
     [HttpGet("SubscribeToTrackedWallets")]
     public async Task SubscribeToTrackedWallets()
     {
-        _tradeService.SubscribeToTrackedWalletsTrades();
+        await _tradeService.SubscribeToTrackedWalletsTrades();
     }
 
     [HttpGet("CollectWalletHistoryTrades")]
     public async Task CollectWalletHistoryTrades([FromQuery] string wallet)
     {
-        _tradeService.CollectHystoricalTrades(new Wallet(wallet));
+        await _tradeService.CollectHistoricalTrades(new Wallet(wallet));
     }
 
     [HttpGet("SubscribeToWallet")]
     public async Task SubscribeToWallet([FromQuery] string wallet)
     {
-        _tradeService.SubscribeToWalletTrades(new Wallet(wallet));
+        await _tradeService.SubscribeToWalletTrades(new Wallet(wallet));
     }
 }

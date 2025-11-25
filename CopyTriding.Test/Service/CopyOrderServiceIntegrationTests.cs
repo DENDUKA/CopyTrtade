@@ -1437,7 +1437,6 @@ public class CopyOrderServiceIntegrationTests
         // Создаем TradeService, который подписывается на DataBusEvents.NewTrades
         var tradeService = new TradeService(
             _orderProviderMock.Object,
-            _orderBookProviderMock.Object,
             _walletInfoProvider.Object,
             _tradeRepositoryInfluxMock.Object,
             _tradeRepositorySQLMock.Object,
