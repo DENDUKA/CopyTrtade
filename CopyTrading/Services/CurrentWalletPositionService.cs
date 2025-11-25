@@ -537,9 +537,10 @@ public class CurrentWalletPositionService(
         // Рассчитываем новую позицию после исполнения ордера
         decimal newQuantity = potentialPosition + order.RealQuantity;
 
-        if (newQuantity == 0)
+        // Проверяем на полное закрытие (точное 0 или очень близко к 0)
+        if (Math.Abs(newQuantity) < 0.001M)
         {
-            _logger.LogInformation($"CurrentWalletPositionService.DetermineOrderSubType: Symbol={order.Symbol} Потенциальная позиция ({potentialPosition}) будет полностью закрыта ордером {order.Quantity} - возвращаем OrderSubType.Close");
+            _logger.LogInformation($"CurrentWalletPositionService.DetermineOrderSubType: Symbol={order.Symbol} Потенциальная позиция ({potentialPosition}) будет полностью закрыта ордером {order.Quantity}, новая позиция {newQuantity} - возвращаем OrderSubType.Close");
             return OrderSubType.Close;
         }
 

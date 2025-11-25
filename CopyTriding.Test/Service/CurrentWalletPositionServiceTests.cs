@@ -939,4 +939,970 @@ public class CurrentWalletPositionServiceTests
         // Verify we processed exactly 100 trades
         tradeLog.Count.Should().Be(100, "Should have processed exactly 100 trades");
     }
+
+    #region GetOrderSubType Tests with Corner Cases
+
+    [Fact]
+    public void GetOrderSubType_NoPositionNoPendingOrders_ShouldReturnOpen()
+    {
+        // Arrange
+        var wallet = new Wallet("0x1234567890123456789012345678901234567890");
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var service = new CurrentWalletPositionService(
+            _walletInfoProvider.Object,
+            fillsOrderService,
+            _logger.Object);
+
+        var snapshot = new WalletPositionsSnapshot
+        {
+            Wallet = wallet,
+            TimeStamp = DateTime.UtcNow,
+            Positions = new List<Position>()
+        };
+
+        var order = new OriginalOrder
+        {
+            OrderId = 1,
+            Wallet = wallet,
+            Symbol = "BTC",
+            Direction = Direction.Long,
+            Quantity = 1M,
+            Price = 50000M,
+            Status = OrderStatus.Open
+        };
+
+        // Act
+        service.InitializeWalletSnapshot(snapshot);
+        var result = service.GetOrderSubType(order);
+
+        // Assert
+        result.Should().Be(OrderSubType.Open);
+    }
+
+    [Fact]
+    public void GetOrderSubType_LongPositionLongOrder_ShouldReturnIncrease()
+    {
+        // Arrange
+        var wallet = new Wallet("0x1234567890123456789012345678901234567890");
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var service = new CurrentWalletPositionService(
+            _walletInfoProvider.Object,
+            fillsOrderService,
+            _logger.Object);
+
+        var snapshot = new WalletPositionsSnapshot
+        {
+            Wallet = wallet,
+            TimeStamp = DateTime.UtcNow,
+            Positions = new List<Position>
+            {
+                new Position
+                {
+                    Symbol = "BTC",
+                    Quantity = 10M, // Long 10
+                    AverageEntryPrice = 50000M,
+                    VolumeUsd = 500000M,
+                    Leverage = 5
+                }
+            }
+        };
+
+        var order = new OriginalOrder
+        {
+            OrderId = 1,
+            Wallet = wallet,
+            Symbol = "BTC",
+            Direction = Direction.Long,
+            Quantity = 5M, // Добавляем еще 5
+            Price = 51000M,
+            Status = OrderStatus.Open
+        };
+
+        // Act
+        service.InitializeWalletSnapshot(snapshot);
+        var result = service.GetOrderSubType(order);
+
+        // Assert
+        result.Should().Be(OrderSubType.Increase);
+    }
+
+    [Fact]
+    public void GetOrderSubType_ShortPositionShortOrder_ShouldReturnIncrease()
+    {
+        // Arrange
+        var wallet = new Wallet("0x1234567890123456789012345678901234567890");
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var service = new CurrentWalletPositionService(
+            _walletInfoProvider.Object,
+            fillsOrderService,
+            _logger.Object);
+
+        var snapshot = new WalletPositionsSnapshot
+        {
+            Wallet = wallet,
+            TimeStamp = DateTime.UtcNow,
+            Positions = new List<Position>
+            {
+                new Position
+                {
+                    Symbol = "BTC",
+                    Quantity = -10M, // Short 10
+                    AverageEntryPrice = 50000M,
+                    VolumeUsd = 500000M,
+                    Leverage = 5
+                }
+            }
+        };
+
+        var order = new OriginalOrder
+        {
+            OrderId = 1,
+            Wallet = wallet,
+            Symbol = "BTC",
+            Direction = Direction.Short,
+            Quantity = 5M, // Добавляем еще Short 5
+            Price = 49000M,
+            Status = OrderStatus.Open
+        };
+
+        // Act
+        service.InitializeWalletSnapshot(snapshot);
+        var result = service.GetOrderSubType(order);
+
+        // Assert
+        result.Should().Be(OrderSubType.Increase);
+    }
+
+    [Fact]
+    public void GetOrderSubType_LongPositionPartialShortOrder_ShouldReturnDecrease()
+    {
+        // Arrange
+        var wallet = new Wallet("0x1234567890123456789012345678901234567890");
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var service = new CurrentWalletPositionService(
+            _walletInfoProvider.Object,
+            fillsOrderService,
+            _logger.Object);
+
+        var snapshot = new WalletPositionsSnapshot
+        {
+            Wallet = wallet,
+            TimeStamp = DateTime.UtcNow,
+            Positions = new List<Position>
+            {
+                new Position
+                {
+                    Symbol = "BTC",
+                    Quantity = 10M, // Long 10
+                    AverageEntryPrice = 50000M,
+                    VolumeUsd = 500000M,
+                    Leverage = 5
+                }
+            }
+        };
+
+        var order = new OriginalOrder
+        {
+            OrderId = 1,
+            Wallet = wallet,
+            Symbol = "BTC",
+            Direction = Direction.Short,
+            Quantity = 5M, // Частично закрываем (10 - 5 = 5 остается Long)
+            Price = 51000M,
+            Status = OrderStatus.Open
+        };
+
+        // Act
+        service.InitializeWalletSnapshot(snapshot);
+        var result = service.GetOrderSubType(order);
+
+        // Assert
+        result.Should().Be(OrderSubType.Decrease);
+    }
+
+    [Fact]
+    public void GetOrderSubType_LongPositionExactShortOrder_ShouldReturnClose()
+    {
+        // Arrange
+        var wallet = new Wallet("0x1234567890123456789012345678901234567890");
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var service = new CurrentWalletPositionService(
+            _walletInfoProvider.Object,
+            fillsOrderService,
+            _logger.Object);
+
+        var snapshot = new WalletPositionsSnapshot
+        {
+            Wallet = wallet,
+            TimeStamp = DateTime.UtcNow,
+            Positions = new List<Position>
+            {
+                new Position
+                {
+                    Symbol = "BTC",
+                    Quantity = 10M, // Long 10
+                    AverageEntryPrice = 50000M,
+                    VolumeUsd = 500000M,
+                    Leverage = 5
+                }
+            }
+        };
+
+        var order = new OriginalOrder
+        {
+            OrderId = 1,
+            Wallet = wallet,
+            Symbol = "BTC",
+            Direction = Direction.Short,
+            Quantity = 10M, // Точно закрываем (10 - 10 = 0)
+            Price = 51000M,
+            Status = OrderStatus.Open
+        };
+
+        // Act
+        service.InitializeWalletSnapshot(snapshot);
+        var result = service.GetOrderSubType(order);
+
+        // Assert
+        result.Should().Be(OrderSubType.Close);
+    }
+
+    [Fact]
+    public void GetOrderSubType_LongPositionOversizeShortOrder_ShouldReturnFlip()
+    {
+        // Arrange
+        var wallet = new Wallet("0x1234567890123456789012345678901234567890");
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var service = new CurrentWalletPositionService(
+            _walletInfoProvider.Object,
+            fillsOrderService,
+            _logger.Object);
+
+        var snapshot = new WalletPositionsSnapshot
+        {
+            Wallet = wallet,
+            TimeStamp = DateTime.UtcNow,
+            Positions = new List<Position>
+            {
+                new Position
+                {
+                    Symbol = "BTC",
+                    Quantity = 10M, // Long 10
+                    AverageEntryPrice = 50000M,
+                    VolumeUsd = 500000M,
+                    Leverage = 5
+                }
+            }
+        };
+
+        var order = new OriginalOrder
+        {
+            OrderId = 1,
+            Wallet = wallet,
+            Symbol = "BTC",
+            Direction = Direction.Short,
+            Quantity = 15M, // Закрываем и переворачиваем (10 - 15 = -5, Short)
+            Price = 51000M,
+            Status = OrderStatus.Open
+        };
+
+        // Act
+        service.InitializeWalletSnapshot(snapshot);
+        var result = service.GetOrderSubType(order);
+
+        // Assert
+        result.Should().Be(OrderSubType.Flip);
+    }
+
+    [Fact]
+    public void GetOrderSubType_ShortPositionOversizeLongOrder_ShouldReturnFlip()
+    {
+        // Arrange
+        var wallet = new Wallet("0x1234567890123456789012345678901234567890");
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var service = new CurrentWalletPositionService(
+            _walletInfoProvider.Object,
+            fillsOrderService,
+            _logger.Object);
+
+        var snapshot = new WalletPositionsSnapshot
+        {
+            Wallet = wallet,
+            TimeStamp = DateTime.UtcNow,
+            Positions = new List<Position>
+            {
+                new Position
+                {
+                    Symbol = "BTC",
+                    Quantity = -10M, // Short 10
+                    AverageEntryPrice = 50000M,
+                    VolumeUsd = 500000M,
+                    Leverage = 5
+                }
+            }
+        };
+
+        var order = new OriginalOrder
+        {
+            OrderId = 1,
+            Wallet = wallet,
+            Symbol = "BTC",
+            Direction = Direction.Long,
+            Quantity = 15M, // Закрываем и переворачиваем (-10 + 15 = 5, Long)
+            Price = 49000M,
+            Status = OrderStatus.Open
+        };
+
+        // Act
+        service.InitializeWalletSnapshot(snapshot);
+        var result = service.GetOrderSubType(order);
+
+        // Assert
+        result.Should().Be(OrderSubType.Flip);
+    }
+
+    [Fact]
+    public void GetOrderSubType_WithPendingLongOrders_ShouldIncludeInCalculation()
+    {
+        // Arrange
+        var wallet = new Wallet("0x1234567890123456789012345678901234567890");
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var service = new CurrentWalletPositionService(
+            _walletInfoProvider.Object,
+            fillsOrderService,
+            _logger.Object);
+
+        var snapshot = new WalletPositionsSnapshot
+        {
+            Wallet = wallet,
+            TimeStamp = DateTime.UtcNow,
+            Positions = new List<Position>
+            {
+                new Position
+                {
+                    Symbol = "BTC",
+                    Quantity = 10M, // Real Long 10
+                    AverageEntryPrice = 50000M,
+                    VolumeUsd = 500000M,
+                    Leverage = 5
+                }
+            }
+        };
+
+        // Добавляем pending ордер Long
+        var pendingOrder = new OriginalOrder
+        {
+            OrderId = 1,
+            Wallet = wallet,
+            Symbol = "BTC",
+            Direction = Direction.Long,
+            Quantity = 5M, // Pending Long 5
+            Price = 52000M, // Цена выше - исполнится раньше при падении
+            Status = OrderStatus.Open
+        };
+
+        var newOrder = new OriginalOrder
+        {
+            OrderId = 2,
+            Wallet = wallet,
+            Symbol = "BTC",
+            Direction = Direction.Short,
+            Quantity = 12M, // Short 12
+            Price = 51000M, // Цена между pending и real
+            Status = OrderStatus.Open
+        };
+
+        // Act
+        service.InitializeWalletSnapshot(snapshot);
+        fillsOrderService.OnNewOrders(new[] { pendingOrder });
+        var result = service.GetOrderSubType(newOrder);
+
+        // Assert
+        // Потенциальная позиция = 10 (real) + 5 (pending Long выше цены) = 15
+        // Short 12 → 15 - 12 = 3 (остается Long) → Decrease
+        result.Should().Be(OrderSubType.Decrease);
+    }
+
+    [Fact]
+    public void GetOrderSubType_ShortOrder_ShouldConsiderAllLongPendingOrders()
+    {
+        // Arrange
+        var wallet = new Wallet("0x1234567890123456789012345678901234567890");
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var service = new CurrentWalletPositionService(
+            _walletInfoProvider.Object,
+            fillsOrderService,
+            _logger.Object);
+
+        var snapshot = new WalletPositionsSnapshot
+        {
+            Wallet = wallet,
+            TimeStamp = DateTime.UtcNow,
+            Positions = new List<Position>
+            {
+                new Position
+                {
+                    Symbol = "BTC",
+                    Quantity = 10M, // Real Long 10
+                    AverageEntryPrice = 50000M,
+                    VolumeUsd = 500000M,
+                    Leverage = 5
+                }
+            }
+        };
+
+        // Добавляем pending Long ордера с разными ценами
+        var pendingOrder1 = new OriginalOrder
+        {
+            OrderId = 1,
+            Wallet = wallet,
+            Symbol = "BTC",
+            Direction = Direction.Long,
+            Quantity = 3M,
+            Price = 49000M, // Ниже текущей цены
+            Status = OrderStatus.Open
+        };
+
+        var pendingOrder2 = new OriginalOrder
+        {
+            OrderId = 2,
+            Wallet = wallet,
+            Symbol = "BTC",
+            Direction = Direction.Long,
+            Quantity = 7M,
+            Price = 52000M, // Выше текущей цены
+            Status = OrderStatus.Open
+        };
+
+        var newShortOrder = new OriginalOrder
+        {
+            OrderId = 3,
+            Wallet = wallet,
+            Symbol = "BTC",
+            Direction = Direction.Short,
+            Quantity = 15M, // Short 15
+            Price = 51000M,
+            Status = OrderStatus.Open
+        };
+
+        // Act
+        service.InitializeWalletSnapshot(snapshot);
+        fillsOrderService.OnNewOrders(new[] { pendingOrder1, pendingOrder2 });
+        var result = service.GetOrderSubType(newShortOrder);
+
+        // Assert
+        // Для Short ордера: учитываем ВСЕ Long pending (независимо от цены)
+        // Потенциальная позиция = 10 (real) + 3 + 7 = 20
+        // Short 15 → 20 - 15 = 5 (остается Long) → Decrease
+        result.Should().Be(OrderSubType.Decrease);
+    }
+
+    [Fact]
+    public void GetOrderSubType_ShortOrder_ShouldConsiderOnlyLowerPriceShortPending()
+    {
+        // Arrange
+        var wallet = new Wallet("0x1234567890123456789012345678901234567890");
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var service = new CurrentWalletPositionService(
+            _walletInfoProvider.Object,
+            fillsOrderService,
+            _logger.Object);
+
+        var snapshot = new WalletPositionsSnapshot
+        {
+            Wallet = wallet,
+            TimeStamp = DateTime.UtcNow,
+            Positions = new List<Position>
+            {
+                new Position
+                {
+                    Symbol = "BTC",
+                    Quantity = -10M, // Real Short 10
+                    AverageEntryPrice = 50000M,
+                    VolumeUsd = 500000M,
+                    Leverage = 5
+                }
+            }
+        };
+
+        // Pending Short ордера с разными ценами
+        var pendingShort1 = new OriginalOrder
+        {
+            OrderId = 1,
+            Wallet = wallet,
+            Symbol = "BTC",
+            Direction = Direction.Short,
+            Quantity = 3M,
+            Price = 49000M, // Ниже → исполнится раньше при росте
+            Status = OrderStatus.Open
+        };
+
+        var pendingShort2 = new OriginalOrder
+        {
+            OrderId = 2,
+            Wallet = wallet,
+            Symbol = "BTC",
+            Direction = Direction.Short,
+            Quantity = 5M,
+            Price = 52000M, // Выше → НЕ исполнится раньше
+            Status = OrderStatus.Open
+        };
+
+        var newShortOrder = new OriginalOrder
+        {
+            OrderId = 3,
+            Wallet = wallet,
+            Symbol = "BTC",
+            Direction = Direction.Short,
+            Quantity = 5M,
+            Price = 51000M,
+            Status = OrderStatus.Open
+        };
+
+        // Act
+        service.InitializeWalletSnapshot(snapshot);
+        fillsOrderService.OnNewOrders(new[] { pendingShort1, pendingShort2 });
+        var result = service.GetOrderSubType(newShortOrder);
+
+        // Assert
+        // Для Short по цене 51000: учитываем только Short с ценой < 51000 (это pendingShort1)
+        // Потенциальная позиция = -10 (real) - 3 (pending Short 49000) = -13
+        // Short 5 → -13 - 5 = -18 (увеличиваем Short) → Increase
+        result.Should().Be(OrderSubType.Increase);
+    }
+
+    [Fact]
+    public void GetOrderSubType_LongOrder_ShouldConsiderOnlyHigherPriceLongPending()
+    {
+        // Arrange
+        var wallet = new Wallet("0x1234567890123456789012345678901234567890");
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var service = new CurrentWalletPositionService(
+            _walletInfoProvider.Object,
+            fillsOrderService,
+            _logger.Object);
+
+        var snapshot = new WalletPositionsSnapshot
+        {
+            Wallet = wallet,
+            TimeStamp = DateTime.UtcNow,
+            Positions = new List<Position>
+            {
+                new Position
+                {
+                    Symbol = "BTC",
+                    Quantity = 10M, // Real Long 10
+                    AverageEntryPrice = 50000M,
+                    VolumeUsd = 500000M,
+                    Leverage = 5
+                }
+            }
+        };
+
+        // Pending Long ордера с разными ценами
+        var pendingLong1 = new OriginalOrder
+        {
+            OrderId = 1,
+            Wallet = wallet,
+            Symbol = "BTC",
+            Direction = Direction.Long,
+            Quantity = 3M,
+            Price = 52000M, // Выше → исполнится раньше при падении
+            Status = OrderStatus.Open
+        };
+
+        var pendingLong2 = new OriginalOrder
+        {
+            OrderId = 2,
+            Wallet = wallet,
+            Symbol = "BTC",
+            Direction = Direction.Long,
+            Quantity = 5M,
+            Price = 49000M, // Ниже → НЕ исполнится раньше
+            Status = OrderStatus.Open
+        };
+
+        var newLongOrder = new OriginalOrder
+        {
+            OrderId = 3,
+            Wallet = wallet,
+            Symbol = "BTC",
+            Direction = Direction.Long,
+            Quantity = 5M,
+            Price = 51000M,
+            Status = OrderStatus.Open
+        };
+
+        // Act
+        service.InitializeWalletSnapshot(snapshot);
+        fillsOrderService.OnNewOrders(new[] { pendingLong1, pendingLong2 });
+        var result = service.GetOrderSubType(newLongOrder);
+
+        // Assert
+        // Для Long по цене 51000: учитываем только Long с ценой > 51000 (это pendingLong1)
+        // Потенциальная позиция = 10 (real) + 3 (pending Long 52000) = 13
+        // Long 5 → 13 + 5 = 18 (увеличиваем Long) → Increase
+        result.Should().Be(OrderSubType.Increase);
+    }
+
+    [Fact]
+    public void GetOrderSubType_ShouldExcludeOrderWithSameId()
+    {
+        // Arrange
+        var wallet = new Wallet("0x1234567890123456789012345678901234567890");
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var service = new CurrentWalletPositionService(
+            _walletInfoProvider.Object,
+            fillsOrderService,
+            _logger.Object);
+
+        var snapshot = new WalletPositionsSnapshot
+        {
+            Wallet = wallet,
+            TimeStamp = DateTime.UtcNow,
+            Positions = new List<Position>
+            {
+                new Position
+                {
+                    Symbol = "BTC",
+                    Quantity = 10M,
+                    AverageEntryPrice = 50000M,
+                    VolumeUsd = 500000M,
+                    Leverage = 5
+                }
+            }
+        };
+
+        var order = new OriginalOrder
+        {
+            OrderId = 1,
+            Wallet = wallet,
+            Symbol = "BTC",
+            Direction = Direction.Long,
+            Quantity = 5M,
+            Price = 51000M,
+            Status = OrderStatus.Open
+        };
+
+        // Act
+        service.InitializeWalletSnapshot(snapshot);
+        fillsOrderService.OnNewOrders(new[] { order }); // Добавляем в pending
+        var result = service.GetOrderSubType(order); // Пересчитываем для того же ордера
+
+        // Assert
+        // Должен исключить сам себя из расчета
+        // Потенциальная позиция = 10 (real) + 0 (сам себя не учитываем) = 10
+        // Long 5 → 10 + 5 = 15 (увеличиваем) → Increase
+        result.Should().Be(OrderSubType.Increase);
+    }
+
+    [Fact]
+    public void GetOrderSubType_NoRealPositionButPendingOrders_ShouldCalculateCorrectly()
+    {
+        // Arrange
+        var wallet = new Wallet("0x1234567890123456789012345678901234567890");
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var service = new CurrentWalletPositionService(
+            _walletInfoProvider.Object,
+            fillsOrderService,
+            _logger.Object);
+
+        var snapshot = new WalletPositionsSnapshot
+        {
+            Wallet = wallet,
+            TimeStamp = DateTime.UtcNow,
+            Positions = new List<Position>() // Нет real позиции
+        };
+
+        // Pending Long ордера
+        var pendingLong1 = new OriginalOrder
+        {
+            OrderId = 1,
+            Wallet = wallet,
+            Symbol = "BTC",
+            Direction = Direction.Long,
+            Quantity = 5M,
+            Price = 52000M,
+            Status = OrderStatus.Open
+        };
+
+        var pendingLong2 = new OriginalOrder
+        {
+            OrderId = 2,
+            Wallet = wallet,
+            Symbol = "BTC",
+            Direction = Direction.Long,
+            Quantity = 10M,
+            Price = 51000M,
+            Status = OrderStatus.Open
+        };
+
+        var newShortOrder = new OriginalOrder
+        {
+            OrderId = 3,
+            Wallet = wallet,
+            Symbol = "BTC",
+            Direction = Direction.Short,
+            Quantity = 12M,
+            Price = 50000M,
+            Status = OrderStatus.Open
+        };
+
+        // Act
+        service.InitializeWalletSnapshot(snapshot);
+        fillsOrderService.OnNewOrders(new[] { pendingLong1, pendingLong2 });
+        var result = service.GetOrderSubType(newShortOrder);
+
+        // Assert
+        // Real = 0, Pending = 5 + 10 = 15 (ВСЕ Long учитываются для Short)
+        // Потенциальная позиция = 0 + 15 = 15
+        // Short 12 → 15 - 12 = 3 (остается Long) → Decrease
+        result.Should().Be(OrderSubType.Decrease);
+    }
+
+    [Fact]
+    public void GetOrderSubType_FlipDueToPendingOrders_NotRealPosition()
+    {
+        // Arrange
+        var wallet = new Wallet("0x1234567890123456789012345678901234567890");
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var service = new CurrentWalletPositionService(
+            _walletInfoProvider.Object,
+            fillsOrderService,
+            _logger.Object);
+
+        var snapshot = new WalletPositionsSnapshot
+        {
+            Wallet = wallet,
+            TimeStamp = DateTime.UtcNow,
+            Positions = new List<Position>
+            {
+                new Position
+                {
+                    Symbol = "BTC",
+                    Quantity = 5M, // Real Long 5 (небольшая)
+                    AverageEntryPrice = 50000M,
+                    VolumeUsd = 250000M,
+                    Leverage = 5
+                }
+            }
+        };
+
+        // Pending Long ордера
+        var pendingLong = new OriginalOrder
+        {
+            OrderId = 1,
+            Wallet = wallet,
+            Symbol = "BTC",
+            Direction = Direction.Long,
+            Quantity = 30M, // Большой pending Long
+            Price = 52000M,
+            Status = OrderStatus.Open
+        };
+
+        var newShortOrder = new OriginalOrder
+        {
+            OrderId = 2,
+            Wallet = wallet,
+            Symbol = "BTC",
+            Direction = Direction.Short,
+            Quantity = 40M, // Большой Short
+            Price = 51000M,
+            Status = OrderStatus.Open
+        };
+
+        // Act
+        service.InitializeWalletSnapshot(snapshot);
+        fillsOrderService.OnNewOrders(new[] { pendingLong });
+        var result = service.GetOrderSubType(newShortOrder);
+
+        // Assert
+        // Потенциальная позиция = 5 (real) + 30 (pending Long) = 35
+        // Short 40 → 35 - 40 = -5 (переворачиваем в Short) → Flip
+        result.Should().Be(OrderSubType.Flip);
+    }
+
+    [Fact]
+    public void GetOrderSubType_MultiplePendingBothDirections_ShouldCalculateCorrectly()
+    {
+        // Arrange
+        var wallet = new Wallet("0x1234567890123456789012345678901234567890");
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var service = new CurrentWalletPositionService(
+            _walletInfoProvider.Object,
+            fillsOrderService,
+            _logger.Object);
+
+        var snapshot = new WalletPositionsSnapshot
+        {
+            Wallet = wallet,
+            TimeStamp = DateTime.UtcNow,
+            Positions = new List<Position>
+            {
+                new Position
+                {
+                    Symbol = "BTC",
+                    Quantity = 100M, // Real Long 100
+                    AverageEntryPrice = 50000M,
+                    VolumeUsd = 5000000M,
+                    Leverage = 5
+                }
+            }
+        };
+
+        // Pending Long и Short ордера
+        var pendingLong1 = new OriginalOrder
+        {
+            OrderId = 1,
+            Wallet = wallet,
+            Symbol = "BTC",
+            Direction = Direction.Long,
+            Quantity = 20M,
+            Price = 52000M,
+            Status = OrderStatus.Open
+        };
+
+        var pendingLong2 = new OriginalOrder
+        {
+            OrderId = 2,
+            Wallet = wallet,
+            Symbol = "BTC",
+            Direction = Direction.Long,
+            Quantity = 30M,
+            Price = 51500M,
+            Status = OrderStatus.Open
+        };
+
+        var pendingShort1 = new OriginalOrder
+        {
+            OrderId = 3,
+            Wallet = wallet,
+            Symbol = "BTC",
+            Direction = Direction.Short,
+            Quantity = 40M,
+            Price = 50500M, // Ниже цены нового ордера
+            Status = OrderStatus.Open
+        };
+
+        var newShortOrder = new OriginalOrder
+        {
+            OrderId = 4,
+            Wallet = wallet,
+            Symbol = "BTC",
+            Direction = Direction.Short,
+            Quantity = 80M,
+            Price = 51000M,
+            Status = OrderStatus.Open
+        };
+
+        // Act
+        service.InitializeWalletSnapshot(snapshot);
+        fillsOrderService.OnNewOrders(new[] { pendingLong1, pendingLong2, pendingShort1 });
+        var result = service.GetOrderSubType(newShortOrder);
+
+        // Assert
+        // Для Short по цене 51000:
+        // - Учитываем ВСЕ Long pending: 20 + 30 = 50
+        // - Учитываем Short с ценой < 51000: 40
+        // Потенциальная = 100 + 50 - 40 = 110
+        // Short 80 → 110 - 80 = 30 (остается Long) → Decrease
+        result.Should().Be(OrderSubType.Decrease);
+    }
+
+    [Fact]
+    public void GetOrderSubType_ZeroQuantityInPosition_ShouldTreatAsNoPosition()
+    {
+        // Arrange
+        var wallet = new Wallet("0x1234567890123456789012345678901234567890");
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var service = new CurrentWalletPositionService(
+            _walletInfoProvider.Object,
+            fillsOrderService,
+            _logger.Object);
+
+        var snapshot = new WalletPositionsSnapshot
+        {
+            Wallet = wallet,
+            TimeStamp = DateTime.UtcNow,
+            Positions = new List<Position>
+            {
+                new Position
+                {
+                    Symbol = "BTC",
+                    Quantity = 0M, // Zero position
+                    AverageEntryPrice = 50000M,
+                    VolumeUsd = 0M,
+                    Leverage = 5
+                }
+            }
+        };
+
+        var order = new OriginalOrder
+        {
+            OrderId = 1,
+            Wallet = wallet,
+            Symbol = "BTC",
+            Direction = Direction.Long,
+            Quantity = 5M,
+            Price = 50000M,
+            Status = OrderStatus.Open
+        };
+
+        // Act
+        service.InitializeWalletSnapshot(snapshot);
+        var result = service.GetOrderSubType(order);
+
+        // Assert
+        result.Should().Be(OrderSubType.Open);
+    }
+
+    [Fact]
+    public void GetOrderSubType_VerySmallQuantityDifference_ShouldReturnClose()
+    {
+        // Arrange
+        var wallet = new Wallet("0x1234567890123456789012345678901234567890");
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var service = new CurrentWalletPositionService(
+            _walletInfoProvider.Object,
+            fillsOrderService,
+            _logger.Object);
+
+        var snapshot = new WalletPositionsSnapshot
+        {
+            Wallet = wallet,
+            TimeStamp = DateTime.UtcNow,
+            Positions = new List<Position>
+            {
+                new Position
+                {
+                    Symbol = "BTC",
+                    Quantity = 10.0001M, // Long 10.0001
+                    AverageEntryPrice = 50000M,
+                    VolumeUsd = 500005M,
+                    Leverage = 5
+                }
+            }
+        };
+
+        var order = new OriginalOrder
+        {
+            OrderId = 1,
+            Wallet = wallet,
+            Symbol = "BTC",
+            Direction = Direction.Short,
+            Quantity = 10M, // Почти точно закрывает (остается 0.0001)
+            Price = 51000M,
+            Status = OrderStatus.Open
+        };
+
+        // Act
+        service.InitializeWalletSnapshot(snapshot);
+        var result = service.GetOrderSubType(order);
+
+        // Assert
+        // Разница < 0.001 → должен быть Close
+        result.Should().Be(OrderSubType.Close);
+    }
+
+    #endregion
 }
