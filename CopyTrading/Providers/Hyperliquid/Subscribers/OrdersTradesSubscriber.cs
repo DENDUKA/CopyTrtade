@@ -3,6 +3,7 @@ using CopyTrading.Mappers;
 using CopyTrading.Models.Values;
 using CopyTrading.Providers.Hyperliquid.Providers;
 using CopyTrading.Services;
+using CopyTrading.Services.Interfaces;
 using CryptoExchange.Net.Objects;
 using HyperLiquid.Net.Clients;
 
@@ -11,8 +12,8 @@ namespace CopyTrading.Providers.Hyperliquid.Subscribers;
 public class OrdersTradesSubscriber(
     ILogger<OrdersTradesSubscriber> _logger,
     OrdersProvider _ordersProvider,
-    FillsOrderService _fillsOrderService,
-    CurrentWalletPositionService _currentWalletPositionService)
+    IFillsOrderService _fillsOrderService,
+    ICurrentWalletPositionService _currentWalletPositionService)
 {
     private static readonly HashSet<Wallet> _orderSubscribes = [];
     private static readonly HashSet<Wallet> _pendingOrderSubscribes = [];

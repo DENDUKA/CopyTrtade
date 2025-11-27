@@ -1,6 +1,7 @@
 using CopyTrading.DataEvents;
 using CopyTrading.Models.Models.Enums.Order;
 using CopyTrading.Models.Models.Orders;
+using CopyTrading.Services.Interfaces;
 using System.Collections.Concurrent;
 
 namespace CopyTrading.Services;
@@ -9,7 +10,7 @@ namespace CopyTrading.Services;
 /// Сервис для хранения и управления копируемыми ордерами
 /// Отслеживает все ордера, которые мы создаем на основе ордеров трейдеров
 /// </summary>
-public class CopyOrderStorageService
+public class CopyOrderStorageService : ICopyOrderStorageService
 {
     private readonly ConcurrentDictionary<long, CopyOrderV2> _copyOrders = new();
     private readonly ILogger<CopyOrderStorageService> _logger;

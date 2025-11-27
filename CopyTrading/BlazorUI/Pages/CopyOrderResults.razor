@@ -3,7 +3,8 @@
 @using CopyTrading.Models.Models.Enums
 @using CopyTrading.Models.Values
 @using CopyTrading.Services
-@inject CopyOrderResultService ResultService
+@using CopyTrading.Services.Interfaces
+@inject ICopyOrderResultService ResultService
 @inject NavigationManager NavigationManager
 
 <h3>Результаты копирования ордеров</h3>

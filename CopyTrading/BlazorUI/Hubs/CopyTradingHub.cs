@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.SignalR;
 using CopyTrading.Services;
+using CopyTrading.Services.Interfaces;
 using CopyTrading.Models.Models;
 
 namespace CopyTrading.BlazorUI.Hubs;
@@ -9,15 +10,15 @@ namespace CopyTrading.BlazorUI.Hubs;
 /// </summary>
 public class CopyTradingHub : Hub
 {
-    private readonly PositionMappingService _positionMappingService;
-    private readonly CurrentWalletPositionService _walletPositionService;
-    private readonly OrderService _orderService;
+    private readonly IPositionMappingService _positionMappingService;
+    private readonly ICurrentWalletPositionService _walletPositionService;
+    private readonly IOrderService _orderService;
     private readonly ILogger<CopyTradingHub> _logger;
 
     public CopyTradingHub(
-        PositionMappingService positionMappingService,
-        CurrentWalletPositionService walletPositionService,
-        OrderService orderService,
+        IPositionMappingService positionMappingService,
+        ICurrentWalletPositionService walletPositionService,
+        IOrderService orderService,
         ILogger<CopyTradingHub> logger)
     {
         _positionMappingService = positionMappingService;

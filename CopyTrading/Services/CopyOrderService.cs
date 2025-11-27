@@ -17,12 +17,12 @@ namespace CopyTrading.Services;
 public class CopyOrderService(
     IWalletInfoProvider _walletProvider,
     IExchangeInfoProvider _exchangeInfoProvider,
-    CurrentWalletPositionService _currentWalletPositionService,
-    PositionMappingService _positionMappingService,
-    CopyOrderResultService _resultService,
-    FillsOrderService _fillsOrderService,
-    CopyTradeWalletSettingsService _walletSettingsService,
-    ILogger<CopyOrderService> _logger)
+    ICurrentWalletPositionService _currentWalletPositionService,
+    IPositionMappingService _positionMappingService,
+    ICopyOrderResultService _resultService,
+    IFillsOrderService _fillsOrderService,
+    ICopyTradeWalletSettingsService _walletSettingsService,
+    ILogger<CopyOrderService> _logger) : ICopyOrderService
 {
     private readonly Wallet _myWallet = WalletSettings.MyWallet;
 

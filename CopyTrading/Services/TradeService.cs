@@ -10,15 +10,15 @@ using ITradeRepositoryInflux = CopyTrading.Repository.Influx.ITradeRepository;
 
 namespace CopyTrading.Services;
 
-public class TradeService
+public class TradeService : ITradeService
 {
     private readonly OrdersTradesSubscriber _orderProvider;
     private readonly IWalletInfoProvider _walletInfoProvider;
     private readonly ITradeRepositoryInflux _tradeRepositoryInflux;
     private readonly ITradeRepositorySQL _tradeRepositorySQL;
-    private readonly FillsOrderService _fillsOrderService;
-    private readonly CurrentWalletPositionService _currentWalletPositionService;
-    private readonly RealtimeUpdateService _realtimeUpdateService;
+    private readonly IFillsOrderService _fillsOrderService;
+    private readonly ICurrentWalletPositionService _currentWalletPositionService;
+    private readonly BlazorUI.Services.Interfaces.IRealtimeUpdateService _realtimeUpdateService;
     private readonly ILogger<TradeService> _logger;
 
     public TradeService(
@@ -26,9 +26,9 @@ public class TradeService
         IWalletInfoProvider walletInfoProvider,
         ITradeRepositoryInflux tradeRepositoryInflux,
         ITradeRepositorySQL tradeRepositorySQL,
-        FillsOrderService fillsOrderService,
-        CurrentWalletPositionService currentWalletPositionService,
-        RealtimeUpdateService realtimeUpdateService,
+        IFillsOrderService fillsOrderService,
+        ICurrentWalletPositionService currentWalletPositionService,
+        BlazorUI.Services.Interfaces.IRealtimeUpdateService realtimeUpdateService,
         ILogger<TradeService> logger)
     {
         _orderProvider = orderProvider;

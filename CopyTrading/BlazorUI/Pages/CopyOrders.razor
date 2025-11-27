@@ -4,7 +4,8 @@
 @using CopyTrading.Models.Models.Enums.Order
 @using CopyTrading.Models.Values
 @using CopyTrading.Services
-@inject CopyOrderStorageService CopyOrderStorage
+@using CopyTrading.Services.Interfaces
+@inject ICopyOrderStorageService CopyOrderStorage
 
 <h3>Копируемые ордера</h3>
 

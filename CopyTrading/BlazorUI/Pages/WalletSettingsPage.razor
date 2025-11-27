@@ -1,6 +1,7 @@
 @page "/wallet-settings"
 @using CopyTrading.Models.Values
-@inject CopyTradeWalletSettingsService VolumeService
+@using CopyTrading.Services.Interfaces
+@inject ICopyTradeWalletSettingsService VolumeService
 @inject ILogger<WalletSettingsPage> Logger
 
 <PageTitle>Настройки Wallet</PageTitle>

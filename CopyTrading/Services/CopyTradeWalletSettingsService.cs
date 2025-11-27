@@ -1,6 +1,7 @@
 using CopyTrading.Models.Models;
 using CopyTrading.Models.Values;
 using CopyTrading.Repository.SQLite;
+using CopyTrading.Services.Interfaces;
 using CopyTrading.Settings;
 using System.Collections.Concurrent;
 
@@ -10,7 +11,7 @@ namespace CopyTrading.Services;
 /// Хранит настройки копитрейда по каждому Wallet.
 /// Пока поддерживается только объём в USD.
 /// </summary>
-public class CopyTradeWalletSettingsService
+public class CopyTradeWalletSettingsService : ICopyTradeWalletSettingsService
 {
     private readonly ILogger<CopyTradeWalletSettingsService> _logger;
     private readonly IWalletSettingsRepository _repository;

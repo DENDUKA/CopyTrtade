@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using CopyTrading.Models.Models;
 using CopyTrading.Models.Models.Enums;
 using CopyTrading.Models.Values;
+using CopyTrading.Services.Interfaces;
 
 namespace CopyTrading.Services;
 
@@ -9,7 +10,7 @@ namespace CopyTrading.Services;
 /// Сервис для отслеживания результатов копирования ордеров
 /// Хранит информацию об успешных и неудачных попытках копирования
 /// </summary>
-public class CopyOrderResultService
+public class CopyOrderResultService : ICopyOrderResultService
 {
     private readonly ConcurrentDictionary<string, CopyOrderResult> _results;
     private readonly ILogger<CopyOrderResultService> _logger;

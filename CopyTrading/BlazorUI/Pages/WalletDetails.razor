@@ -1,11 +1,12 @@
 @page "/wallet/{WalletAddress}"
 @using CopyTrading.Services
+@using CopyTrading.Services.Interfaces
 @using CopyTrading.Models.Values
 @using CopyTrading.Models.Models
 @using CopyTrading.Models.Models.Enums
 @using CopyTrading.Models.Models.Enums.Order
-@inject CurrentWalletPositionService CurrentWalletPositionService
-@inject FillsOrderService FillsOrderService
+@inject ICurrentWalletPositionService CurrentWalletPositionService
+@inject IFillsOrderService FillsOrderService
 @inject NavigationManager NavigationManager
 
 <div class="mb-3">

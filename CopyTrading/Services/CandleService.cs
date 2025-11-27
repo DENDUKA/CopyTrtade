@@ -1,11 +1,12 @@
 ﻿using CopyTrading.Providers.Hyperliquid.Providers;
 using CopyTrading.Repository.Influx;
+using CopyTrading.Services.Interfaces;
 
 namespace CopyTrading.Services;
 
 public class CandleService(
     CandlesProvider _candlesProvider,
-    ICandlesRepository _candlesRepository)
+    ICandlesRepository _candlesRepository) : ICandleService
 {
     public async Task CollectCandles(string symbol)
     {

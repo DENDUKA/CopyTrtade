@@ -12,8 +12,8 @@ namespace CopyTrading.Services;
 
 public class CurrentWalletPositionService(
     IWalletInfoProvider _walletInfoProvider,
-    FillsOrderService _fillsOrderService,
-    ILogger<CurrentWalletPositionService> _logger)
+    IFillsOrderService _fillsOrderService,
+    ILogger<CurrentWalletPositionService> _logger) : ICurrentWalletPositionService
 {
     private readonly ConcurrentDictionary<Wallet, WalletPositionsSnapshot> _walletPositionSnapshot = [];
     private readonly ConcurrentDictionary<Wallet, SemaphoreSlim> _walletSemaphores = [];

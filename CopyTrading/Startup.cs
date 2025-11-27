@@ -49,21 +49,21 @@ public class Startup
         services.AddSignalR();
 
         // Core Business Services
-        services.AddSingleton<OrderService>();
-        services.AddSingleton<TradeService>();
-        services.AddSingleton<CandleService>();
-        services.AddSingleton<FillsOrderService>();
-        services.AddSingleton<CurrentWalletPositionService>();
+        services.AddSingleton<IOrderService, OrderService>();
+        services.AddSingleton<ITradeService, TradeService>();
+        services.AddSingleton<ICandleService, CandleService>();
+        services.AddSingleton<IFillsOrderService, FillsOrderService>();
+        services.AddSingleton<ICurrentWalletPositionService, CurrentWalletPositionService>();
 
         // Copy Trading Services
-        services.AddSingleton<CopyOrderService>();
-        services.AddSingleton<CopyOrderResultService>();
-        services.AddSingleton<CopyOrderStorageService>();
-        services.AddSingleton<PositionMappingService>();
-        services.AddSingleton<CopyTradeWalletSettingsService>();
+        services.AddSingleton<ICopyOrderService, CopyOrderService>();
+        services.AddSingleton<ICopyOrderResultService, CopyOrderResultService>();
+        services.AddSingleton<ICopyOrderStorageService, CopyOrderStorageService>();
+        services.AddSingleton<IPositionMappingService, PositionMappingService>();
+        services.AddSingleton<ICopyTradeWalletSettingsService, CopyTradeWalletSettingsService>();
 
         // UI Services
-        services.AddSingleton<BlazorUI.Services.RealtimeUpdateService>();
+        services.AddSingleton<BlazorUI.Services.Interfaces.IRealtimeUpdateService, BlazorUI.Services.RealtimeUpdateService>();
 
         // HyperLiquid Providers
         services.AddSingleton<IWalletInfoProvider, WalletInfoProvider>();
@@ -129,15 +129,15 @@ public class Startup
 
         // Инициализация singleton сервисов для подписки на события
         // FillsOrderService - корреляция трейдов с ордерами, генерация OrderFinished событий
-        serviceProvider.GetService<FillsOrderService>();
+        serviceProvider.GetService<IFillsOrderService>();
 
         // CopyOrderService - автоматическое копирование ордеров от отслеживаемых кошельков
-        serviceProvider.GetService<CopyOrderService>();
+        serviceProvider.GetService<ICopyOrderService>();
 
         // CopyOrderStorageService - хранение и управление копируемыми ордерами
-        serviceProvider.GetRequiredService<CopyOrderStorageService>();
+        serviceProvider.GetRequiredService<ICopyOrderStorageService>();
 
         // RealtimeUpdateService - отправка обновлений в UI через SignalR
-        serviceProvider.GetRequiredService<BlazorUI.Services.RealtimeUpdateService>();
+        serviceProvider.GetRequiredService<BlazorUI.Services.Interfaces.IRealtimeUpdateService>();
     }
 }

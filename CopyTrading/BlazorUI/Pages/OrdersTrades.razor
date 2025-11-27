@@ -1,7 +1,8 @@
 @page "/orders-trades"
 @using CopyTrading.Services
+@using CopyTrading.Services.Interfaces
 @using CopyTrading.Models.Models.Enums.Order
-@inject FillsOrderService FillsOrderService
+@inject IFillsOrderService FillsOrderService
 @inject ILogger<OrdersTrades> Logger
 
 <PageTitle>Ордера + Трейды - CopyTrading</PageTitle>

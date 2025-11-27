@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.SignalR;
 using CopyTrading.BlazorUI.Hubs;
+using CopyTrading.BlazorUI.Services.Interfaces;
 using CopyTrading.DataEvents;
 using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Models.Trade;
@@ -11,7 +12,7 @@ namespace CopyTrading.BlazorUI.Services;
 /// Сервис для отправки real-time обновлений в Blazor UI через SignalR
 /// Подписывается на DataBusEvents и транслирует данные всем подключенным клиентам
 /// </summary>
-public class RealtimeUpdateService
+public class RealtimeUpdateService : IRealtimeUpdateService
 {
     private readonly IHubContext<CopyTradingHub> _hubContext;
     private readonly ILogger<RealtimeUpdateService> _logger;

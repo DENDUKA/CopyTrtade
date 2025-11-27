@@ -3,11 +3,12 @@ using CopyTrading.Models.Models.Enums;
 using CopyTrading.Models.Models.Enums.Order;
 using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Models.Trade;
+using CopyTrading.Services.Interfaces;
 using System.Collections.Concurrent;
 
 namespace CopyTrading.Services;
 
-public class FillsOrderService(ILogger<FillsOrderService> _logger)
+public class FillsOrderService(ILogger<FillsOrderService> _logger) : IFillsOrderService
 {
     private readonly ConcurrentDictionary<long, OrderFills> _orders = [];
     private readonly ConcurrentDictionary<long, OriginalTrade> _pendingTrades = [];

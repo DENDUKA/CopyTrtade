@@ -1,9 +1,10 @@
 @page "/subscriptions"
 @using CopyTrading.Services
+@using CopyTrading.Services.Interfaces
 @using CopyTrading.Settings
 @using CopyTrading.Providers.Hyperliquid.Subscribers
-@inject OrderService OrderService
-@inject TradeService TradeService
+@inject IOrderService OrderService
+@inject ITradeService TradeService
 @inject OrdersTradesSubscriber OrdersTradesSubscriber
 @inject ILogger<Subscriptions> Logger
 

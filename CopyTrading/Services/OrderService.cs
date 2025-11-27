@@ -12,7 +12,7 @@ using IOrderRepositoryInflux = CopyTrading.Repository.Influx.IOrderRepository;
 
 namespace CopyTrading.Services;
 
-public class OrderService
+public class OrderService : IOrderService
 {
     private readonly OrdersTradesSubscriber _orderProvider;
     private readonly IWalletInfoProvider _walletInfo;
@@ -20,10 +20,10 @@ public class OrderService
     private readonly IExchangeInfoProvider _exchangeInfoProvider;
     private readonly ISQLLiteOrderRepository _orderSQLLiteRepository;
     private readonly ITradeRepositorySQL _tradeRepositorySQL;
-    private readonly CurrentWalletPositionService _currentWalletPositionService;
-    private readonly FillsOrderService _fillsOrderService;
-    private readonly CopyOrderService _copyOrderService;
-    private readonly BlazorUI.Services.RealtimeUpdateService _realtimeUpdateService;
+    private readonly ICurrentWalletPositionService _currentWalletPositionService;
+    private readonly IFillsOrderService _fillsOrderService;
+    private readonly ICopyOrderService _copyOrderService;
+    private readonly BlazorUI.Services.Interfaces.IRealtimeUpdateService _realtimeUpdateService;
     private readonly ILogger<OrderService> _logger;
 
     public OrderService(
@@ -33,10 +33,10 @@ public class OrderService
         IExchangeInfoProvider exchangeInfoProvider,
         ISQLLiteOrderRepository orderSQLLiteProvider,
         ITradeRepositorySQL tradeRepositorySQL,
-        CurrentWalletPositionService currentWalletPositionService,
-        FillsOrderService fillsOrderService,
-        CopyOrderService copyOrderService,
-        BlazorUI.Services.RealtimeUpdateService realtimeUpdateService,
+        ICurrentWalletPositionService currentWalletPositionService,
+        IFillsOrderService fillsOrderService,
+        ICopyOrderService copyOrderService,
+        BlazorUI.Services.Interfaces.IRealtimeUpdateService realtimeUpdateService,
         ILogger<OrderService> logger)
     {
         _orderProvider = orderProvider;

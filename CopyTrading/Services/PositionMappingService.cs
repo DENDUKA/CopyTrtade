@@ -1,6 +1,7 @@
 using CopyTrading.Models.Models;
 using CopyTrading.Models.Models.Enums;
 using CopyTrading.Models.Values;
+using CopyTrading.Services.Interfaces;
 using System.Collections.Concurrent;
 
 namespace CopyTrading.Services;
@@ -9,7 +10,7 @@ namespace CopyTrading.Services;
 /// Сервис для управления маппингами между позициями трейдера и копируемыми позициями
 /// Хранит данные в памяти (in-memory)
 /// </summary>
-public class PositionMappingService(ILogger<PositionMappingService> _logger)
+public class PositionMappingService(ILogger<PositionMappingService> _logger) : IPositionMappingService
 {
     private readonly ConcurrentDictionary<string, PositionMapping> _mappings = new();
 
