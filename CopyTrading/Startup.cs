@@ -1,7 +1,6 @@
 ﻿using CopyTrading.Providers.Hyperliquid.Interfaces;
 using CopyTrading.Providers.Hyperliquid.Providers;
 using CopyTrading.Providers.Hyperliquid.Subscribers;
-using CopyTrading.Repository.Influx;
 using CopyTrading.Services;
 using CopyTrading.Services.Interfaces;
 using CopyTrading.Settings;
@@ -54,6 +53,7 @@ public class Startup
         services.AddSingleton<ICandleService, CandleService>();
         services.AddSingleton<IFillsOrderService, FillsOrderService>();
         services.AddSingleton<ICurrentWalletPositionService, CurrentWalletPositionService>();
+        services.AddSingleton<IBaselinePositionService, BaselinePositionService>();
 
         // Copy Trading Services
         services.AddSingleton<ICopyOrderService, CopyOrderService>();
@@ -61,6 +61,7 @@ public class Startup
         services.AddSingleton<ICopyOrderStorageService, CopyOrderStorageService>();
         services.AddSingleton<IPositionMappingService, PositionMappingService>();
         services.AddSingleton<ICopyTradeWalletSettingsService, CopyTradeWalletSettingsService>();
+        services.AddSingleton<IActiveWindowService, ActiveWindowService>();
 
         // UI Services
         services.AddSingleton<BlazorUI.Services.Interfaces.IRealtimeUpdateService, BlazorUI.Services.RealtimeUpdateService>();

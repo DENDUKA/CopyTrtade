@@ -1,0 +1,31 @@
+using CopyTrading.Models.Models.Trade;
+using CopyTrading.Models.Values;
+
+namespace CopyTrading.Services.Interfaces;
+
+/// <summary>
+/// Сервис для хранения базовых (начальных) позиций трейдера, которые мы не копируем.
+/// Отслеживает "точку входа" для каждой пары (wallet, symbol).
+/// </summary>
+public interface IBaselinePositionService
+{
+    /// <summary>
+    /// Инициализирует базовые позиции для всех отслеживаемых кошельков и символов
+    /// </summary>
+    Task Start();
+
+    /// <summary>
+    /// Обновляет базовые позиции при получении новых трейдов.
+    /// При уменьшении объема текущей позиции трейдера обновляет базовую позицию.
+    /// </summary>
+    /// <param name="newTrades">Новые трейды</param>
+    Task OnNewTrades((OriginalTrade[] Trades, bool IsSnapshot) newTrades);
+
+    /// <summary>
+    /// Получает базовую позицию для указанной пары (wallet, symbol)
+    /// </summary>
+    /// <param name="wallet">Кошелек</param>
+    /// <param name="symbol">Символ</param>
+    /// <returns>Базовая позиция или null если не найдена</returns>
+    decimal GetBaselinePosition(Wallet wallet, string symbol);
+}

@@ -1,4 +1,3 @@
-using CopyTrading.BlazorUI.Services;
 using CopyTrading.DataEvents;
 using CopyTrading.Models.Models.Trade;
 using CopyTrading.Models.Values;
@@ -18,6 +17,7 @@ public class TradeService : ITradeService
     private readonly ITradeRepositorySQL _tradeRepositorySQL;
     private readonly IFillsOrderService _fillsOrderService;
     private readonly ICurrentWalletPositionService _currentWalletPositionService;
+    private readonly IBaselinePositionService _baselinePositionService;
     private readonly BlazorUI.Services.Interfaces.IRealtimeUpdateService _realtimeUpdateService;
     private readonly ILogger<TradeService> _logger;
 
@@ -28,6 +28,7 @@ public class TradeService : ITradeService
         ITradeRepositorySQL tradeRepositorySQL,
         IFillsOrderService fillsOrderService,
         ICurrentWalletPositionService currentWalletPositionService,
+        IBaselinePositionService baselinePositionService,
         BlazorUI.Services.Interfaces.IRealtimeUpdateService realtimeUpdateService,
         ILogger<TradeService> logger)
     {
@@ -37,6 +38,7 @@ public class TradeService : ITradeService
         _tradeRepositorySQL = tradeRepositorySQL;
         _fillsOrderService = fillsOrderService;
         _currentWalletPositionService = currentWalletPositionService;
+        _baselinePositionService = baselinePositionService;
         _realtimeUpdateService = realtimeUpdateService;
         _logger = logger;
 
@@ -109,6 +111,7 @@ public class TradeService : ITradeService
         _realtimeUpdateService.OnNewTrades(filteredNewTrades);
         _fillsOrderService.OnNewTrades(filteredNewTrades);
         await _currentWalletPositionService.OnNewTrades(filteredNewTrades);
+        await _baselinePositionService.OnNewTrades(filteredNewTrades);
 
         _logger.LogDebug($"TradeService.ProcessNewTrades: Обработано {futureTrades.Length} фьючерсных трейдов. IsSnapshot={newTrades.IsSnapshot}");
     }

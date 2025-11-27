@@ -48,6 +48,7 @@ public class CopyOrderServiceTests
     private readonly Mock<RealtimeUpdateService> _realtimeUpdateServiceMock;
     private readonly Mock<Repository.Influx.OrderRepository> _orderRepositoryInfluxMock;
     private readonly Mock<Repository.SQLite.OrderRepository> _orderRepositorySQLiteMock;
+    private readonly Mock<IBaselinePositionService> _baselinePositionServiceMock;
 
     private readonly Wallet _traderWallet = new("0x7bde2b9240a2ee352108c6823a9fa20f225b83a0");
     private readonly Wallet _myWallet = new("0x1234567890abcdef1234567890abcdef12345678");
@@ -99,6 +100,7 @@ public class CopyOrderServiceTests
             Mock.Of<ILogger<RealtimeUpdateService>>());
         _orderRepositoryInfluxMock = new Mock<Repository.Influx.OrderRepository>(MockBehavior.Loose, Mock.Of<ILogger<Repository.Influx.OrderRepository>>());
         _orderRepositorySQLiteMock = new Mock<Repository.SQLite.OrderRepository>(MockBehavior.Loose, Mock.Of<ILogger<Repository.SQLite.OrderRepository>>());
+        _baselinePositionServiceMock = new Mock<IBaselinePositionService>(MockBehavior.Loose);
 
         // Создаем реальные сервисы
         _copyOrderResultService = new CopyOrderResultService(_resultLogger.Object);
@@ -116,6 +118,7 @@ public class CopyOrderServiceTests
             _tradeRepositorySQLMock.Object,
             _fillsOrderService,
             _currentWalletPositionService,
+            _baselinePositionServiceMock.Object,
             _realtimeUpdateServiceMock.Object,
             _tradeServiceLogger.Object);
 
