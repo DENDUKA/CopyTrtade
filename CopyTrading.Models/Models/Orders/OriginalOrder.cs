@@ -7,6 +7,7 @@ public class OriginalOrder : Order
 
     public DateTime Time { get; set; }
     public OrderStatus Status { get; set; }
+    public OrderType Type { get; set; }
 
     public override string ToString()
     {

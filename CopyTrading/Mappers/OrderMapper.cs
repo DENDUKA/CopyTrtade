@@ -19,7 +19,8 @@ public static class OrderMapper
             Quantity = data.Order.Quantity,
             Time = DateTime.SpecifyKind(data.Order.Timestamp, DateTimeKind.Utc).ToLocalTime(),
             Status = data.Status.ToBll(),
-            Wallet = wallet
+            Wallet = wallet,
+            Type = data.Order.OrderType
         };
     }
 

@@ -10,7 +10,6 @@ public interface ICurrentWalletPositionService
 {
     Task OnNewTrades((OriginalTrade[] Trades, bool IsSnapshot) newTrades);
     void InitializeWalletSnapshot(WalletPositionsSnapshot snapshot);
-    void RemoveWalletSnapshot(Wallet wallet);
     void ClearAllSnapshots();
     Task<OrderSubType> AddTrade(OriginalTrade trade);
     Task<WalletPositionsSnapshot> GetSnapshot(Wallet wallet);
@@ -18,5 +17,4 @@ public interface ICurrentWalletPositionService
     Task<int?> TryGetLeverage(Wallet wallet, string symbol);
     void RecalculateSubTypesForSymbol(Wallet wallet, string symbol);
     IEnumerable<Wallet> GetAllWallets();
-    (int SnapshotCount, int SemaphoreCount) GetResourceStats();
 }

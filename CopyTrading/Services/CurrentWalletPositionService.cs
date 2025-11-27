@@ -65,35 +65,6 @@ public class CurrentWalletPositionService(
     }
 
     /// <summary>
-    /// Удаляет snapshot и семафор для указанного кошелька
-    /// </summary>
-    public void RemoveWalletSnapshot(Wallet wallet)
-    {
-        ArgumentNullException.ThrowIfNull(wallet, nameof(wallet));
-
-        bool snapshotRemoved = _walletPositionSnapshot.TryRemove(wallet, out _);
-        bool semaphoreRemoved = _walletSemaphores.TryRemove(wallet, out var semaphore);
-
-        // Освобождаем ресурсы семафора
-        if (semaphore != null)
-        {
-            try
-            {
-                semaphore.Dispose();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, $"CurrentWalletPositionService.RemoveWalletSnapshot: Wallet={wallet} Ошибка при освобождении семафора");
-            }
-        }
-
-        if (snapshotRemoved || semaphoreRemoved)
-        {
-            _logger.LogInformation($"CurrentWalletPositionService.RemoveWalletSnapshot: Wallet={wallet} Удален snapshot и семафор");
-        }
-    }
-
-    /// <summary>
     /// Очищает все snapshots и семафоры
     /// Используется для: тестирования, управления памятью в runtime, полного сброса состояния
     /// </summary>
@@ -369,14 +340,6 @@ public class CurrentWalletPositionService(
     public IEnumerable<Wallet> GetAllWallets()
     {
         return [.. _walletPositionSnapshot.Keys];
-    }
-
-    /// <summary>
-    /// Получить статистику по использованию ресурсов
-    /// </summary>
-    public (int SnapshotCount, int SemaphoreCount) GetResourceStats()
-    {
-        return (_walletPositionSnapshot.Count, _walletSemaphores.Count);
     }
 
     #region Private Event Handlers
