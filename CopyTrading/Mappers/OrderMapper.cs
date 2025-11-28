@@ -20,7 +20,7 @@ public static class OrderMapper
             Time = DateTime.SpecifyKind(data.Order.Timestamp, DateTimeKind.Utc).ToLocalTime(),
             Status = data.Status.ToBll(),
             Wallet = wallet,
-            Type = data.Order.OrderType
+            Type = data.Order.OrderType.ToBll()
         };
     }
 
@@ -35,7 +35,8 @@ public static class OrderMapper
             Quantity = data.Quantity,
             Time = DateTime.SpecifyKind(data.Timestamp, DateTimeKind.Utc).ToLocalTime(),
             Status = Models.Models.Enums.Order.OrderStatus.Open, // Открытые ордера всегда имеют статус Open
-            Wallet = wallet
+            Wallet = wallet,
+            Type = Models.Models.Enums.Order.OrderType.Limit // Открытые ордера обычно Limit (Market исполняются мгновенно)
         };
     }
 
@@ -64,6 +65,16 @@ public static class OrderMapper
     private static Direction ToDirection(string direction)
     {
         return direction == "B" ? Direction.Long : Direction.Short;
+    }
+
+    public static Models.Models.Enums.Order.OrderType ToBll(this HyperLiquid.Net.Enums.OrderType orderType)
+    {
+        return orderType switch
+        {
+            HyperLiquid.Net.Enums.OrderType.Limit => Models.Models.Enums.Order.OrderType.Limit,
+            HyperLiquid.Net.Enums.OrderType.Market => Models.Models.Enums.Order.OrderType.Market,
+            _ => Models.Models.Enums.Order.OrderType.None
+        };
     }
 
 }
