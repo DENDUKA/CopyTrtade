@@ -6,6 +6,7 @@ namespace CopyTrading.Services.Interfaces;
 /// <summary>
 /// Сервис для хранения базовых (начальных) позиций трейдера, которые мы не копируем.
 /// Отслеживает "точку входа" для каждой пары (wallet, symbol).
+/// Quantity: положительное значение = Long, отрицательное = Short.
 /// </summary>
 public interface IBaselinePositionService
 {
@@ -22,10 +23,11 @@ public interface IBaselinePositionService
     Task OnNewTrades((OriginalTrade[] Trades, bool IsSnapshot) newTrades);
 
     /// <summary>
-    /// Получает базовую позицию для указанной пары (wallet, symbol)
+    /// Получает базовую позицию для указанной пары (wallet, symbol).
+    /// Возвращаемое значение: положительное = Long, отрицательное = Short, 0 = позиция отсутствует.
     /// </summary>
     /// <param name="wallet">Кошелек</param>
     /// <param name="symbol">Символ</param>
-    /// <returns>Базовая позиция или null если не найдена</returns>
+    /// <returns>Базовая позиция (Quantity с учетом знака) или 0 если не найдена</returns>
     decimal GetBaselinePosition(Wallet wallet, string symbol);
 }

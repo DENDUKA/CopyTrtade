@@ -60,10 +60,26 @@ public class CopyOrderService2(
     private async Task NewLimitOrderHandler(OriginalOrder order)
     {
         if (order.Direction == Direction.None)
-        { 
+        {
+            _logger.LogWarning($"CopyOrderService2.NewLimitOrderHandler: Ордер с Direction.None пропущен. OrderId={order.OrderId}");
+            return;
         }
 
-        var nearestOrders = _activeWindowService.GetNearestOrders(order.Wallet, order.Symbol, order.Direction, 2);
+        var nearestOrders = _activeWindowService.GetNearestOrders(order.Wallet, order.Symbol, order.Direction, count: 2);
+
+        // Проверяем, есть ли наш ордер среди ближайших
+        var isOurOrderInNearestOrders = nearestOrders.Any(o => o.OriginalOrder.OrderId == order.OrderId);
+
+        if (!isOurOrderInNearestOrders)
+        {
+            _logger.LogInformation(
+                $"CopyOrderService2.NewLimitOrderHandler: Ордер OrderId={order.OrderId} НЕ находится среди {nearestOrders.Length} ближайших. " +
+                $"Wallet={order.Wallet}, Symbol={order.Symbol}, Direction={order.Direction}, Price={order.Price}. Пропускаем.");
+            return;
+        }
+
+
+
     }
 
     private void NewMarketOrderHandler(OriginalOrder order)

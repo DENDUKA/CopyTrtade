@@ -59,6 +59,7 @@ public class ActiveWindowService(
                 .ToArray();
         }
 
+
         _logger.LogInformation(
             $"ActiveWindowService.GetNearestOrders: Найдено {nearestOrders.Length} {direction} ордеров");
 

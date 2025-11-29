@@ -8,6 +8,7 @@ using CopyTrading.Settings;
 using ISQLLiteOrderRepository = CopyTrading.Repository.SQLite.IOrderRepository;
 using ITradeRepositorySQL = CopyTrading.Repository.SQLite.ITradeRepository;
 using IOrderRepositoryInflux = CopyTrading.Repository.Influx.Interfaces.IOrderRepository;
+using CopyTrading.BlazorUI.Services.Interfaces;
 
 namespace CopyTrading.Services;
 
@@ -16,7 +17,6 @@ public class OrderService : IOrderService
     private readonly OrdersTradesSubscriber _orderProvider;
     private readonly IWalletInfoProvider _walletInfo;
     private readonly IOrderRepositoryInflux _orderDBProvider;
-    private readonly IExchangeInfoProvider _exchangeInfoProvider;
     private readonly ISQLLiteOrderRepository _orderSQLLiteRepository;
     private readonly ITradeRepositorySQL _tradeRepositorySQL;
     private readonly ICurrentWalletPositionService _currentWalletPositionService;
@@ -29,19 +29,17 @@ public class OrderService : IOrderService
         OrdersTradesSubscriber orderProvider,
         IWalletInfoProvider walletInfo,
         IOrderRepositoryInflux orderDBProvider,
-        IExchangeInfoProvider exchangeInfoProvider,
         ISQLLiteOrderRepository orderSQLLiteProvider,
         ITradeRepositorySQL tradeRepositorySQL,
         ICurrentWalletPositionService currentWalletPositionService,
         IFillsOrderService fillsOrderService,
         ICopyOrderService copyOrderService,
-        BlazorUI.Services.Interfaces.IRealtimeUpdateService realtimeUpdateService,
+        IRealtimeUpdateService realtimeUpdateService,
         ILogger<OrderService> logger)
     {
         _orderProvider = orderProvider;
         _walletInfo = walletInfo;
         _orderDBProvider = orderDBProvider;
-        _exchangeInfoProvider = exchangeInfoProvider;
         _orderSQLLiteRepository = orderSQLLiteProvider;
         _currentWalletPositionService = currentWalletPositionService;
         _tradeRepositorySQL = tradeRepositorySQL;

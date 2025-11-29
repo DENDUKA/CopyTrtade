@@ -143,7 +143,6 @@ public class CopyOrderServiceTests
             _orderProviderMock.Object,
             _walletInfoProvider.Object,
             _orderRepositoryInfluxMock.Object,
-            _exchangeInfoProvider.Object,
             _orderRepositorySQLiteMock.Object,
             _tradeRepositorySQLMock.Object,
             _currentWalletPositionService,
