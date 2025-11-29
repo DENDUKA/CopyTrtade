@@ -1,6 +1,6 @@
 using CopyTrading.Models.Models.Trade;
 
-namespace CopyTrading.Repository.Influx;
+namespace CopyTrading.Repository.Influx.Interfaces;
 
 public interface ITradeRepository
 {

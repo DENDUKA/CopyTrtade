@@ -1,5 +1,5 @@
 ﻿using CopyTrading.Providers.Hyperliquid.Providers;
-using CopyTrading.Repository.Influx;
+using CopyTrading.Repository.Influx.Interfaces;
 using CopyTrading.Services.Interfaces;
 
 namespace CopyTrading.Services;

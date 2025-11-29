@@ -15,11 +15,6 @@ public class TradesController(
         await _tradeService.SubscribeToTrackedWalletsTrades();
     }
 
-    [HttpGet("CollectWalletHistoryTrades")]
-    public async Task CollectWalletHistoryTrades([FromQuery] string wallet)
-    {
-        await _tradeService.CollectHistoricalTrades(new Wallet(wallet));
-    }
 
     [HttpGet("SubscribeToWallet")]
     public async Task SubscribeToWallet([FromQuery] string wallet)

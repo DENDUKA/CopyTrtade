@@ -5,7 +5,8 @@ using CopyTrading.Providers.Hyperliquid.Subscribers;
 using CopyTrading.Services.Interfaces;
 using CopyTrading.Settings;
 using ITradeRepositorySQL = CopyTrading.Repository.SQLite.ITradeRepository;
-using ITradeRepositoryInflux = CopyTrading.Repository.Influx.ITradeRepository;
+using ITradeRepositoryInflux = CopyTrading.Repository.Influx.Interfaces.ITradeRepository;
+using CopyTrading.Providers.Hyperliquid.Interfaces;
 
 namespace CopyTrading.Services;
 
@@ -53,24 +54,6 @@ public class TradeService : ITradeService
     public async Task SubscribeToTrackedWalletsTrades()
     {
         await SubscribeToWallet(WalletSettings.TrackedWallets);
-    }
-
-    public async Task CollectHistoricalTrades(Wallet wallet)
-    {
-        try
-        {
-            _logger.LogInformation($"TradeService.CollectHistoricalTrades: Wallet={wallet} Начало сбора исторических трейдов");
-
-            var trades = await _walletInfoProvider.GetHistoricalTrades(wallet);
-            _tradeRepositoryInflux.WriteTrades(trades);
-
-            _logger.LogInformation($"TradeService.CollectHistoricalTrades: Wallet={wallet} Собрано {trades.Length} исторических трейдов");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, $"TradeService.CollectHistoricalTrades: Wallet={wallet} Ошибка при сборе исторических трейдов");
-            throw;
-        }
     }
 
     private async Task SubscribeToWallet(Wallet[] wallets)

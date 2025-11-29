@@ -14,7 +14,11 @@
       "Bash(Get-Process -Name 'CopyTrading' -ErrorAction SilentlyContinue)",
       "Bash(Select-Object Id, ProcessName, StartTime)",
       "Bash(netstat:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(Remove-Item \"C:\\Program\\CopyTrtade\\CopyTrading\\Services\\CopyOrderService2.cs\" -Force)",
+      "Bash(Select-String -Pattern \"(error |Ошибок:|Предупреждений:|Build succeeded)\" -Context 0,2)",
+      "Bash(dotnet build:*)",
+      "Bash(Select-String \"Build succeeded|Build FAILED|error CS\")"
     ],
     "deny": [],
     "ask": []

@@ -19,40 +19,49 @@ public class ActiveWindowService(
     private const int DefaultOrderCount = 3;
 
     /// <summary>
-    /// Получает ближайшие ордера для указанного кошелька и символа.
+    /// Получает ближайшие ордера для указанного кошелька, символа и направления.
     /// Long ордера: сортируются по цене от высокой к низкой (ближайшие к исполнению при падении цены)
     /// Short ордера: сортируются по цене от низкой к высокой (ближайшие к исполнению при росте цены)
     /// </summary>
     /// <param name="wallet">Кошелек для фильтрации</param>
     /// <param name="symbol">Символ для фильтрации</param>
-    /// <param name="count">Количество ордеров для каждого направления (по умолчанию 3)</param>
-    /// <returns>Кортеж с массивами Long и Short ордеров</returns>
-    public (OrderFills[] LongOrders, OrderFills[] ShortOrders) GetNearestOrders(Wallet wallet, string symbol, int count = DefaultOrderCount)
+    /// <param name="direction">Направление ордеров (Long или Short)</param>
+    /// <param name="count">Количество ордеров (по умолчанию 3)</param>
+    /// <returns>Массив ближайших ордеров указанного направления</returns>
+    public OrderFills[] GetNearestOrders(Wallet wallet, string symbol, Direction direction, int count = DefaultOrderCount)
     {
-        _logger.LogInformation($"ActiveWindowService.GetNearestOrders: Wallet={wallet.Value}, Symbol={symbol}, Count={count}");
+        _logger.LogInformation($"ActiveWindowService.GetNearestOrders: Wallet={wallet.Value}, Symbol={symbol}, Direction={direction}, Count={count}");
 
         // Получаем все pending ордера для указанного кошелька и символа
         var allPendingOrders = _fillsOrderService.GetPendingOrdersByWalletAndSymbol(wallet, symbol);
 
-        // Фильтруем Long ордера и сортируем по цене от высокой к низкой
-        // (ближайшие к исполнению при падении цены)
-        var longOrders = allPendingOrders
-            .Where(orderFills => orderFills.OriginalOrder.Direction == Direction.Long)
-            .OrderByDescending(orderFills => orderFills.OriginalOrder.Price)
-            .Take(count)
-            .ToArray();
+        // Фильтруем ордера по направлению и сортируем
+        OrderFills[] nearestOrders;
 
-        // Фильтруем Short ордера и сортируем по цене от низкой к высокой
-        // (ближайшие к исполнению при росте цены)
-        var shortOrders = allPendingOrders
-            .Where(orderFills => orderFills.OriginalOrder.Direction == Direction.Short)
-            .OrderBy(orderFills => orderFills.OriginalOrder.Price)
-            .Take(count)
-            .ToArray();
+        if (direction == Direction.Long)
+        {
+            // Long ордера: сортируем по цене от высокой к низкой
+            // (ближайшие к исполнению при падении цены)
+            nearestOrders = allPendingOrders
+                .Where(orderFills => orderFills.OriginalOrder.Direction == Direction.Long)
+                .OrderByDescending(orderFills => orderFills.OriginalOrder.Price)
+                .Take(count)
+                .ToArray();
+        }
+        else
+        {
+            // Short ордера: сортируем по цене от низкой к высокой
+            // (ближайшие к исполнению при росте цены)
+            nearestOrders = allPendingOrders
+                .Where(orderFills => orderFills.OriginalOrder.Direction == Direction.Short)
+                .OrderBy(orderFills => orderFills.OriginalOrder.Price)
+                .Take(count)
+                .ToArray();
+        }
 
         _logger.LogInformation(
-            $"ActiveWindowService.GetNearestOrders: Найдено {longOrders.Length} Long ордеров, {shortOrders.Length} Short ордеров");
+            $"ActiveWindowService.GetNearestOrders: Найдено {nearestOrders.Length} {direction} ордеров");
 
-        return (longOrders, shortOrders);
+        return nearestOrders;
     }
 }

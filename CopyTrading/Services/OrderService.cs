@@ -3,12 +3,11 @@ using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Values;
 using CopyTrading.Providers.Hyperliquid.Interfaces;
 using CopyTrading.Providers.Hyperliquid.Subscribers;
-using CopyTrading.Repository.Influx;
 using CopyTrading.Services.Interfaces;
 using CopyTrading.Settings;
 using ISQLLiteOrderRepository = CopyTrading.Repository.SQLite.IOrderRepository;
 using ITradeRepositorySQL = CopyTrading.Repository.SQLite.ITradeRepository;
-using IOrderRepositoryInflux = CopyTrading.Repository.Influx.IOrderRepository;
+using IOrderRepositoryInflux = CopyTrading.Repository.Influx.Interfaces.IOrderRepository;
 
 namespace CopyTrading.Services;
 

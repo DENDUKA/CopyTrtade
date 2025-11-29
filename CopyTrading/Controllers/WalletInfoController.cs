@@ -1,5 +1,5 @@
 ﻿using CopyTrading.Models.Values;
-using CopyTrading.Services.Interfaces;
+using CopyTrading.Providers.Hyperliquid.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CopyTrading.Controllers;

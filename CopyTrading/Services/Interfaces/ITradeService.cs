@@ -6,5 +6,4 @@ public interface ITradeService
 {
     Task SubscribeToWalletTrades(Wallet wallet);
     Task SubscribeToTrackedWalletsTrades();
-    Task CollectHistoricalTrades(Wallet wallet);
 }

@@ -1,6 +1,7 @@
 ﻿using CopyTrading.DataEvents;
 using CopyTrading.Extensions;
 using CopyTrading.Models.Models;
+using CopyTrading.Models.Models.Enums;
 using CopyTrading.Models.Models.Enums.Order;
 using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Values;
@@ -8,6 +9,7 @@ using CopyTrading.Providers.Hyperliquid.Interfaces;
 using CopyTrading.Services.Interfaces;
 using CopyTrading.Settings;
 using CryptoExchange.Net.SharedApis;
+using System.Threading.Tasks;
 
 namespace CopyTrading.Services;
 
@@ -15,14 +17,8 @@ namespace CopyTrading.Services;
 /// Сервис для непостредственного копирования ордеров и размещения на бирже
 /// </summary>
 public class CopyOrderService2(
-    IWalletInfoProvider _walletProvider,
-    IExchangeInfoProvider _exchangeInfoProvider,
-    ICurrentWalletPositionService _currentWalletPositionService,
-    IPositionMappingService _positionMappingService,
-    ICopyOrderResultService _resultService,
-    IFillsOrderService _fillsOrderService,
-    ICopyTradeWalletSettingsService _walletSettingsService,
-    ILogger<CopyOrderService> _logger) : ICopyOrderService
+    IActiveWindowService _activeWindowService,
+    ILogger<CopyOrderService2> _logger) : ICopyOrderService
 {
     private readonly Wallet _myWallet = WalletSettings.MyWallet;
 
@@ -45,16 +41,33 @@ public class CopyOrderService2(
 
     private async Task OnNewOrder(OriginalOrder order)
     {
-        if (order.Type == OrderType.None)
+        switch (order.Type)
         {
-            _logger.LogWarning($"CopyOrderService.OnNewOrder: Получен ордер с типом None. Ордер пропущен. OrderId: {order.OrderId}");
-            return;
+            case Models.Models.Enums.Order.OrderType.None:
+                _logger.LogWarning($"CopyOrderService.OnNewOrder: Получен ордер с типом None. Ордер пропущен. OrderId: {order.OrderId}");
+                return;
+
+            case Models.Models.Enums.Order.OrderType.Market:
+                NewMarketOrderHandler(order);
+                break;
+
+            case Models.Models.Enums.Order.OrderType.Limit:
+                NewLimitOrderHandler(order);
+                break;
+        }
+    }
+
+    private async Task NewLimitOrderHandler(OriginalOrder order)
+    {
+        if (order.Direction == Direction.None)
+        { 
         }
 
-        if (order.Type == OrderType.Market)
-        {
-            
-        }
+        var nearestOrders = _activeWindowService.GetNearestOrders(order.Wallet, order.Symbol, order.Direction, 2);
+    }
 
+    private void NewMarketOrderHandler(OriginalOrder order)
+    {
+        throw new NotImplementedException();
     }
 }

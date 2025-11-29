@@ -1,6 +1,7 @@
 ﻿using CopyTrading.Providers.Hyperliquid.Interfaces;
 using CopyTrading.Providers.Hyperliquid.Providers;
 using CopyTrading.Providers.Hyperliquid.Subscribers;
+using CopyTrading.Repository.Influx.Interfaces;
 using CopyTrading.Services;
 using CopyTrading.Services.Interfaces;
 using CopyTrading.Settings;
@@ -77,9 +78,9 @@ public class Startup
         services.AddSingleton<OrdersTradesSubscriber>();
 
         // InfluxDB Repositories
-        services.AddSingleton<Repository.Influx.IOrderRepository, Repository.Influx.OrderRepository>();
-        services.AddSingleton<Repository.Influx.ITradeRepository, Repository.Influx.TradeRepository>();
-        services.AddSingleton<Repository.Influx.ICandlesRepository, Repository.Influx.CandlesRepository>();
+        services.AddSingleton<IOrderRepository, Repository.Influx.OrderRepository>();
+        services.AddSingleton<ITradeRepository, Repository.Influx.TradeRepository>();
+        services.AddSingleton<ICandlesRepository, Repository.Influx.CandlesRepository>();
 
         // SQLite Repositories
         services.AddSingleton<Repository.SQLite.IOrderRepository, Repository.SQLite.OrderRepository>();

@@ -6,6 +6,7 @@ using CopyTrading.Models.Models.Enums.Order;
 using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Models.Trade;
 using CopyTrading.Models.Values;
+using CopyTrading.Providers.Hyperliquid.Interfaces;
 using CopyTrading.Services.Interfaces;
 
 namespace CopyTrading.Services;

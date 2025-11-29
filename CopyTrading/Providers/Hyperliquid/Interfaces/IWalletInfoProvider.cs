@@ -2,7 +2,7 @@
 using CopyTrading.Models.Models.Trade;
 using CopyTrading.Models.Values;
 
-namespace CopyTrading.Services.Interfaces;
+namespace CopyTrading.Providers.Hyperliquid.Interfaces;
 
 public interface IWalletInfoProvider
 {

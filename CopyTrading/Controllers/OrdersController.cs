@@ -3,7 +3,6 @@ using CopyTrading.Models.Values;
 using CopyTrading.Providers.Hyperliquid.Interfaces;
 using CopyTrading.Providers.Hyperliquid.Providers;
 using CopyTrading.Services;
-using CopyTrading.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CopyTrading.Controllers;
