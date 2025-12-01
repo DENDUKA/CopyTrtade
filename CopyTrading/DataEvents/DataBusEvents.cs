@@ -15,8 +15,6 @@ public static class DataBusEvents
     /// </summary>
     public static Action<CopyOrderV2> CopyOrderCreated;
 
-    public static Action<(OriginalOrder Order, OrderStatus Status)> CopyOrderFilled;
-
     /// <summary>
     /// Очистить все подписки на события (используется для тестирования)
     /// ВНИМАНИЕ: После вызова этого метода все сервисы должны быть пересозданы
@@ -28,6 +26,5 @@ public static class DataBusEvents
         NewOrders = null;
         OrderFinished = null;
         CopyOrderCreated = null;
-        CopyOrderFilled = null;
     }
 }

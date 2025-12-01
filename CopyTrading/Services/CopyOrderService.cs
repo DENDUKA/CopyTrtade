@@ -159,7 +159,7 @@ public class CopyOrderService(
         if (!EnsureOrderWasCopied(order, nameof(HandleFilledOrder)))
             return Task.CompletedTask;
 
-        DataBusEvents.CopyOrderFilled?.Invoke((order, OrderStatus.Filled));
+        _orderService.CloseOrderWithStatus(order.OrderId, OrderStatus.Filled);
 
         // TODO: Проверить статус нашего копируемого ордера
         // Если наш ордер не исполнен полностью - залогировать ошибку или предпринять действия
