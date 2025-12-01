@@ -1,14 +1,15 @@
-﻿using CopyTrading.DataEvents;
+﻿using CopyTrading.BlazorUI.Services.Interfaces;
+using CopyTrading.DataEvents;
+using CopyTrading.Models.Models.Enums.Order;
 using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Values;
 using CopyTrading.Providers.Hyperliquid.Interfaces;
 using CopyTrading.Providers.Hyperliquid.Subscribers;
 using CopyTrading.Services.Interfaces;
 using CopyTrading.Settings;
+using IOrderRepositoryInflux = CopyTrading.Repository.Influx.Interfaces.IOrderRepository;
 using ISQLLiteOrderRepository = CopyTrading.Repository.SQLite.IOrderRepository;
 using ITradeRepositorySQL = CopyTrading.Repository.SQLite.ITradeRepository;
-using IOrderRepositoryInflux = CopyTrading.Repository.Influx.Interfaces.IOrderRepository;
-using CopyTrading.BlazorUI.Services.Interfaces;
 
 namespace CopyTrading.Services;
 
@@ -22,7 +23,9 @@ public class OrderService : IOrderService
     private readonly ICurrentWalletPositionService _currentWalletPositionService;
     private readonly IFillsOrderService _fillsOrderService;
     private readonly ICopyOrderService _copyOrderService;
-    private readonly BlazorUI.Services.Interfaces.IRealtimeUpdateService _realtimeUpdateService;
+    private readonly IRealtimeUpdateService _realtimeUpdateService;
+    private readonly IOrdersProvider _ordersProvider;
+    private readonly ICopyOrderStorageService _copyOrderStorageService;
     private readonly ILogger<OrderService> _logger;
 
     public OrderService(
@@ -35,6 +38,8 @@ public class OrderService : IOrderService
         IFillsOrderService fillsOrderService,
         ICopyOrderService copyOrderService,
         IRealtimeUpdateService realtimeUpdateService,
+        IOrdersProvider ordersProvider,
+        ICopyOrderStorageService copyOrderStorageService,
         ILogger<OrderService> logger)
     {
         _orderProvider = orderProvider;
@@ -46,6 +51,8 @@ public class OrderService : IOrderService
         _fillsOrderService = fillsOrderService;
         _copyOrderService = copyOrderService;
         _realtimeUpdateService = realtimeUpdateService;
+        _ordersProvider = ordersProvider;
+        _copyOrderStorageService = copyOrderStorageService;
         _logger = logger;
 
         DataBusEvents.NewOrders += OnNewOrders;
@@ -139,5 +146,27 @@ public class OrderService : IOrderService
     {
         var now = DateTime.Now;
         _logger.LogInformation($"OrderService.LogDelayWithServer: OrderId={order.OrderId} Status={order.Status} Delay={(now - order.Time).TotalSeconds}s");
+    }
+
+    /// <summary>
+    /// Отменяет копируемый ордер на бирже
+    /// </summary>
+    public void CloseOrderWithStatus(long orderId, OrderStatus status)
+    {
+        var copyOrders = _copyOrderStorageService.GetOrdersByOriginalOrderId(orderId);
+
+        foreach (var copyOrder in copyOrders)
+        {
+            _logger.LogInformation($"OrderService CancelCopyOrder {copyOrder.ToString()}");
+            var oldStatus = copyOrder.OriginalOrder.Status;
+
+            // Обновляем статус
+            copyOrder.OriginalOrder.Status = OrderStatus.Canceled;
+
+            _logger.LogInformation(
+                $"Копируемый ордер закрыт: ID={copyOrder.OrderId}, {oldStatus} -> {OrderStatus.Canceled.ToString()}, " +
+                $"Symbol={copyOrder.OriginalOrder.Symbol}, Direction={copyOrder.OriginalOrder.Direction}, " +
+                $"OriginalOrderId={copyOrder.OriginalOrderId}");
+        }
     }
 }

@@ -3,7 +3,8 @@
     "allow": [
       "Bash(dotnet build:*)",
       "Bash(dotnet test:*)",
-      "Bash(timeout 180 bash:*)"
+      "Bash(timeout 180 bash:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []

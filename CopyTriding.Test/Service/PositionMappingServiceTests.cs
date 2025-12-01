@@ -365,7 +365,7 @@ public class PositionMappingServiceTests
         var firstTimestamp = firstSave!.LastUpdate;
 
         // Act - небольшая задержка чтобы время точно изменилось
-        System.Threading.Thread.Sleep(10);
+        Thread.Sleep(10);
         mapping.MyQuantity = 15M;
         _service.SaveOrUpdateMapping(mapping);
 

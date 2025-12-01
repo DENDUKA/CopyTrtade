@@ -56,6 +56,8 @@ public class CopyOrderServiceIntegrationTests
     private readonly Mock<Repository.Influx.OrderRepository> _orderRepositoryInfluxMock;
     private readonly Mock<Repository.SQLite.OrderRepository> _orderRepositorySQLiteMock;
     private readonly Mock<IBaselinePositionService> _baselinePositionServiceMock;
+    private readonly Mock<IOrdersProvider> _ordersProviderMock;
+    private readonly Mock<IOrderService> _orderServiceMock;
 
     private readonly Wallet _traderWallet = new("0x7bde2b9240a2ee352108c6823a9fa20f225b83a0");
     private readonly Wallet _myWallet = new("0x1234567890abcdef1234567890abcdef12345678");
@@ -85,7 +87,8 @@ public class CopyOrderServiceIntegrationTests
 
         // Инициализация моков для TradeService
         _fillsOrderServiceMock = new Mock<FillsOrderService>(Mock.Of<ILogger<FillsOrderService>>());
-        var ordersProviderMock = new Mock<Providers.Hyperliquid.Providers.OrdersProvider>(MockBehavior.Loose, Mock.Of<ILogger<Providers.Hyperliquid.Providers.OrdersProvider>>());
+        _ordersProviderMock = new Mock<IOrdersProvider>(MockBehavior.Loose);
+        var ordersProviderConcreteMock = new Mock<Providers.Hyperliquid.Providers.OrdersProvider>(MockBehavior.Loose, Mock.Of<ILogger<Providers.Hyperliquid.Providers.OrdersProvider>>());
         var currentWalletPositionServiceMock = new Mock<CurrentWalletPositionService>(
             MockBehavior.Loose,
             Mock.Of<IWalletInfoProvider>(),
@@ -94,7 +97,7 @@ public class CopyOrderServiceIntegrationTests
         _orderProviderMock = new Mock<OrdersTradesSubscriber>(
             MockBehavior.Loose,
             Mock.Of<ILogger<OrdersTradesSubscriber>>(),
-            ordersProviderMock.Object,
+            ordersProviderConcreteMock.Object,
             _fillsOrderServiceMock.Object,
             currentWalletPositionServiceMock.Object);
         _orderBookProviderMock = new Mock<OrderBookSubscriber>(MockBehavior.Loose, Mock.Of<ILogger<OrderBookSubscriber>>());
@@ -108,6 +111,7 @@ public class CopyOrderServiceIntegrationTests
         _orderRepositoryInfluxMock = new Mock<Repository.Influx.OrderRepository>(MockBehavior.Loose, Mock.Of<ILogger<Repository.Influx.OrderRepository>>());
         _orderRepositorySQLiteMock = new Mock<Repository.SQLite.OrderRepository>(MockBehavior.Loose, Mock.Of<ILogger<Repository.SQLite.OrderRepository>>());
         _baselinePositionServiceMock = new Mock<IBaselinePositionService>(MockBehavior.Loose);
+        _orderServiceMock = new Mock<IOrderService>(MockBehavior.Loose);
 
         // Создаем реальные сервисы для проверки
         _copyOrderResultService = new CopyOrderResultService(_resultLogger.Object);
@@ -1448,7 +1452,7 @@ public class CopyOrderServiceIntegrationTests
             _realtimeUpdateServiceMock.Object,
             _tradeServiceLogger.Object);
 
-        // Создаем CopyOrderService
+        // Создаем CopyOrderService с моком IOrderService
         var copyOrderService = new IntegrationTestableCopyOrderService(
             _walletInfoProvider.Object,
             _exchangeInfoProvider.Object,
@@ -1457,6 +1461,7 @@ public class CopyOrderServiceIntegrationTests
             _copyOrderResultService,
             _fillsOrderServiceMock.Object,
             _walletSettingsServiceMock.Object,
+            _orderServiceMock.Object,
             _logger.Object,
             _myWallet);
 
@@ -1471,6 +1476,8 @@ public class CopyOrderServiceIntegrationTests
             _fillsOrderServiceMock.Object,
             copyOrderService,
             _realtimeUpdateServiceMock.Object,
+            _ordersProviderMock.Object,
+            _storageService,
             _orderServiceLogger.Object);
 
         return copyOrderService;
@@ -2026,9 +2033,10 @@ public class IntegrationTestableCopyOrderService : CopyOrderService
         CopyOrderResultService resultService,
         FillsOrderService fillsOrderService,
         CopyTradeWalletSettingsService walletSettingsService,
+        IOrderService orderService,
         ILogger<CopyOrderService> logger,
         Wallet myWallet)
-        : base(walletProvider, exchangeInfoProvider, currentWalletPositionService, positionMappingService, resultService, fillsOrderService, walletSettingsService, logger)
+        : base(walletProvider, exchangeInfoProvider, currentWalletPositionService, positionMappingService, resultService, fillsOrderService, walletSettingsService, orderService, logger)
     {
         // Используем рефлексию чтобы подменить _myWallet
         var field = typeof(CopyOrderService).GetField("_myWallet",

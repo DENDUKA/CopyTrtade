@@ -22,6 +22,7 @@ public class CopyOrderService(
     ICopyOrderResultService _resultService,
     IFillsOrderService _fillsOrderService,
     ICopyTradeWalletSettingsService _walletSettingsService,
+    IOrderService _orderService,
     ILogger<CopyOrderService> _logger) : ICopyOrderService
 {
     private readonly Wallet _myWallet = WalletSettings.MyWallet;
@@ -180,8 +181,7 @@ public class CopyOrderService(
         if (!EnsureOrderWasCopied(order, nameof(HandleCanceledOrder)))
             return Task.CompletedTask;
 
-        // Публикуем событие закрытия копируемого ордера
-        DataBusEvents.CopyOrderClosed?.Invoke((order, OrderStatus.Canceled));
+        _orderService.CloseOrderWithStatus(order.OrderId, OrderStatus.Canceled);
 
         // TODO: Отменить наш копируемый ордер через OrdersProvider
         _logger.LogWarning($"CopyOrderService.HandleCanceledOrder: OrderId={order.OrderId} TODO - отмена копируемого ордера на бирже");
@@ -200,8 +200,7 @@ public class CopyOrderService(
         if (!EnsureOrderWasCopied(order, nameof(HandleRejectedOrder)))
             return Task.CompletedTask;
 
-        // Публикуем событие закрытия копируемого ордера
-        DataBusEvents.CopyOrderClosed?.Invoke((order, OrderStatus.Rejected));
+        _orderService.CloseOrderWithStatus(order.OrderId, OrderStatus.Rejected);
 
         // TODO: Отменить наш копируемый ордер через OrdersProvider (если он был размещен)
         _logger.LogWarning($"CopyOrderService.HandleRejectedOrder: OrderId={order.OrderId} TODO - отмена копируемого ордера на бирже");

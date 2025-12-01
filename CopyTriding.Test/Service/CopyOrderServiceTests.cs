@@ -49,6 +49,8 @@ public class CopyOrderServiceTests
     private readonly Mock<Repository.Influx.OrderRepository> _orderRepositoryInfluxMock;
     private readonly Mock<Repository.SQLite.OrderRepository> _orderRepositorySQLiteMock;
     private readonly Mock<IBaselinePositionService> _baselinePositionServiceMock;
+    private readonly Mock<IOrdersProvider> _ordersProviderMock;
+    private readonly Mock<IOrderService> _orderServiceMock;
 
     private readonly Wallet _traderWallet = new("0x7bde2b9240a2ee352108c6823a9fa20f225b83a0");
     private readonly Wallet _myWallet = new("0x1234567890abcdef1234567890abcdef12345678");
@@ -85,11 +87,12 @@ public class CopyOrderServiceTests
             _positionLogger.Object);
 
         // Создаем мок OrdersTradesSubscriber после создания _currentWalletPositionService
-        var ordersProviderMock = new Mock<Providers.Hyperliquid.Providers.OrdersProvider>(MockBehavior.Loose, Mock.Of<ILogger<Providers.Hyperliquid.Providers.OrdersProvider>>());
+        _ordersProviderMock = new Mock<IOrdersProvider>(MockBehavior.Loose);
+        var ordersProviderConcreteMock = new Mock<Providers.Hyperliquid.Providers.OrdersProvider>(MockBehavior.Loose, Mock.Of<ILogger<Providers.Hyperliquid.Providers.OrdersProvider>>());
         _orderProviderMock = new Mock<OrdersTradesSubscriber>(
             MockBehavior.Loose,
             Mock.Of<ILogger<OrdersTradesSubscriber>>(),
-            ordersProviderMock.Object,
+            ordersProviderConcreteMock.Object,
             _fillsOrderService,
             _currentWalletPositionService);
         _orderBookProviderMock = new Mock<OrderBookSubscriber>(MockBehavior.Loose, Mock.Of<ILogger<OrderBookSubscriber>>());
@@ -101,6 +104,7 @@ public class CopyOrderServiceTests
         _orderRepositoryInfluxMock = new Mock<Repository.Influx.OrderRepository>(MockBehavior.Loose, Mock.Of<ILogger<Repository.Influx.OrderRepository>>());
         _orderRepositorySQLiteMock = new Mock<Repository.SQLite.OrderRepository>(MockBehavior.Loose, Mock.Of<ILogger<Repository.SQLite.OrderRepository>>());
         _baselinePositionServiceMock = new Mock<IBaselinePositionService>(MockBehavior.Loose);
+        _orderServiceMock = new Mock<IOrderService>(MockBehavior.Loose);
 
         // Создаем реальные сервисы
         _copyOrderResultService = new CopyOrderResultService(_resultLogger.Object);
@@ -122,7 +126,7 @@ public class CopyOrderServiceTests
             _realtimeUpdateServiceMock.Object,
             _tradeServiceLogger.Object);
 
-        // Создаем CopyOrderService
+        // Создаем CopyOrderService с моком IOrderService
         var copyOrderService = new CopyOrderService(
             _walletInfoProvider.Object,
             _exchangeInfoProvider.Object,
@@ -131,6 +135,7 @@ public class CopyOrderServiceTests
             _copyOrderResultService,
             _fillsOrderService,
             _walletSettingsServiceMock.Object,
+            _orderServiceMock.Object,
             _logger.Object);
 
         // Используем рефлексию чтобы установить _myWallet
@@ -149,6 +154,8 @@ public class CopyOrderServiceTests
             _fillsOrderService,
             copyOrderService,
             _realtimeUpdateServiceMock.Object,
+            _ordersProviderMock.Object,
+            _storageService,
             _orderServiceLogger.Object);
     }
 

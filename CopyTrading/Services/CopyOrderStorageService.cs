@@ -1,6 +1,7 @@
 using CopyTrading.DataEvents;
 using CopyTrading.Models.Models.Enums.Order;
 using CopyTrading.Models.Models.Orders;
+using CopyTrading.Models.Values;
 using CopyTrading.Services.Interfaces;
 using System.Collections.Concurrent;
 
@@ -25,8 +26,6 @@ public class CopyOrderStorageService : ICopyOrderStorageService
 
         // Подписываемся на события создания и закрытия копируемых ордеров
         DataBusEvents.CopyOrderCreated += OnCopyOrderCreated;
-        DataBusEvents.CopyOrderClosed += OnCopyOrderClosed;
-        DataBusEvents.CopyOrderFilled += OnCopyOrderFilled;
     }
 
     /// <summary>
@@ -36,12 +35,6 @@ public class CopyOrderStorageService : ICopyOrderStorageService
     {
         _logger.LogInformation($"CopyOrderStorageService OnCopyOrderCreated {copyOrder.ToString()}");
         AddOrder(copyOrder);
-    }
-
-    private void OnCopyOrderFilled((OriginalOrder Order, OrderStatus Status) data)
-    {
-        _logger.LogInformation($"CopyOrderStorageService OnCopyOrderFilled {data.Order.ToString()}");
-        CloseOrder(data.Order, data.Status);
     }
 
     /// <summary>
@@ -77,15 +70,6 @@ public class CopyOrderStorageService : ICopyOrderStorageService
     }
 
     /// <summary>
-    /// Обработчик события закрытия копируемого ордера
-    /// </summary>
-    private void OnCopyOrderClosed((OriginalOrder Order, OrderStatus Status) data)
-    {
-        _logger.LogInformation($"CopyOrderStorageService OnCopyOrderClosed {data.Order.ToString()}");
-        CloseOrder(data.Order, data.Status);
-    }
-
-    /// <summary>
     /// Получить все копируемые ордера
     /// </summary>
     public CopyOrderV2[] GetAllOrders()
@@ -110,42 +94,13 @@ public class CopyOrderStorageService : ICopyOrderStorageService
     }
 
     /// <summary>
-    /// Закрыть все копируемые ордера по оригинальному ордеру (обновить статус на Canceled или Rejected)
-    /// Используется для Canceled и Rejected ордеров
+    /// Получить копируемые ордера по кошельку и символу
     /// </summary>
-    public void CloseOrder(OriginalOrder originalOrder, OrderStatus closeStatus)
+    public CopyOrderV2[] GetOrdersByWalletAndSymbol(Wallet wallet, string symbol)
     {
-        try
-        {
-            // Находим все копируемые ордера по OriginalOrderId
-            var copyOrders = GetOrdersByOriginalOrderId(originalOrder.OrderId);
-
-            if (copyOrders.Length == 0)
-            {
-                _logger.LogWarning(
-                    $"Копируемые ордера не найдены для оригинального ордера ID={originalOrder.OrderId}, " +
-                    $"Symbol={originalOrder.Symbol}, Direction={originalOrder.Direction}");
-
-                return;
-            }
-
-            foreach (var copyOrder in copyOrders)
-            {
-                var oldStatus = copyOrder.OriginalOrder.Status;
-
-                // Обновляем статус
-                copyOrder.OriginalOrder.Status = closeStatus;
-
-                _logger.LogInformation(
-                    $"Копируемый ордер закрыт: ID={copyOrder.OrderId}, {oldStatus} -> {closeStatus}, " +
-                    $"Symbol={copyOrder.OriginalOrder.Symbol}, Direction={copyOrder.OriginalOrder.Direction}, " +
-                    $"OriginalOrderId={originalOrder.OrderId}");
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, $"Ошибка при закрытии копируемых ордеров для OriginalOrderId={originalOrder.OrderId}");
-        }
+        return [.. _copyOrders.Values.Where(o =>
+            o.OriginalOrder.Wallet == wallet &&
+            o.OriginalOrder.Symbol == symbol)];
     }
 
     /// <summary>

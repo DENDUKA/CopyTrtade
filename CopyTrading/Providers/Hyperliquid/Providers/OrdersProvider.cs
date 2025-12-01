@@ -1,13 +1,14 @@
 using CopyTrading.Mappers;
 using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Values;
+using CopyTrading.Providers.Hyperliquid.Interfaces;
 using HyperLiquid.Net.Clients;
 using HyperLiquid.Net.Enums;
 using HyperLiquid.Net.Objects.Options;
 
 namespace CopyTrading.Providers.Hyperliquid.Providers;
 
-public class OrdersProvider
+public class OrdersProvider : IOrdersProvider
 {
     private readonly HyperLiquidRestClient _hyperLiquidRestClient;
     private readonly ILogger<OrdersProvider> _logger;
@@ -231,6 +232,46 @@ public class OrdersProvider
         _logger.LogWarning($"CheckOrderStatus: TODO - проверка статуса ордера OrderId={orderId}");
 
         return null;
+    }
+
+    #endregion
+
+    #region IOrdersProvider Implementation
+
+    /// <summary>
+    /// Размещает копируемый ордер (реализация интерфейса IOrdersProvider)
+    /// </summary>
+    public async Task<CopyTrading.Models.Models.Enums.Order.OrderPlaceResult> Place(CopyOrder order)
+    {
+        _logger.LogWarning($"Place: TODO - размещение копируемого ордера {order.OriginalOrder.Symbol} {order.OriginalOrder.Direction}");
+
+        // TODO: Реализовать размещение ордера через HyperLiquid API
+        // Временно возвращаем Ok для тестирования
+        return CopyTrading.Models.Models.Enums.Order.OrderPlaceResult.Ok;
+    }
+
+    /// <summary>
+    /// Закрывает ордер по ID (реализация интерфейса IOrdersProvider)
+    /// </summary>
+    public async Task<CopyTrading.Models.Models.Enums.Order.OrderPlaceResult> Close(long orderId)
+    {
+        _logger.LogWarning($"Close: TODO - закрытие ордера OrderId={orderId}");
+
+        // TODO: Реализовать закрытие ордера через HyperLiquid API
+        // Временно возвращаем Ok для тестирования
+        return CopyTrading.Models.Models.Enums.Order.OrderPlaceResult.Ok;
+    }
+
+    /// <summary>
+    /// Помечает ордер как исполненный (только для тестирования)
+    /// </summary>
+    public async Task<CopyTrading.Models.Models.Enums.Order.OrderPlaceResult> Filled(long orderId)
+    {
+        _logger.LogWarning($"Filled: TODO - пометка ордера как исполненного OrderId={orderId}");
+
+        // TODO: Реализовать для тестирования
+        // Временно возвращаем Ok для тестирования
+        return CopyTrading.Models.Models.Enums.Order.OrderPlaceResult.Ok;
     }
 
     #endregion

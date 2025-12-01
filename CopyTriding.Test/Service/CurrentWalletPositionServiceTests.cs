@@ -204,7 +204,7 @@ public class CurrentWalletPositionServiceTests
             Quantity = 10M,
             Price = 3000M,
             Leverage = 5M,
-            Status = CopyTrading.Models.Models.Enums.Order.OrderStatus.Open
+            Status = OrderStatus.Open
         };
 
         // Act
@@ -251,7 +251,7 @@ public class CurrentWalletPositionServiceTests
             Quantity = 50M,
             Price = 100M,
             Leverage = 3M,
-            Status = CopyTrading.Models.Models.Enums.Order.OrderStatus.Open
+            Status = OrderStatus.Open
         };
 
         // Act

@@ -36,7 +36,7 @@ public class ActiveWindowService(
         var allPendingOrders = _fillsOrderService.GetPendingOrdersByWalletAndSymbol(wallet, symbol);
 
         // Фильтруем ордера по направлению и сортируем
-        OrderFills[] nearestOrders;
+        OrderFills[] nearestOrders = [];
 
         if (direction == Direction.Long)
         {
@@ -48,7 +48,7 @@ public class ActiveWindowService(
                 .Take(count)
                 .ToArray();
         }
-        else
+        else if (direction == Direction.Short)
         {
             // Short ордера: сортируем по цене от низкой к высокой
             // (ближайшие к исполнению при росте цены)

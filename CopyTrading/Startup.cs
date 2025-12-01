@@ -69,7 +69,8 @@ public class Startup
 
         // HyperLiquid Providers
         services.AddSingleton<IWalletInfoProvider, WalletInfoProvider>();
-        services.AddSingleton<OrdersProvider>();
+        services.AddSingleton<OrdersProvider>();  // Регистрация напрямую для OrdersTradesSubscriber
+        services.AddSingleton<IOrdersProvider>(sp => sp.GetRequiredService<OrdersProvider>());  // Регистрация через интерфейс
         services.AddSingleton<IExchangeInfoProvider, ExchangeInfoProvider>();
         services.AddSingleton<CandlesProvider>();
 

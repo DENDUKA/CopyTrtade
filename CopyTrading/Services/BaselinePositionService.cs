@@ -12,12 +12,9 @@ namespace CopyTrading.Services;
 /// Quantity: положительное значение = Long, отрицательное = Short.
 /// </summary>
 public class BaselinePositionService(
-    ICurrentWalletPositionService currentWalletPositionService,
-    ILogger<BaselinePositionService> logger) : IBaselinePositionService
+    ICurrentWalletPositionService _currentWalletPositionService,
+    ILogger<BaselinePositionService> _logger) : IBaselinePositionService
 {
-    private readonly ICurrentWalletPositionService _currentWalletPositionService = currentWalletPositionService;
-    private readonly ILogger<BaselinePositionService> _logger = logger;
-
     // Ключ: (Wallet, Symbol), Значение: базовая позиция (Quantity с знаком: положительное = Long, отрицательное = Short)
     private readonly ConcurrentDictionary<(Wallet Wallet, string Symbol), decimal> _baselinePositions = new();
 

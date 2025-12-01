@@ -1,6 +1,7 @@
 using CopyTrading.Models.Models;
 using CopyTrading.Models.Models.Enums.Order;
 using CopyTrading.Models.Models.Orders;
+using CopyTrading.Models.Values;
 
 namespace CopyTrading.Services.Interfaces;
 
@@ -10,7 +11,7 @@ public interface ICopyOrderStorageService
     CopyOrderV2[] GetAllOrders();
     CopyOrderV2[] GetOrdersByStatus(OrderStatus status);
     CopyOrderV2[] GetOrdersByOriginalOrderId(long originalOrderId);
-    void CloseOrder(OriginalOrder originalOrder, OrderStatus closeStatus);
+    CopyOrderV2[] GetOrdersByWalletAndSymbol(Wallet wallet, string symbol);
     void ClearAllOrders();
     Dictionary<string, int> GetStatistics();
 }

@@ -4,5 +4,5 @@ public enum Direction
 {
     None,
     Long,
-    Short
+    Short,
 }

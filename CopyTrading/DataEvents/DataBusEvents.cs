@@ -15,12 +15,6 @@ public static class DataBusEvents
     /// </summary>
     public static Action<CopyOrderV2> CopyOrderCreated;
 
-    /// <summary>
-    /// Событие закрытия копируемого ордера (Canceled, Rejected)
-    /// Параметры: (OriginalOrder, OrderStatus)
-    /// </summary>
-    public static Action<(OriginalOrder Order, OrderStatus Status)> CopyOrderClosed;
-
     public static Action<(OriginalOrder Order, OrderStatus Status)> CopyOrderFilled;
 
     /// <summary>
@@ -34,7 +28,6 @@ public static class DataBusEvents
         NewOrders = null;
         OrderFinished = null;
         CopyOrderCreated = null;
-        CopyOrderClosed = null;
         CopyOrderFilled = null;
     }
 }
