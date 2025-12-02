@@ -48,9 +48,9 @@ public class ActiveWindowServiceTests
 
         // Assert - Long ордера должны быть отсортированы от высокой цены к низкой
         result.Should().HaveCount(3);
-        result[0].OriginalOrder.Price.Should().Be(52000); // Самая высокая цена
-        result[1].OriginalOrder.Price.Should().Be(51000);
-        result[2].OriginalOrder.Price.Should().Be(50000);
+        result[0].Price.Should().Be(52000); // Самая высокая цена
+        result[1].Price.Should().Be(51000);
+        result[2].Price.Should().Be(50000);
     }
 
     [Fact]
@@ -75,9 +75,9 @@ public class ActiveWindowServiceTests
 
         // Assert - Short ордера должны быть отсортированы от низкой цены к высокой
         result.Should().HaveCount(3);
-        result[0].OriginalOrder.Price.Should().Be(2800); // Самая низкая цена
-        result[1].OriginalOrder.Price.Should().Be(2900);
-        result[2].OriginalOrder.Price.Should().Be(3000);
+        result[0].Price.Should().Be(2800); // Самая низкая цена
+        result[1].Price.Should().Be(2900);
+        result[2].Price.Should().Be(3000);
     }
 
     [Fact]
@@ -120,13 +120,13 @@ public class ActiveWindowServiceTests
 
         // Assert - каждый запрос должен вернуть только свои ордера
         wallet1BtcResult.Should().HaveCount(2);
-        wallet1BtcResult.Should().OnlyContain(o => o.OriginalOrder.Wallet == _wallet1 && o.OriginalOrder.Symbol == "BTC");
+        wallet1BtcResult.Should().OnlyContain(o => o.Wallet == _wallet1 && o.Symbol == "BTC");
 
         wallet1EthResult.Should().HaveCount(1);
-        wallet1EthResult.Should().OnlyContain(o => o.OriginalOrder.Wallet == _wallet1 && o.OriginalOrder.Symbol == "ETH");
+        wallet1EthResult.Should().OnlyContain(o => o.Wallet == _wallet1 && o.Symbol == "ETH");
 
         wallet2BtcResult.Should().HaveCount(1);
-        wallet2BtcResult.Should().OnlyContain(o => o.OriginalOrder.Wallet == _wallet2 && o.OriginalOrder.Symbol == "BTC");
+        wallet2BtcResult.Should().OnlyContain(o => o.Wallet == _wallet2 && o.Symbol == "BTC");
     }
 
     [Fact]
@@ -214,10 +214,10 @@ public class ActiveWindowServiceTests
 
         // Assert
         longResult.Should().HaveCount(3);
-        longResult.Should().OnlyContain(o => o.OriginalOrder.Direction == Direction.Long);
+        longResult.Should().OnlyContain(o => o.Direction == Direction.Long);
 
         shortResult.Should().HaveCount(2);
-        shortResult.Should().OnlyContain(o => o.OriginalOrder.Direction == Direction.Short);
+        shortResult.Should().OnlyContain(o => o.Direction == Direction.Short);
     }
 
     [Fact]
@@ -262,9 +262,9 @@ public class ActiveWindowServiceTests
 
         // Assert - должны вернуться ордера с самыми высокими ценами (ближайшие к исполнению при падении)
         result.Should().HaveCount(3);
-        result[0].OriginalOrder.OrderId.Should().Be(1); // 49900
-        result[1].OriginalOrder.OrderId.Should().Be(2); // 49800
-        result[2].OriginalOrder.OrderId.Should().Be(3); // 49700
+        result[0].OrderId.Should().Be(1); // 49900
+        result[1].OrderId.Should().Be(2); // 49800
+        result[2].OrderId.Should().Be(3); // 49700
     }
 
     [Fact]
@@ -290,9 +290,9 @@ public class ActiveWindowServiceTests
 
         // Assert - должны вернуться ордера с самыми низкими ценами (ближайшие к исполнению при росте)
         result.Should().HaveCount(3);
-        result[0].OriginalOrder.OrderId.Should().Be(1); // 3100
-        result[1].OriginalOrder.OrderId.Should().Be(2); // 3200
-        result[2].OriginalOrder.OrderId.Should().Be(3); // 3300
+        result[0].OrderId.Should().Be(1); // 3100
+        result[1].OrderId.Should().Be(2); // 3200
+        result[2].OrderId.Should().Be(3); // 3300
     }
 
     // Вспомогательный метод для создания тестового OrderFills

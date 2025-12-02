@@ -13,6 +13,7 @@ namespace CopyTrading.Services;
 /// </summary>
 public class BaselinePositionService(
     ICurrentWalletPositionService _currentWalletPositionService,
+    IFillsOrderService _fillsOrderService,
     ILogger<BaselinePositionService> _logger) : IBaselinePositionService
 {
     // Ключ: (Wallet, Symbol), Значение: базовая позиция (Quantity с знаком: положительное = Long, отрицательное = Short)
@@ -37,85 +38,6 @@ public class BaselinePositionService(
             _logger.LogError(ex, "BaselinePositionService.Start: Критическая ошибка при инициализации");
             throw;
         }
-    }
-
-    /// <summary>
-    /// Инициализирует базовые позиции для всех кошельков
-    /// </summary>
-    /// <param name="wallets">Список кошельков для инициализации</param>
-    /// <returns>Общее количество загруженных позиций</returns>
-    private async Task<int> InitializeAllWallets(IEnumerable<Wallet> wallets)
-    {
-        int totalPositions = 0;
-
-        foreach (var wallet in wallets)
-        {
-            var positionsCount = await InitializeWalletBaselinePositions(wallet);
-            totalPositions += positionsCount;
-        }
-
-        return totalPositions;
-    }
-
-    /// <summary>
-    /// Инициализирует базовые позиции для одного кошелька
-    /// </summary>
-    /// <param name="wallet">Кошелек для инициализации</param>
-    /// <returns>Количество загруженных позиций для этого кошелька</returns>
-    private async Task<int> InitializeWalletBaselinePositions(Wallet wallet)
-    {
-        try
-        {
-            var snapshot = await _currentWalletPositionService.GetSnapshot(wallet);
-
-            if (snapshot?.Positions == null)
-            {
-                _logger.LogWarning($"BaselinePositionService.InitializeWalletBaselinePositions: Snapshot для кошелька {wallet.Value} пуст");
-                return 0;
-            }
-
-            return SavePositionsAsBaseline(wallet, snapshot.Positions);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, $"BaselinePositionService.InitializeWalletBaselinePositions: Ошибка при загрузке позиций для кошелька {wallet.Value}");
-            return 0;
-        }
-    }
-
-    /// <summary>
-    /// Сохраняет позиции как базовые
-    /// </summary>
-    /// <param name="wallet">Кошелек</param>
-    /// <param name="positions">Позиции для сохранения</param>
-    /// <returns>Количество сохраненных позиций</returns>
-    private int SavePositionsAsBaseline(Wallet wallet, IEnumerable<Models.Models.Position> positions)
-    {
-        int count = 0;
-
-        foreach (var position in positions)
-        {
-            var key = (wallet, position.Symbol);
-            // Quantity содержит знак: положительное = Long, отрицательное = Short
-            _baselinePositions[key] = position.Quantity;
-            count++;
-
-            _logger.LogDebug(
-                $"BaselinePositionService.SavePositionsAsBaseline: Wallet={wallet.Value}, Symbol={position.Symbol}, " +
-                $"Direction={position.Direction}, BaselinePosition={position.Quantity}");
-        }
-
-        return count;
-    }
-
-    /// <summary>
-    /// Логирует завершение инициализации
-    /// </summary>
-    private void LogInitializationComplete(int totalPositions, int walletsCount)
-    {
-        _logger.LogInformation(
-            $"BaselinePositionService.Start: Инициализация завершена. " +
-            $"Загружено {totalPositions} позиций для {walletsCount} кошельков");
     }
 
     /// <summary>
@@ -220,5 +142,182 @@ public class BaselinePositionService(
     {
         var key = (wallet, symbol);
         return _baselinePositions.TryGetValue(key, out var position) ? position : 0;
+    }
+
+    /// <summary>
+    /// Проверяет, закроет ли указанный ордер позицию ниже базовой линии.
+    /// Возвращает true если ордер приведет к закрытию позиции ниже baseline (что не должно копироваться).
+    /// </summary>
+    public async Task<bool> WillOrderCloseBelowBaseline(long orderId)
+    {
+        try
+        {
+            // Получаем информацию об ордере
+            var orderFills = _fillsOrderService.GetOrderFillsByOrderId(orderId);
+            if (orderFills == null)
+            {
+                _logger.LogWarning($"BaselinePositionService.WillOrderCloseBelowBaseline: Ордер OrderId={orderId} не найден в FillsOrderService");
+                return false; // Если ордер не найден, считаем что он не закрывает ниже baseline
+            }
+
+            var order = orderFills.OriginalOrder;
+
+            // Получаем базовую позицию для данной пары (wallet, symbol)
+            var baselineQuantity = GetBaselinePosition(order.Wallet, order.Symbol);
+
+            // Если нет базовой позиции, значит нет ограничений на закрытие
+            if (baselineQuantity == 0)
+            {
+                _logger.LogDebug(
+                    $"BaselinePositionService.WillOrderCloseBelowBaseline: OrderId={orderId} - базовая позиция отсутствует, ограничений нет");
+                return false;
+            }
+
+            // Получаем текущую позицию трейдера
+            var snapshot = await _currentWalletPositionService.GetSnapshot(order.Wallet);
+            var currentPosition = snapshot?.Positions?.FirstOrDefault(p => p.Symbol == order.Symbol);
+
+            // Если текущей позиции нет, но есть baseline - странная ситуация
+            // Считаем что закрывать ниже baseline невозможно
+            if (currentPosition == null)
+            {
+                _logger.LogWarning(
+                    $"BaselinePositionService.WillOrderCloseBelowBaseline: OrderId={orderId} - текущая позиция не найдена, но baseline={baselineQuantity} существует");
+                return false;
+            }
+
+            var currentQuantity = currentPosition.Quantity; // со знаком: положительное = Long, отрицательное = Short
+
+            // Рассчитываем позицию после исполнения ордера
+            // RealQuantity учитывает направление: Long = положительное, Short = отрицательное
+            var newQuantity = currentQuantity + order.RealQuantity;
+
+            // Проверяем различные случаи закрытия ниже базовой линии
+
+            // 1. Если позиция полностью закрывается (newQuantity = 0), но baseline != 0
+            //    Это означает закрытие всей позиции, включая baseline
+            if (newQuantity == 0 && baselineQuantity != 0)
+            {
+                _logger.LogInformation(
+                    $"BaselinePositionService.WillOrderCloseBelowBaseline: OrderId={orderId} закроет всю позицию " +
+                    $"(current={currentQuantity}, baseline={baselineQuantity}, order.RealQuantity={order.RealQuantity})");
+                return true;
+            }
+
+            // 2. Если знак позиции меняется (переходим через 0) - закрытие и открытие в другую сторону
+            //    Это означает закрытие больше чем нужно
+            if (newQuantity != 0 && Math.Sign(currentQuantity) != Math.Sign(newQuantity))
+            {
+                _logger.LogInformation(
+                    $"BaselinePositionService.WillOrderCloseBelowBaseline: OrderId={orderId} изменит направление позиции " +
+                    $"(current={currentQuantity}, new={newQuantity}, baseline={baselineQuantity}, order.RealQuantity={order.RealQuantity})");
+                return true;
+            }
+
+            // 3. Если позиция после ордера того же знака, но меньше по модулю чем baseline
+            //    Это означает частичное закрытие ниже baseline
+            if (Math.Sign(newQuantity) == Math.Sign(baselineQuantity))
+            {
+                if (Math.Abs(newQuantity) < Math.Abs(baselineQuantity))
+                {
+                    _logger.LogInformation(
+                        $"BaselinePositionService.WillOrderCloseBelowBaseline: OrderId={orderId} закроет позицию ниже baseline " +
+                        $"(current={currentQuantity}, new={newQuantity}, baseline={baselineQuantity}, order.RealQuantity={order.RealQuantity})");
+                    return true;
+                }
+            }
+
+            // Ордер не закроет позицию ниже baseline
+            _logger.LogDebug(
+                $"BaselinePositionService.WillOrderCloseBelowBaseline: OrderId={orderId} не закроет ниже baseline " +
+                $"(current={currentQuantity}, new={newQuantity}, baseline={baselineQuantity}, order.RealQuantity={order.RealQuantity})");
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"BaselinePositionService.WillOrderCloseBelowBaseline: Ошибка при проверке ордера OrderId={orderId}");
+            return false; // В случае ошибки считаем что не закрывает ниже baseline
+        }
+    }
+
+
+
+    /// <summary>
+    /// Инициализирует базовые позиции для всех кошельков
+    /// </summary>
+    /// <param name="wallets">Список кошельков для инициализации</param>
+    /// <returns>Общее количество загруженных позиций</returns>
+    private async Task<int> InitializeAllWallets(IEnumerable<Wallet> wallets)
+    {
+        int totalPositions = 0;
+
+        foreach (var wallet in wallets)
+        {
+            var positionsCount = await InitializeWalletBaselinePositions(wallet);
+            totalPositions += positionsCount;
+        }
+
+        return totalPositions;
+    }
+
+    /// <summary>
+    /// Инициализирует базовые позиции для одного кошелька
+    /// </summary>
+    /// <param name="wallet">Кошелек для инициализации</param>
+    /// <returns>Количество загруженных позиций для этого кошелька</returns>
+    private async Task<int> InitializeWalletBaselinePositions(Wallet wallet)
+    {
+        try
+        {
+            var snapshot = await _currentWalletPositionService.GetSnapshot(wallet);
+
+            if (snapshot?.Positions == null)
+            {
+                _logger.LogWarning($"BaselinePositionService.InitializeWalletBaselinePositions: Snapshot для кошелька {wallet.Value} пуст");
+                return 0;
+            }
+
+            return SavePositionsAsBaseline(wallet, snapshot.Positions);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"BaselinePositionService.InitializeWalletBaselinePositions: Ошибка при загрузке позиций для кошелька {wallet.Value}");
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// Сохраняет позиции как базовые
+    /// </summary>
+    /// <param name="wallet">Кошелек</param>
+    /// <param name="positions">Позиции для сохранения</param>
+    /// <returns>Количество сохраненных позиций</returns>
+    private int SavePositionsAsBaseline(Wallet wallet, IEnumerable<Models.Models.Position> positions)
+    {
+        int count = 0;
+
+        foreach (var position in positions)
+        {
+            var key = (wallet, position.Symbol);
+            // Quantity содержит знак: положительное = Long, отрицательное = Short
+            _baselinePositions[key] = position.Quantity;
+            count++;
+
+            _logger.LogDebug(
+                $"BaselinePositionService.SavePositionsAsBaseline: Wallet={wallet.Value}, Symbol={position.Symbol}, " +
+                $"Direction={position.Direction}, BaselinePosition={position.Quantity}");
+        }
+
+        return count;
+    }
+
+    /// <summary>
+    /// Логирует завершение инициализации
+    /// </summary>
+    private void LogInitializationComplete(int totalPositions, int walletsCount)
+    {
+        _logger.LogInformation(
+            $"BaselinePositionService.Start: Инициализация завершена. " +
+            $"Загружено {totalPositions} позиций для {walletsCount} кошельков");
     }
 }

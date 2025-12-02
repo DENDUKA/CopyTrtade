@@ -77,10 +77,17 @@ public class CopyOrderService2(
 
         CancelOrders(ordersToCancel);
 
+        TryCopyOrders(ordersToCopy);
+
         _logger.LogInformation(
             $"CopyOrderService2.ProcessOrdersForWalletAndSymbol: Wallet={wallet.Value}, Symbol={symbol}, " +
             $"NearestLong={nearestLongOrders.Length}, NearestShort={nearestShortOrders.Length}, " +
             $"AlreadyCopied={copyedOrders.Length}, ToCopy={ordersToCopy.Length}, ToCancel={ordersToCancel.Length}");
+    }
+
+    private void TryCopyOrders(OriginalOrder[] ordersToCopy)
+    {
+        throw new NotImplementedException();
     }
 
     private void CancelOrders(CopyOrderV2[] ordersToCancel)
@@ -89,30 +96,28 @@ public class CopyOrderService2(
 
         foreach (var copyOrder in ordersToCancel)
         {
-            _orderService.CloseOrderWithStatus(copyOrder.OriginalOrderId, OrderStatus.Canceled);
+            _orderService.CloseOrderWithStatus(copyOrder.OriginalOrderId, OrderStatus.Pending);
         }
-
-
     }
 
     /// <summary>
     /// Находит ордера для копирования и отмены на основе ближайших и уже скопированных
     /// </summary>
-    /// <param name="allNearestOrders">Все ближайшие ордера трейдера (Long + Short)</param>
+    /// <param name="orders">Все ближайшие ордера трейдера (Long + Short)</param>
     /// <param name="copyOrdersForPair">Уже скопированные ордера для данной пары (wallet, symbol)</param>
     /// <returns>Кортеж: (ордера для копирования, ордера для отмены)</returns>
-    private static (OrderFills[] OrdersToCopy, CopyOrderV2[] OrdersToCancel) FindOrdersToProcessing(
-        OrderFills[] allNearestOrders,
+    private static (OriginalOrder[] OrdersToCopy, CopyOrderV2[] OrdersToCancel) FindOrdersToProcessing(
+        OriginalOrder[] orders,
         CopyOrderV2[] copyOrdersForPair)
     {
         // Находим ордера, которые нужно скопировать (ближайшие, но еще не скопированные)
-        var ordersToCopy = allNearestOrders
-            .Where(orderFills => !copyOrdersForPair.Any(co => co.OriginalOrderId == orderFills.OriginalOrder.OrderId))
+        var ordersToCopy = orders
+            .Where(orderFills => !copyOrdersForPair.Any(co => co.OriginalOrderId == orderFills.OrderId))
             .ToArray();
 
         // Находим копируемые ордера, которые больше не являются ближайшими (нужно отменить)
         var ordersToCancel = copyOrdersForPair
-            .Where(co => !allNearestOrders.Any(nearest => nearest.OriginalOrder.OrderId == co.OriginalOrderId))
+            .Where(co => !orders.Any(nearest => nearest.OrderId == co.OriginalOrderId))
             .ToArray();
 
         return (ordersToCopy, ordersToCancel);

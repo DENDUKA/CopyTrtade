@@ -1,5 +1,6 @@
 using CopyTrading.Models.Models.Enums;
 using CopyTrading.Models.Models.Enums.Order;
+using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Values;
 using CopyTrading.Services.Interfaces;
 
@@ -28,7 +29,7 @@ public class ActiveWindowService(
     /// <param name="direction">Направление ордеров (Long или Short)</param>
     /// <param name="count">Количество ордеров (по умолчанию 3)</param>
     /// <returns>Массив ближайших ордеров указанного направления</returns>
-    public OrderFills[] GetNearestOrders(Wallet wallet, string symbol, Direction direction, int count = DefaultOrderCount)
+    public OriginalOrder[] GetNearestOrders(Wallet wallet, string symbol, Direction direction, int count = DefaultOrderCount)
     {
         _logger.LogInformation($"ActiveWindowService.GetNearestOrders: Wallet={wallet.Value}, Symbol={symbol}, Direction={direction}, Count={count}");
 
@@ -36,29 +37,28 @@ public class ActiveWindowService(
         var allPendingOrders = _fillsOrderService.GetPendingOrdersByWalletAndSymbol(wallet, symbol);
 
         // Фильтруем ордера по направлению и сортируем
-        OrderFills[] nearestOrders = [];
+        OriginalOrder[] nearestOrders = [];
 
         if (direction == Direction.Long)
         {
             // Long ордера: сортируем по цене от высокой к низкой
             // (ближайшие к исполнению при падении цены)
-            nearestOrders = allPendingOrders
+            nearestOrders = [.. allPendingOrders                
                 .Where(orderFills => orderFills.OriginalOrder.Direction == Direction.Long)
-                .OrderByDescending(orderFills => orderFills.OriginalOrder.Price)
-                .Take(count)
-                .ToArray();
+                .Select(orderFills => orderFills.OriginalOrder)
+                .OrderByDescending(order => order.Price)
+                .Take(count)];
         }
         else if (direction == Direction.Short)
         {
             // Short ордера: сортируем по цене от низкой к высокой
             // (ближайшие к исполнению при росте цены)
-            nearestOrders = allPendingOrders
+            nearestOrders = [.. allPendingOrders
                 .Where(orderFills => orderFills.OriginalOrder.Direction == Direction.Short)
-                .OrderBy(orderFills => orderFills.OriginalOrder.Price)
-                .Take(count)
-                .ToArray();
+                .Select(orderFills => orderFills.OriginalOrder)
+                .OrderBy(order => order.Price)
+                .Take(count)];
         }
-
 
         _logger.LogInformation(
             $"ActiveWindowService.GetNearestOrders: Найдено {nearestOrders.Length} {direction} ордеров");

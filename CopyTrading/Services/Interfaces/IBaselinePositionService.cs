@@ -30,4 +30,12 @@ public interface IBaselinePositionService
     /// <param name="symbol">Символ</param>
     /// <returns>Базовая позиция (Quantity с учетом знака) или 0 если не найдена</returns>
     decimal GetBaselinePosition(Wallet wallet, string symbol);
+
+    /// <summary>
+    /// Проверяет, закроет ли указанный ордер позицию ниже базовой линии.
+    /// Возвращает true если ордер приведет к закрытию позиции ниже baseline (что не должно копироваться).
+    /// </summary>
+    /// <param name="orderId">ID ордера для проверки</param>
+    /// <returns>true если ордер закроет позицию ниже baseline, иначе false</returns>
+    Task<bool> WillOrderCloseBelowBaseline(long orderId);
 }

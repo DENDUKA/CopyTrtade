@@ -8,5 +8,6 @@ public enum OrderStatus
     Canceled,
     Triggered,
     Rejected,
-    MarginCanceled
+    MarginCanceled,
+    Pending,
 }

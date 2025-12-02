@@ -13,6 +13,7 @@ namespace CopyTrading.Test.Service;
 public class BaselinePositionServiceTests
 {
     private readonly Mock<ICurrentWalletPositionService> _currentWalletPositionServiceMock;
+    private readonly Mock<IFillsOrderService> _fillsOrderServiceMock;
     private readonly Mock<ILogger<BaselinePositionService>> _loggerMock;
     private readonly BaselinePositionService _service;
     private readonly Wallet _wallet1 = new("0x1111111111111111111111111111111111111111");
@@ -21,8 +22,9 @@ public class BaselinePositionServiceTests
     public BaselinePositionServiceTests()
     {
         _currentWalletPositionServiceMock = new Mock<ICurrentWalletPositionService>();
+        _fillsOrderServiceMock = new Mock<IFillsOrderService>();
         _loggerMock = new Mock<ILogger<BaselinePositionService>>();
-        _service = new BaselinePositionService(_currentWalletPositionServiceMock.Object, _loggerMock.Object);
+        _service = new BaselinePositionService(_currentWalletPositionServiceMock.Object, _fillsOrderServiceMock.Object, _loggerMock.Object);
     }
 
     #region Start() Tests

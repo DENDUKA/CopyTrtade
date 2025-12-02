@@ -21,5 +21,5 @@ public interface IActiveWindowService
     /// <param name="direction">Направление ордеров (Long или Short)</param>
     /// <param name="count">Количество ордеров (по умолчанию 3)</param>
     /// <returns>Массив ближайших ордеров указанного направления</returns>
-    OrderFills[] GetNearestOrders(Wallet wallet, string symbol, Direction direction, int count = 3);
+    OriginalOrder[] GetNearestOrders(Wallet wallet, string symbol, Direction direction, int count = 3);
 }
