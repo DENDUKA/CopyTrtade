@@ -33,9 +33,9 @@ public interface IBaselinePositionService
 
     /// <summary>
     /// Проверяет, закроет ли указанный ордер позицию ниже базовой линии.
-    /// Возвращает true если ордер приведет к закрытию позиции ниже baseline (что не должно копироваться).
+    /// Возвращает результат проверки с указанием типа пересечения baseline.
     /// </summary>
     /// <param name="orderId">ID ордера для проверки</param>
-    /// <returns>true если ордер закроет позицию ниже baseline, иначе false</returns>
-    Task<bool> WillOrderCloseBelowBaseline(long orderId);
+    /// <returns>Результат проверки: AboveBaseline, CrossesBaseline или AlreadyBelowBaseline</returns>
+    Task<BaselineCheckResult> WillOrderCloseBelowBaseline(long orderId);
 }

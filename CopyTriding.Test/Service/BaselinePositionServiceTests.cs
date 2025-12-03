@@ -1,5 +1,7 @@
 using CopyTrading.Models.Models;
 using CopyTrading.Models.Models.Enums;
+using CopyTrading.Models.Models.Enums.Order;
+using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Models.Trade;
 using CopyTrading.Models.Values;
 using CopyTrading.Services;
@@ -609,6 +611,421 @@ public class BaselinePositionServiceTests
 
     #endregion
 
+    #region WillOrderCloseBelowBaseline() Tests
+
+    [Fact]
+    public async Task WillOrderCloseBelowBaseline_ShouldReturnAboveBaseline_WhenOrderNotFound()
+    {
+        // Arrange
+        _fillsOrderServiceMock
+            .Setup(x => x.GetOrderFillsByOrderId(123))
+            .Returns((OrderFills?)null);
+
+        // Act
+        var result = await _service.WillOrderCloseBelowBaseline(123);
+
+        // Assert
+        result.Should().Be(BaselineCheckResult.AboveBaseline);
+    }
+
+    [Fact]
+    public async Task WillOrderCloseBelowBaseline_ShouldReturnAboveBaseline_WhenNoBaseline()
+    {
+        // Arrange
+        var order = CreateOrder(1, _wallet1, "BTC", Direction.Short, 100m, 50000m);
+        SetupOrderFills(order);
+
+        // Act
+        var result = await _service.WillOrderCloseBelowBaseline(order.OrderId);
+
+        // Assert
+        result.Should().Be(BaselineCheckResult.AboveBaseline);
+    }
+
+    [Fact]
+    public async Task WillOrderCloseBelowBaseline_ShouldReturnAboveBaseline_WhenCurrentPositionNotFound()
+    {
+        // Arrange
+        await InitializeBaselinePosition(_wallet1, "BTC", 100m);
+        var order = CreateOrder(1, _wallet1, "BTC", Direction.Short, 10m, 50000m);
+        SetupOrderFills(order);
+
+        var snapshot = new WalletPositionsSnapshot
+        {
+            Wallet = _wallet1,
+            Positions = new List<Position>() // Позиция не найдена
+        };
+
+        _currentWalletPositionServiceMock
+            .Setup(x => x.GetSnapshot(_wallet1))
+            .ReturnsAsync(snapshot);
+
+        // Act
+        var result = await _service.WillOrderCloseBelowBaseline(order.OrderId);
+
+        // Assert
+        result.Should().Be(BaselineCheckResult.AboveBaseline);
+    }
+
+    [Fact]
+    public async Task WillOrderCloseBelowBaseline_ShouldReturnAboveBaseline_WhenLongPositionAndLongOrder()
+    {
+        // Arrange - Long позиция + Long ордер = увеличение позиции
+        await InitializeBaselinePosition(_wallet1, "BTC", 100m);
+        var order = CreateOrder(1, _wallet1, "BTC", Direction.Long, 10m, 50000m);
+        SetupOrderFills(order);
+        SetupCurrentPosition(_wallet1, "BTC", 110m); // Long позиция
+
+        // Act
+        var result = await _service.WillOrderCloseBelowBaseline(order.OrderId);
+
+        // Assert
+        result.Should().Be(BaselineCheckResult.AboveBaseline);
+    }
+
+    [Fact]
+    public async Task WillOrderCloseBelowBaseline_ShouldReturnAboveBaseline_WhenShortPositionAndShortOrder()
+    {
+        // Arrange - Short позиция + Short ордер = увеличение позиции
+        await InitializeBaselinePosition(_wallet1, "BTC", -100m);
+        var order = CreateOrder(1, _wallet1, "BTC", Direction.Short, 10m, 50000m);
+        SetupOrderFills(order);
+        SetupCurrentPosition(_wallet1, "BTC", -110m); // Short позиция
+
+        // Act
+        var result = await _service.WillOrderCloseBelowBaseline(order.OrderId);
+
+        // Assert
+        result.Should().Be(BaselineCheckResult.AboveBaseline);
+    }
+
+    [Fact]
+    public async Task WillOrderCloseBelowBaseline_ShouldReturnAboveBaseline_WhenPositionStaysAboveBaseline_Long()
+    {
+        // Arrange - СЛУЧАЙ 1: Наш и предшествующие ордера НЕ заходят в baseline
+        // Long: potential=120, new=110, baseline=100 → AboveBaseline
+        await InitializeBaselinePosition(_wallet1, "BTC", 100m);
+        var order = CreateOrder(1, _wallet1, "BTC", Direction.Short, 10m, 50000m);
+        SetupOrderFills(order);
+        SetupCurrentPosition(_wallet1, "BTC", 120m);
+        SetupPotentialPosition(order, 120m); // Potential = 120 (без текущего ордера)
+
+        // Act
+        var result = await _service.WillOrderCloseBelowBaseline(order.OrderId);
+
+        // Assert
+        result.Should().Be(BaselineCheckResult.AboveBaseline);
+    }
+
+    [Fact]
+    public async Task WillOrderCloseBelowBaseline_ShouldReturnAboveBaseline_WhenPositionStaysAboveBaseline_Short()
+    {
+        // Arrange - СЛУЧАЙ 1: Наш и предшествующие ордера НЕ заходят в baseline
+        // Short: potential=-120, new=-110, baseline=-100 → AboveBaseline
+        await InitializeBaselinePosition(_wallet1, "BTC", -100m);
+        var order = CreateOrder(1, _wallet1, "BTC", Direction.Long, 10m, 50000m);
+        SetupOrderFills(order);
+        SetupCurrentPosition(_wallet1, "BTC", -120m);
+        SetupPotentialPosition(order, -120m); // Potential = -120 (без текущего ордера)
+
+        // Act
+        var result = await _service.WillOrderCloseBelowBaseline(order.OrderId);
+
+        // Assert
+        result.Should().Be(BaselineCheckResult.AboveBaseline);
+    }
+
+    [Fact]
+    public async Task WillOrderCloseBelowBaseline_ShouldReturnCrossesBaseline_WhenOrderPartiallyClosesIntoBaseline_Long()
+    {
+        // Arrange - СЛУЧАЙ 2: Именно наш ордер пересекает baseline
+        // Long: potential=110, new=90, baseline=100 → CrossesBaseline
+        await InitializeBaselinePosition(_wallet1, "BTC", 100m);
+        var order = CreateOrder(1, _wallet1, "BTC", Direction.Short, 20m, 50000m);
+        SetupOrderFills(order);
+        SetupCurrentPosition(_wallet1, "BTC", 110m);
+        SetupPotentialPosition(order, 110m); // Potential = 110, after order = 90
+
+        // Act
+        var result = await _service.WillOrderCloseBelowBaseline(order.OrderId);
+
+        // Assert
+        result.Should().Be(BaselineCheckResult.CrossesBaseline);
+    }
+
+    [Fact]
+    public async Task WillOrderCloseBelowBaseline_ShouldReturnCrossesBaseline_WhenOrderClosesToZero_Long()
+    {
+        // Arrange - СЛУЧАЙ 2: Именно наш ордер пересекает baseline (закрывает всю позицию)
+        // Long: potential=110, new=0, baseline=100 → CrossesBaseline
+        await InitializeBaselinePosition(_wallet1, "BTC", 100m);
+        var order = CreateOrder(1, _wallet1, "BTC", Direction.Short, 110m, 50000m);
+        SetupOrderFills(order);
+        SetupCurrentPosition(_wallet1, "BTC", 110m);
+        SetupPotentialPosition(order, 110m); // Potential = 110, after order = 0
+
+        // Act
+        var result = await _service.WillOrderCloseBelowBaseline(order.OrderId);
+
+        // Assert
+        result.Should().Be(BaselineCheckResult.CrossesBaseline);
+    }
+
+    [Fact]
+    public async Task WillOrderCloseBelowBaseline_ShouldReturnCrossesBaseline_WhenOrderReversesDirection_Long()
+    {
+        // Arrange - СЛУЧАЙ 2: Именно наш ордер пересекает baseline (меняет направление)
+        // Long: potential=110, new=-10, baseline=100 → CrossesBaseline
+        await InitializeBaselinePosition(_wallet1, "BTC", 100m);
+        var order = CreateOrder(1, _wallet1, "BTC", Direction.Short, 120m, 50000m);
+        SetupOrderFills(order);
+        SetupCurrentPosition(_wallet1, "BTC", 110m);
+        SetupPotentialPosition(order, 110m); // Potential = 110, after order = -10
+
+        // Act
+        var result = await _service.WillOrderCloseBelowBaseline(order.OrderId);
+
+        // Assert
+        result.Should().Be(BaselineCheckResult.CrossesBaseline);
+    }
+
+    [Fact]
+    public async Task WillOrderCloseBelowBaseline_ShouldReturnCrossesBaseline_WhenOrderPartiallyClosesIntoBaseline_Short()
+    {
+        // Arrange - СЛУЧАЙ 2: Именно наш ордер пересекает baseline
+        // Short: potential=-110, new=-90, baseline=-100 → CrossesBaseline
+        await InitializeBaselinePosition(_wallet1, "BTC", -100m);
+        var order = CreateOrder(1, _wallet1, "BTC", Direction.Long, 20m, 50000m);
+        SetupOrderFills(order);
+        SetupCurrentPosition(_wallet1, "BTC", -110m);
+        SetupPotentialPosition(order, -110m); // Potential = -110, after order = -90
+
+        // Act
+        var result = await _service.WillOrderCloseBelowBaseline(order.OrderId);
+
+        // Assert
+        result.Should().Be(BaselineCheckResult.CrossesBaseline);
+    }
+
+    [Fact]
+    public async Task WillOrderCloseBelowBaseline_ShouldReturnCrossesBaseline_WhenOrderClosesToZero_Short()
+    {
+        // Arrange - СЛУЧАЙ 2: Именно наш ордер пересекает baseline (закрывает всю позицию)
+        // Short: potential=-110, new=0, baseline=-100 → CrossesBaseline
+        await InitializeBaselinePosition(_wallet1, "BTC", -100m);
+        var order = CreateOrder(1, _wallet1, "BTC", Direction.Long, 110m, 50000m);
+        SetupOrderFills(order);
+        SetupCurrentPosition(_wallet1, "BTC", -110m);
+        SetupPotentialPosition(order, -110m); // Potential = -110, after order = 0
+
+        // Act
+        var result = await _service.WillOrderCloseBelowBaseline(order.OrderId);
+
+        // Assert
+        result.Should().Be(BaselineCheckResult.CrossesBaseline);
+    }
+
+    [Fact]
+    public async Task WillOrderCloseBelowBaseline_ShouldReturnCrossesBaseline_WhenOrderReversesDirection_Short()
+    {
+        // Arrange - СЛУЧАЙ 2: Именно наш ордер пересекает baseline (меняет направление)
+        // Short: potential=-110, new=10, baseline=-100 → CrossesBaseline
+        await InitializeBaselinePosition(_wallet1, "BTC", -100m);
+        var order = CreateOrder(1, _wallet1, "BTC", Direction.Long, 120m, 50000m);
+        SetupOrderFills(order);
+        SetupCurrentPosition(_wallet1, "BTC", -110m);
+        SetupPotentialPosition(order, -110m); // Potential = -110, after order = 10
+
+        // Act
+        var result = await _service.WillOrderCloseBelowBaseline(order.OrderId);
+
+        // Assert
+        result.Should().Be(BaselineCheckResult.CrossesBaseline);
+    }
+
+    [Fact]
+    public async Task WillOrderCloseBelowBaseline_ShouldReturnAlreadyBelowBaseline_WhenPotentialAlreadyBelowBaseline_Long()
+    {
+        // Arrange - СЛУЧАЙ 3: Baseline пересечена до нашего ордера
+        // Long: potential=90, new=80, baseline=100 → AlreadyBelowBaseline
+        await InitializeBaselinePosition(_wallet1, "BTC", 100m);
+        var order = CreateOrder(1, _wallet1, "BTC", Direction.Short, 10m, 50000m);
+        SetupOrderFills(order);
+        SetupCurrentPosition(_wallet1, "BTC", 100m);
+        SetupPotentialPosition(order, 90m); // Potential = 90 (уже ниже baseline)
+
+        // Act
+        var result = await _service.WillOrderCloseBelowBaseline(order.OrderId);
+
+        // Assert
+        result.Should().Be(BaselineCheckResult.AlreadyBelowBaseline);
+    }
+
+    [Fact]
+    public async Task WillOrderCloseBelowBaseline_ShouldReturnAlreadyBelowBaseline_WhenPotentialAlreadyBelowBaseline_Short()
+    {
+        // Arrange - СЛУЧАЙ 3: Baseline пересечена до нашего ордера
+        // Short: potential=-90, new=-80, baseline=-100 → AlreadyBelowBaseline
+        await InitializeBaselinePosition(_wallet1, "BTC", -100m);
+        var order = CreateOrder(1, _wallet1, "BTC", Direction.Long, 10m, 50000m);
+        SetupOrderFills(order);
+        SetupCurrentPosition(_wallet1, "BTC", -100m);
+        SetupPotentialPosition(order, -90m); // Potential = -90 (уже ниже baseline по модулю)
+
+        // Act
+        var result = await _service.WillOrderCloseBelowBaseline(order.OrderId);
+
+        // Assert
+        result.Should().Be(BaselineCheckResult.AlreadyBelowBaseline);
+    }
+
+    [Fact]
+    public async Task WillOrderCloseBelowBaseline_ShouldReturnAlreadyBelowBaseline_WhenPotentialIsZero()
+    {
+        // Arrange - СЛУЧАЙ 3: Pending ордера уже закрыли всю позицию
+        // Long: potential=0, new=-10, baseline=100 → AlreadyBelowBaseline
+        await InitializeBaselinePosition(_wallet1, "BTC", 100m);
+        var order = CreateOrder(1, _wallet1, "BTC", Direction.Short, 10m, 50000m);
+        SetupOrderFills(order);
+        SetupCurrentPosition(_wallet1, "BTC", 100m);
+        SetupPotentialPosition(order, 0m); // Potential = 0 (pending ордера уже закрыли позицию)
+
+        // Act
+        var result = await _service.WillOrderCloseBelowBaseline(order.OrderId);
+
+        // Assert
+        result.Should().Be(BaselineCheckResult.AlreadyBelowBaseline);
+    }
+
+    [Fact]
+    public async Task WillOrderCloseBelowBaseline_ShouldReturnAlreadyBelowBaseline_WhenPotentialReversedDirection()
+    {
+        // Arrange - СЛУЧАЙ 3: Pending ордера уже развернули позицию
+        // Long: potential=-10, new=-20, baseline=100 → AlreadyBelowBaseline
+        await InitializeBaselinePosition(_wallet1, "BTC", 100m);
+        var order = CreateOrder(1, _wallet1, "BTC", Direction.Short, 10m, 50000m);
+        SetupOrderFills(order);
+        SetupCurrentPosition(_wallet1, "BTC", 100m);
+        SetupPotentialPosition(order, -10m); // Potential = -10 (pending ордера уже развернули)
+
+        // Act
+        var result = await _service.WillOrderCloseBelowBaseline(order.OrderId);
+
+        // Assert
+        result.Should().Be(BaselineCheckResult.AlreadyBelowBaseline);
+    }
+
+    [Fact]
+    public async Task WillOrderCloseBelowBaseline_ShouldReturnAboveBaseline_WhenExactlyAtBaseline()
+    {
+        // Arrange - Граничный случай: позиция = baseline
+        // Long: potential=110, new=100 (exactly at baseline), baseline=100
+        await InitializeBaselinePosition(_wallet1, "BTC", 100m);
+        var order = CreateOrder(1, _wallet1, "BTC", Direction.Short, 10m, 50000m);
+        SetupOrderFills(order);
+        SetupCurrentPosition(_wallet1, "BTC", 110m);
+        SetupPotentialPosition(order, 110m); // Potential = 110, after order = 100 (exactly at baseline)
+
+        // Act
+        var result = await _service.WillOrderCloseBelowBaseline(order.OrderId);
+
+        // Assert
+        // Позиция = baseline считается "не ниже baseline", поэтому AboveBaseline
+        result.Should().Be(BaselineCheckResult.AboveBaseline);
+    }
+
+    [Fact]
+    public async Task WillOrderCloseBelowBaseline_ShouldReturnCrossesBaseline_WhenJustBelowBaseline()
+    {
+        // Arrange - Граничный случай: позиция чуть ниже baseline
+        // Long: potential=110, new=99.99, baseline=100
+        await InitializeBaselinePosition(_wallet1, "BTC", 100m);
+        var order = CreateOrder(1, _wallet1, "BTC", Direction.Short, 10.01m, 50000m);
+        SetupOrderFills(order);
+        SetupCurrentPosition(_wallet1, "BTC", 110m);
+        SetupPotentialPosition(order, 110m); // Potential = 110, after order = 99.99
+
+        // Act
+        var result = await _service.WillOrderCloseBelowBaseline(order.OrderId);
+
+        // Assert
+        result.Should().Be(BaselineCheckResult.CrossesBaseline);
+    }
+
+    [Fact]
+    public async Task WillOrderCloseBelowBaseline_ShouldHandleSmallDecimalValues()
+    {
+        // Arrange - Тест с очень малыми значениями
+        await InitializeBaselinePosition(_wallet1, "BTC", 0.001m);
+        var order = CreateOrder(1, _wallet1, "BTC", Direction.Short, 0.0005m, 50000m);
+        SetupOrderFills(order);
+        SetupCurrentPosition(_wallet1, "BTC", 0.0012m);
+        SetupPotentialPosition(order, 0.0012m); // Potential = 0.0012, after order = 0.0007 (ниже baseline 0.001)
+
+        // Act
+        var result = await _service.WillOrderCloseBelowBaseline(order.OrderId);
+
+        // Assert
+        result.Should().Be(BaselineCheckResult.CrossesBaseline);
+    }
+
+    [Fact]
+    public async Task WillOrderCloseBelowBaseline_ShouldHandleLargePositions()
+    {
+        // Arrange - Тест с очень большими значениями
+        await InitializeBaselinePosition(_wallet1, "BTC", 1000000m);
+        var order = CreateOrder(1, _wallet1, "BTC", Direction.Short, 100000m, 50000m);
+        SetupOrderFills(order);
+        SetupCurrentPosition(_wallet1, "BTC", 1100000m);
+        SetupPotentialPosition(order, 1100000m); // Potential = 1100000, after order = 1000000 (exactly at baseline)
+
+        // Act
+        var result = await _service.WillOrderCloseBelowBaseline(order.OrderId);
+
+        // Assert
+        result.Should().Be(BaselineCheckResult.AboveBaseline);
+    }
+
+    [Fact]
+    public async Task WillOrderCloseBelowBaseline_ShouldWorkWithMultiplePendingOrders_Long()
+    {
+        // Arrange - СЛУЧАЙ 1 с pending ордерами
+        // Есть pending ордера, но итоговая позиция все еще выше baseline
+        await InitializeBaselinePosition(_wallet1, "BTC", 100m);
+        var order = CreateOrder(1, _wallet1, "BTC", Direction.Short, 5m, 50000m);
+        SetupOrderFills(order);
+        SetupCurrentPosition(_wallet1, "BTC", 130m);
+        // Pending ордера уже забрали 10, поэтому potential = 120
+        SetupPotentialPosition(order, 120m); // Potential = 120, after order = 115
+
+        // Act
+        var result = await _service.WillOrderCloseBelowBaseline(order.OrderId);
+
+        // Assert
+        result.Should().Be(BaselineCheckResult.AboveBaseline);
+    }
+
+    [Fact]
+    public async Task WillOrderCloseBelowBaseline_ShouldWorkWithMultiplePendingOrders_Short()
+    {
+        // Arrange - СЛУЧАЙ 1 с pending ордерами
+        // Есть pending ордера, но итоговая позиция все еще выше baseline
+        await InitializeBaselinePosition(_wallet1, "BTC", -100m);
+        var order = CreateOrder(1, _wallet1, "BTC", Direction.Long, 5m, 50000m);
+        SetupOrderFills(order);
+        SetupCurrentPosition(_wallet1, "BTC", -130m);
+        // Pending ордера уже забрали 10, поэтому potential = -120
+        SetupPotentialPosition(order, -120m); // Potential = -120, after order = -115
+
+        // Act
+        var result = await _service.WillOrderCloseBelowBaseline(order.OrderId);
+
+        // Assert
+        result.Should().Be(BaselineCheckResult.AboveBaseline);
+    }
+
+    #endregion
+
     #region Helper Methods
 
     private OriginalTrade CreateTrade(Wallet wallet, string symbol, decimal quantity)
@@ -650,6 +1067,51 @@ public class BaselinePositionServiceTests
 
         // Reset mocks after initialization
         _currentWalletPositionServiceMock.Reset();
+    }
+
+    private OriginalOrder CreateOrder(long orderId, Wallet wallet, string symbol, Direction direction, decimal quantity, decimal price)
+    {
+        return new OriginalOrder
+        {
+            OrderId = orderId,
+            Wallet = wallet,
+            Symbol = symbol,
+            Direction = direction,
+            Quantity = quantity,
+            Price = price,
+            Time = DateTime.UtcNow
+        };
+    }
+
+    private void SetupOrderFills(OriginalOrder order)
+    {
+        var orderFills = new OrderFills(order);
+        _fillsOrderServiceMock
+            .Setup(x => x.GetOrderFillsByOrderId(order.OrderId))
+            .Returns(orderFills);
+    }
+
+    private void SetupCurrentPosition(Wallet wallet, string symbol, decimal quantity)
+    {
+        var snapshot = new WalletPositionsSnapshot
+        {
+            Wallet = wallet,
+            Positions = new List<Position>
+            {
+                new Position { Symbol = symbol, Quantity = quantity }
+            }
+        };
+
+        _currentWalletPositionServiceMock
+            .Setup(x => x.GetSnapshot(wallet))
+            .ReturnsAsync(snapshot);
+    }
+
+    private void SetupPotentialPosition(OriginalOrder order, decimal potentialQuantity)
+    {
+        _currentWalletPositionServiceMock
+            .Setup(x => x.CalculatePotentialPosition(order))
+            .Returns(potentialQuantity);
     }
 
     #endregion

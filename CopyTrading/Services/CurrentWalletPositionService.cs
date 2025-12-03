@@ -94,9 +94,7 @@ public class CurrentWalletPositionService(
     }
 
     /// <summary>
-    /// Рассчитывает потенциальную позицию для указанного символа и кошелька
-    /// Потенциальная позиция = реальная позиция + все открытые pending ордера (кроме указанного)
-    /// Используется для определения SubType ордера
+    /// Рассчитывает суммарное количество из pending ордеров (без учета реальной позиции)
     ///
     /// Логика фильтрации pending ордеров по ЦЕНЕ исполнения:
     /// - Для Long ордера at price P (исполнится при падении цены до P):
@@ -104,21 +102,12 @@ public class CurrentWalletPositionService(
     /// - Для Short ордера at price P (исполнится при росте цены до P):
     ///   Учитываются ВСЕ Long ордера (могли исполниться до роста) + Short ордера с price < P (исполнятся раньше при росте)
     /// </summary>
-    private decimal CalculatePotentialPosition(OriginalOrder order)
+    /// <param name="order">Ордер, для которого рассчитывается потенциальная позиция (будет исключен из расчета)</param>
+    /// <returns>Суммарное количество из pending ордеров (со знаком: Long = положительное, Short = отрицательное)</returns>
+    public decimal CalculatePendingOrdersQuantity(OriginalOrder order)
     {
-        // Получаем все необходимые поля из ордера
-        var wallet = order.Wallet;
-        var symbol = order.Symbol;
-        var excludeOrderId = order.OrderId;
-        var orderDirection = order.Direction;
-        var orderPrice = order.Price;
-
-        // Получаем реальную позицию
-        var realPositions = GetPositionsFromSnapshot(wallet, symbol);
-        decimal realQuantity = realPositions.Length > 0 ? realPositions[0].Quantity : 0;
-
-        // Получаем pending ордера для данного кошелька и символа (уже отфильтровано)
-        var pendingOrderFills = _fillsOrderService.GetPendingOrdersByWalletAndSymbol(wallet, symbol);
+        // Получаем pending ордера для данного кошелька и символа
+        var pendingOrderFills = _fillsOrderService.GetPendingOrdersByWalletAndSymbol(order.Wallet, order.Symbol);
 
         // Суммируем pending ордера с фильтрацией по цене в одном проходе
         decimal pendingQuantity = 0;
@@ -130,13 +119,13 @@ public class CurrentWalletPositionService(
             var pendingOrder = orderFills.OriginalOrder;
 
             // Исключаем сам ордер
-            if (pendingOrder.OrderId == excludeOrderId)
+            if (pendingOrder.OrderId == order.OrderId)
                 continue;
 
             // Фильтруем по направлению и цене в зависимости от текущего ордера
-            bool shouldConsider = orderDirection == Direction.Short
-                ? pendingOrder.Direction == Direction.Long || pendingOrder.Price < orderPrice
-                : pendingOrder.Direction == Direction.Long && pendingOrder.Price > orderPrice;
+            bool shouldConsider = order.Direction == Direction.Short
+                ? pendingOrder.Direction == Direction.Long || pendingOrder.Price < order.Price
+                : pendingOrder.Direction == Direction.Long && pendingOrder.Price > order.Price;
 
             if (shouldConsider)
             {
@@ -148,9 +137,35 @@ public class CurrentWalletPositionService(
             }
         }
 
+        _logger.LogDebug(
+            $"CurrentWalletPositionService.CalculatePendingOrdersQuantity: " +
+            $"Wallet={order.Wallet} Symbol={order.Symbol} OrderId={order.OrderId} " +
+            $"Direction={order.Direction} Price={order.Price} " +
+            $"PendingQuantity={pendingQuantity} ({consideredCount}/{totalPendingCount} orders considered)");
+
+        return pendingQuantity;
+    }
+
+    /// <summary>
+    /// Рассчитывает потенциальную позицию для указанного символа и кошелька
+    /// Потенциальная позиция = реальная позиция + все открытые pending ордера (кроме указанного)
+    /// Используется для определения SubType ордера
+    /// </summary>
+    public decimal CalculatePotentialPosition(OriginalOrder order)
+    {
+        // Получаем реальную позицию
+        var realPositions = GetPositionsFromSnapshot(order.Wallet, order.Symbol);
+        decimal realQuantity = realPositions.Length > 0 ? realPositions[0].Quantity : 0;
+
+        // Рассчитываем количество из pending ордеров
+        decimal pendingQuantity = CalculatePendingOrdersQuantity(order);
+
         decimal potentialPosition = realQuantity + pendingQuantity;
 
-        _logger.LogDebug($"CurrentWalletPositionService.CalculatePotentialPosition: Wallet={wallet} Symbol={symbol} OrderId={excludeOrderId} OrderDirection={orderDirection} OrderPrice={orderPrice} Real={realQuantity}, Pending={pendingQuantity} ({consideredCount}/{totalPendingCount} orders considered), Potential={potentialPosition}");
+        _logger.LogDebug(
+            $"CurrentWalletPositionService.CalculatePotentialPosition: " +
+            $"Wallet={order.Wallet} Symbol={order.Symbol} OrderId={order.OrderId} " +
+            $"Real={realQuantity} + Pending={pendingQuantity} = Potential={potentialPosition}");
 
         return potentialPosition;
     }

@@ -7,6 +7,27 @@ using System.Collections.Concurrent;
 namespace CopyTrading.Services;
 
 /// <summary>
+/// Результат проверки ордера относительно базовой линии
+/// </summary>
+public enum BaselineCheckResult
+{
+    /// <summary>
+    /// Наш и предшествующие ордера НЕ заходят в baseline (можно копировать полностью)
+    /// </summary>
+    AboveBaseline,
+
+    /// <summary>
+    /// Именно наш ордер пересекает baseline (может потребоваться частичное копирование)
+    /// </summary>
+    CrossesBaseline,
+
+    /// <summary>
+    /// Baseline была пересечена ещё до нашего ордера (не копировать)
+    /// </summary>
+    AlreadyBelowBaseline
+}
+
+/// <summary>
 /// Сервис для хранения базовых (начальных) позиций трейдера, которые мы не копируем.
 /// Отслеживает "точку входа" для каждой пары (wallet, symbol).
 /// Quantity: положительное значение = Long, отрицательное = Short.
@@ -145,99 +166,121 @@ public class BaselinePositionService(
     }
 
     /// <summary>
-    /// Проверяет, закроет ли указанный ордер позицию ниже базовой линии.
-    /// Возвращает true если ордер приведет к закрытию позиции ниже baseline (что не должно копироваться).
+    /// Проверяет, является ли позиция "ниже" baseline.
+    /// Для позиций с одинаковым знаком: сравнивает по модулю (меньше по модулю = ниже).
+    /// Для позиций с разным знаком: всегда возвращает true (смена направления).
     /// </summary>
-    public async Task<bool> WillOrderCloseBelowBaseline(long orderId)
+    /// <param name="position">Текущая позиция (со знаком: положительное = Long, отрицательное = Short)</param>
+    /// <param name="baseline">Базовая позиция (со знаком: положительное = Long, отрицательное = Short)</param>
+    /// <returns>true если позиция находится ниже baseline</returns>
+    private bool IsBelowBaseline(decimal position, decimal baseline)
     {
-        try
-        {
-            // Получаем информацию об ордере
-            var orderFills = _fillsOrderService.GetOrderFillsByOrderId(orderId);
-            if (orderFills == null)
-            {
-                _logger.LogWarning($"BaselinePositionService.WillOrderCloseBelowBaseline: Ордер OrderId={orderId} не найден в FillsOrderService");
-                return false; // Если ордер не найден, считаем что он не закрывает ниже baseline
-            }
-
-            var order = orderFills.OriginalOrder;
-
-            // Получаем базовую позицию для данной пары (wallet, symbol)
-            var baselineQuantity = GetBaselinePosition(order.Wallet, order.Symbol);
-
-            // Если нет базовой позиции, значит нет ограничений на закрытие
-            if (baselineQuantity == 0)
-            {
-                _logger.LogDebug(
-                    $"BaselinePositionService.WillOrderCloseBelowBaseline: OrderId={orderId} - базовая позиция отсутствует, ограничений нет");
-                return false;
-            }
-
-            // Получаем текущую позицию трейдера
-            var snapshot = await _currentWalletPositionService.GetSnapshot(order.Wallet);
-            var currentPosition = snapshot?.Positions?.FirstOrDefault(p => p.Symbol == order.Symbol);
-
-            // Если текущей позиции нет, но есть baseline - странная ситуация
-            // Считаем что закрывать ниже baseline невозможно
-            if (currentPosition == null)
-            {
-                _logger.LogWarning(
-                    $"BaselinePositionService.WillOrderCloseBelowBaseline: OrderId={orderId} - текущая позиция не найдена, но baseline={baselineQuantity} существует");
-                return false;
-            }
-
-            var currentQuantity = currentPosition.Quantity; // со знаком: положительное = Long, отрицательное = Short
-
-            // Рассчитываем позицию после исполнения ордера
-            // RealQuantity учитывает направление: Long = положительное, Short = отрицательное
-            var newQuantity = currentQuantity + order.RealQuantity;
-
-            // Проверяем различные случаи закрытия ниже базовой линии
-
-            // 1. Если позиция полностью закрывается (newQuantity = 0), но baseline != 0
-            //    Это означает закрытие всей позиции, включая baseline
-            if (newQuantity == 0 && baselineQuantity != 0)
-            {
-                _logger.LogInformation(
-                    $"BaselinePositionService.WillOrderCloseBelowBaseline: OrderId={orderId} закроет всю позицию " +
-                    $"(current={currentQuantity}, baseline={baselineQuantity}, order.RealQuantity={order.RealQuantity})");
-                return true;
-            }
-
-            // 2. Если знак позиции меняется (переходим через 0) - закрытие и открытие в другую сторону
-            //    Это означает закрытие больше чем нужно
-            if (newQuantity != 0 && Math.Sign(currentQuantity) != Math.Sign(newQuantity))
-            {
-                _logger.LogInformation(
-                    $"BaselinePositionService.WillOrderCloseBelowBaseline: OrderId={orderId} изменит направление позиции " +
-                    $"(current={currentQuantity}, new={newQuantity}, baseline={baselineQuantity}, order.RealQuantity={order.RealQuantity})");
-                return true;
-            }
-
-            // 3. Если позиция после ордера того же знака, но меньше по модулю чем baseline
-            //    Это означает частичное закрытие ниже baseline
-            if (Math.Sign(newQuantity) == Math.Sign(baselineQuantity))
-            {
-                if (Math.Abs(newQuantity) < Math.Abs(baselineQuantity))
-                {
-                    _logger.LogInformation(
-                        $"BaselinePositionService.WillOrderCloseBelowBaseline: OrderId={orderId} закроет позицию ниже baseline " +
-                        $"(current={currentQuantity}, new={newQuantity}, baseline={baselineQuantity}, order.RealQuantity={order.RealQuantity})");
-                    return true;
-                }
-            }
-
-            // Ордер не закроет позицию ниже baseline
-            _logger.LogDebug(
-                $"BaselinePositionService.WillOrderCloseBelowBaseline: OrderId={orderId} не закроет ниже baseline " +
-                $"(current={currentQuantity}, new={newQuantity}, baseline={baselineQuantity}, order.RealQuantity={order.RealQuantity})");
+        // Если baseline = 0, то нет ограничений
+        if (baseline == 0)
             return false;
-        }
-        catch (Exception ex)
+
+        // Если позиция = 0, а baseline != 0, то позиция ниже
+        if (position == 0)
+            return true;
+
+        // Если знаки разные - всегда ниже baseline (смена направления)
+        if (Math.Sign(position) != Math.Sign(baseline))
+            return true;
+
+        // Знаки одинаковые - сравниваем модули
+        return Math.Abs(position) < Math.Abs(baseline);
+    }
+
+    /// <summary>
+    /// Проверяет, закроет ли указанный ордер позицию ниже базовой линии.
+    /// Возвращает результат проверки с указанием типа пересечения baseline.
+    /// </summary>
+    public async Task<BaselineCheckResult> WillOrderCloseBelowBaseline(long orderId)
+    {
+        // Получаем информацию об ордере
+        var orderFills = _fillsOrderService.GetOrderFillsByOrderId(orderId);
+        if (orderFills == null)
         {
-            _logger.LogError(ex, $"BaselinePositionService.WillOrderCloseBelowBaseline: Ошибка при проверке ордера OrderId={orderId}");
-            return false; // В случае ошибки считаем что не закрывает ниже baseline
+            return BaselineCheckResult.AboveBaseline;
         }
+
+        var order = orderFills.OriginalOrder;
+
+        // Получаем базовую позицию для данной пары (wallet, symbol)
+        var baselineQuantity = GetBaselinePosition(order.Wallet, order.Symbol);
+
+        // Если нет базовой позиции, значит нет ограничений на закрытие
+        if (baselineQuantity == 0)
+        {
+            return BaselineCheckResult.AboveBaseline;
+        }
+
+        // Получаем текущую позицию трейдера
+        var snapshot = await _currentWalletPositionService.GetSnapshot(order.Wallet);
+        var currentPosition = snapshot?.Positions?.FirstOrDefault(p => p.Symbol == order.Symbol);
+
+        // Если текущей позиции нет, но есть baseline - странная ситуация
+        // Считаем что закрывать ниже baseline невозможно
+        if (currentPosition == null)
+        {
+            _logger.LogWarning(
+                $"BaselinePositionService.WillOrderCloseBelowBaseline: OrderId={orderId} - текущая позиция не найдена, но baseline={baselineQuantity} существует");
+            return BaselineCheckResult.AboveBaseline;
+        }
+
+        //Позиция на увеличение не может закрыть ниже baseline
+        if (currentPosition.Quantity > 0 && order.Direction == Direction.Long) return BaselineCheckResult.AboveBaseline;
+        if (currentPosition.Quantity < 0 && order.Direction == Direction.Short) return BaselineCheckResult.AboveBaseline;
+
+        // Рассчитываем потенциальную позицию с учетом pending ордеров, которые исполнятся раньше
+        // Это позиция ПЕРЕД исполнением текущего ордера
+        var potentialQuantity = _currentWalletPositionService.CalculatePotentialPosition(order);
+
+        // Рассчитываем позицию ПОСЛЕ исполнения ордера
+        // RealQuantity учитывает направление: Long = положительное, Short = отрицательное
+        var newQuantity = potentialQuantity + order.RealQuantity;
+
+        // Определяем положение относительно baseline для потенциальной и новой позиции
+        var potentialBelowBaseline = IsBelowBaseline(potentialQuantity, baselineQuantity);
+        var newBelowBaseline = IsBelowBaseline(newQuantity, baselineQuantity);
+
+        // Анализируем три возможных случая:
+
+        // Случай 1: Наш и предшествующие ордера НЕ заходят в baseline
+        if (!potentialBelowBaseline && !newBelowBaseline)
+        {
+            _logger.LogDebug(
+                $"BaselinePositionService.WillOrderCloseBelowBaseline: OrderId={orderId} " +
+                $"[СЛУЧАЙ 1: НЕ заходим в baseline] " +
+                $"Potential={potentialQuantity}, New={newQuantity}, Baseline={baselineQuantity}");
+            return BaselineCheckResult.AboveBaseline;
+        }
+
+        // Случай 2: Именно наш ордер пересекает baseline
+        if (!potentialBelowBaseline && newBelowBaseline)
+        {
+            _logger.LogInformation(
+                $"BaselinePositionService.WillOrderCloseBelowBaseline: OrderId={orderId} " +
+                $"[СЛУЧАЙ 2: Именно наш ордер пересекает baseline] " +
+                $"Potential={potentialQuantity}, New={newQuantity}, Baseline={baselineQuantity}, RealQty={order.RealQuantity}");
+            return BaselineCheckResult.CrossesBaseline;
+        }
+
+        // Случай 3: Baseline была пересечена ещё до нашего ордера
+        if (potentialBelowBaseline)
+        {
+            _logger.LogInformation(
+                $"BaselinePositionService.WillOrderCloseBelowBaseline: OrderId={orderId} " +
+                $"[СЛУЧАЙ 3: Baseline пересечена до нашего ордера] " +
+                $"Potential={potentialQuantity}, New={newQuantity}, Baseline={baselineQuantity}");
+            return BaselineCheckResult.AlreadyBelowBaseline;
+        }
+
+        // Не должны сюда попасть, но на всякий случай
+        _logger.LogWarning(
+            $"BaselinePositionService.WillOrderCloseBelowBaseline: OrderId={orderId} " +
+            $"Неожиданная ветка логики: Potential={potentialQuantity}, New={newQuantity}, Baseline={baselineQuantity}");
+        return BaselineCheckResult.AboveBaseline;
     }
 
 
