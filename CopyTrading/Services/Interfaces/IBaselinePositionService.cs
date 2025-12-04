@@ -1,3 +1,4 @@
+using CopyTrading.Models.Models.Enums;
 using CopyTrading.Models.Models.Trade;
 using CopyTrading.Models.Values;
 

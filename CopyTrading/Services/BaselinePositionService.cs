@@ -7,27 +7,6 @@ using System.Collections.Concurrent;
 namespace CopyTrading.Services;
 
 /// <summary>
-/// Результат проверки ордера относительно базовой линии
-/// </summary>
-public enum BaselineCheckResult
-{
-    /// <summary>
-    /// Наш и предшествующие ордера НЕ заходят в baseline (можно копировать полностью)
-    /// </summary>
-    AboveBaseline,
-
-    /// <summary>
-    /// Именно наш ордер пересекает baseline (может потребоваться частичное копирование)
-    /// </summary>
-    CrossesBaseline,
-
-    /// <summary>
-    /// Baseline была пересечена ещё до нашего ордера (не копировать)
-    /// </summary>
-    AlreadyBelowBaseline
-}
-
-/// <summary>
 /// Сервис для хранения базовых (начальных) позиций трейдера, которые мы не копируем.
 /// Отслеживает "точку входа" для каждой пары (wallet, symbol).
 /// Quantity: положительное значение = Long, отрицательное = Short.
@@ -166,32 +145,6 @@ public class BaselinePositionService(
     }
 
     /// <summary>
-    /// Проверяет, является ли позиция "ниже" baseline.
-    /// Для позиций с одинаковым знаком: сравнивает по модулю (меньше по модулю = ниже).
-    /// Для позиций с разным знаком: всегда возвращает true (смена направления).
-    /// </summary>
-    /// <param name="position">Текущая позиция (со знаком: положительное = Long, отрицательное = Short)</param>
-    /// <param name="baseline">Базовая позиция (со знаком: положительное = Long, отрицательное = Short)</param>
-    /// <returns>true если позиция находится ниже baseline</returns>
-    private bool IsBelowBaseline(decimal position, decimal baseline)
-    {
-        // Если baseline = 0, то нет ограничений
-        if (baseline == 0)
-            return false;
-
-        // Если позиция = 0, а baseline != 0, то позиция ниже
-        if (position == 0)
-            return true;
-
-        // Если знаки разные - всегда ниже baseline (смена направления)
-        if (Math.Sign(position) != Math.Sign(baseline))
-            return true;
-
-        // Знаки одинаковые - сравниваем модули
-        return Math.Abs(position) < Math.Abs(baseline);
-    }
-
-    /// <summary>
     /// Проверяет, закроет ли указанный ордер позицию ниже базовой линии.
     /// Возвращает результат проверки с указанием типа пересечения baseline.
     /// </summary>
@@ -283,7 +236,31 @@ public class BaselinePositionService(
         return BaselineCheckResult.AboveBaseline;
     }
 
+    /// <summary>
+    /// Проверяет, является ли позиция "ниже" baseline.
+    /// Для позиций с одинаковым знаком: сравнивает по модулю (меньше по модулю = ниже).
+    /// Для позиций с разным знаком: всегда возвращает true (смена направления).
+    /// </summary>
+    /// <param name="position">Текущая позиция (со знаком: положительное = Long, отрицательное = Short)</param>
+    /// <param name="baseline">Базовая позиция (со знаком: положительное = Long, отрицательное = Short)</param>
+    /// <returns>true если позиция находится ниже baseline</returns>
+    private bool IsBelowBaseline(decimal position, decimal baseline)
+    {
+        // Если baseline = 0, то нет ограничений
+        if (baseline == 0)
+            return false;
 
+        // Если позиция = 0, а baseline != 0, то позиция ниже
+        if (position == 0)
+            return true;
+
+        // Если знаки разные - всегда ниже baseline (смена направления)
+        if (Math.Sign(position) != Math.Sign(baseline))
+            return true;
+
+        // Знаки одинаковые - сравниваем модули
+        return Math.Abs(position) < Math.Abs(baseline);
+    }
 
     /// <summary>
     /// Инициализирует базовые позиции для всех кошельков
