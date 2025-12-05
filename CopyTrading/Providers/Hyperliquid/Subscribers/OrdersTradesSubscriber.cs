@@ -12,7 +12,7 @@ public class OrdersTradesSubscriber(
     ILogger<OrdersTradesSubscriber> _logger,
     OrdersProvider _ordersProvider,
     IFillsOrderService _fillsOrderService,
-    ICurrentWalletPositionService _currentWalletPositionService)
+    ICurrentWalletPositionService _currentWalletPositionService) : IOrdersTradesSubscriber
 {
     private static readonly HashSet<Wallet> _orderSubscribes = [];
     private static readonly HashSet<Wallet> _pendingOrderSubscribes = [];

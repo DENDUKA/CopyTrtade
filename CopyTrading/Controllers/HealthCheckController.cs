@@ -6,7 +6,7 @@ namespace CopyTrading.Controllers;
 [ApiController]
 [Route("[controller]")]
 public class HealthCheckController(
-    OrdersTradesSubscriber _subscribers) : ControllerBase
+    IOrdersTradesSubscriber _subscribers) : ControllerBase
 {
     [HttpGet("SubscribersStatus")]
     public async Task<string[]> SubscribersStatus()

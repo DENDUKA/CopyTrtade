@@ -15,7 +15,7 @@ namespace CopyTrading.Services;
 
 public class OrderService : IOrderService
 {
-    private readonly OrdersTradesSubscriber _orderProvider;
+    private readonly IOrdersTradesSubscriber _orderProvider;
     private readonly IWalletInfoProvider _walletInfo;
     private readonly IOrderRepositoryInflux _orderDBProvider;
     private readonly ISQLLiteOrderRepository _orderSQLLiteRepository;
@@ -29,7 +29,7 @@ public class OrderService : IOrderService
     private readonly ILogger<OrderService> _logger;
 
     public OrderService(
-        OrdersTradesSubscriber orderProvider,
+        IOrdersTradesSubscriber orderProvider,
         IWalletInfoProvider walletInfo,
         IOrderRepositoryInflux orderDBProvider,
         ISQLLiteOrderRepository orderSQLLiteProvider,

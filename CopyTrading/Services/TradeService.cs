@@ -12,7 +12,7 @@ namespace CopyTrading.Services;
 
 public class TradeService : ITradeService
 {
-    private readonly OrdersTradesSubscriber _orderProvider;
+    private readonly IOrdersTradesSubscriber _orderProvider;
     private readonly IWalletInfoProvider _walletInfoProvider;
     private readonly ITradeRepositoryInflux _tradeRepositoryInflux;
     private readonly ITradeRepositorySQL _tradeRepositorySQL;
@@ -23,7 +23,7 @@ public class TradeService : ITradeService
     private readonly ILogger<TradeService> _logger;
 
     public TradeService(
-        OrdersTradesSubscriber orderProvider,
+        IOrdersTradesSubscriber orderProvider,
         IWalletInfoProvider walletInfoProvider,
         ITradeRepositoryInflux tradeRepositoryInflux,
         ITradeRepositorySQL tradeRepositorySQL,

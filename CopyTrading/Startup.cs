@@ -76,7 +76,7 @@ public class Startup
 
         // HyperLiquid Subscribers
         services.AddSingleton<OrderBookSubscriber>();
-        services.AddSingleton<OrdersTradesSubscriber>();
+        services.AddSingleton<IOrdersTradesSubscriber, OrdersTradesSubscriber>();
 
         // InfluxDB Repositories
         services.AddSingleton<IOrderRepository, Repository.Influx.OrderRepository>();
