@@ -71,7 +71,7 @@ public class WalletInfoProvider(
         }
 
         _logger.LogError(response.Error!.Message);
-        return Array.Empty<OriginalOrder>();
+        return [];
     }
 
     public async Task<OriginalTrade[]> GetHistoricalTrades(Wallet wallet)

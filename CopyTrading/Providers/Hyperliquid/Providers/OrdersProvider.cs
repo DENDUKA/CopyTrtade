@@ -45,13 +45,13 @@ public class OrdersProvider : IOrdersProvider
             else
             {
                 _logger.LogError($"GetActiveOrders: Ошибка при получении активных ордеров для {wallet}: {response.Error?.Message}");
-                return Array.Empty<OriginalOrder>();
+                return [];
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, $"GetActiveOrders: Исключение при получении активных ордеров для {wallet}");
-            return Array.Empty<OriginalOrder>();
+            return [];
         }
     }
 

@@ -401,7 +401,7 @@ public class CurrentWalletPositionService(
 
         // Быстрая проверка - если нет позиций вообще
         if (positions.Count == 0)
-            return Array.Empty<Position>();
+            return [];
 
         // Ищем позиции с указанным символом
         List<Position>? result = null;
@@ -414,7 +414,7 @@ public class CurrentWalletPositionService(
             }
         }
 
-        return result?.ToArray() ?? Array.Empty<Position>();
+        return result?.ToArray() ?? [];
     }
 
     /// <summary>

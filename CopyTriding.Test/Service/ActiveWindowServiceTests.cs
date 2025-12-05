@@ -182,7 +182,7 @@ public class ActiveWindowServiceTests
         // Arrange - нет pending ордеров
         _fillsOrderServiceMock
             .Setup(x => x.GetPendingOrdersByWalletAndSymbol(_wallet1, "BTC"))
-            .Returns(Array.Empty<OrderFills>());
+            .Returns([]);
 
         // Act
         var result = _service.GetNearestOrders(_wallet1, "BTC", Direction.Long);
