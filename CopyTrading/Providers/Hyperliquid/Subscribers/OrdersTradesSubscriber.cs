@@ -2,7 +2,6 @@
 using CopyTrading.Mappers;
 using CopyTrading.Models.Values;
 using CopyTrading.Providers.Hyperliquid.Providers;
-using CopyTrading.Services;
 using CopyTrading.Services.Interfaces;
 using CryptoExchange.Net.Objects;
 using HyperLiquid.Net.Clients;

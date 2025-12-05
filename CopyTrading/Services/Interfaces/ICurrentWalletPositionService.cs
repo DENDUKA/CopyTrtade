@@ -1,5 +1,4 @@
 using CopyTrading.Models.Models;
-using CopyTrading.Models.Models.Enums;
 using CopyTrading.Models.Models.Enums.Order;
 using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Models.Trade;

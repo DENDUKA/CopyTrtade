@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.SignalR;
-using CopyTrading.Services;
 using CopyTrading.Services.Interfaces;
 using CopyTrading.Models.Models;
 
