@@ -56,6 +56,7 @@ public class OrderService : IOrderService
         _logger = logger;
 
         DataBusEvents.NewOrders += OnNewOrders;
+        DataBusEvents.CopyOrderCancelRequested += OnCopyOrderCancelRequested;
     }
 
     public async Task SubscribeToWalletOrders(Wallet wallet)
@@ -146,6 +147,25 @@ public class OrderService : IOrderService
     {
         var now = DateTime.Now;
         _logger.LogInformation($"OrderService.LogDelayWithServer: OrderId={order.OrderId} Status={order.Status} Delay={(now - order.Time).TotalSeconds}s");
+    }
+
+    /// <summary>
+    /// Обработчик события отмены копируемого ордера.
+    /// Вызывается когда CopyOrderService2 публикует событие CopyOrderCancelRequested
+    /// </summary>
+    /// <param name="originalOrderId">ID оригинального ордера трейдера</param>
+    private void OnCopyOrderCancelRequested(long originalOrderId)
+    {
+        _logger.LogInformation($"OrderService.OnCopyOrderCancelRequested: OriginalOrderId={originalOrderId} Получено событие отмены копируемого ордера");
+
+        try
+        {
+            CloseOrderWithStatus(originalOrderId, OrderStatus.Canceled);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"OrderService.OnCopyOrderCancelRequested: OriginalOrderId={originalOrderId} Ошибка при отмене копируемого ордера");
+        }
     }
 
     /// <summary>

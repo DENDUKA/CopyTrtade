@@ -16,6 +16,12 @@ public static class DataBusEvents
     public static Action<CopyOrderV2> CopyOrderCreated;
 
     /// <summary>
+    /// Событие отмены копируемого ордера.
+    /// Параметр: OriginalOrderId - ID оригинального ордера трейдера
+    /// </summary>
+    public static Action<long> CopyOrderCancelRequested;
+
+    /// <summary>
     /// Очистить все подписки на события (используется для тестирования)
     /// ВНИМАНИЕ: После вызова этого метода все сервисы должны быть пересозданы
     /// для повторной подписки на события!
@@ -26,5 +32,6 @@ public static class DataBusEvents
         NewOrders = null;
         OrderFinished = null;
         CopyOrderCreated = null;
+        CopyOrderCancelRequested = null;
     }
 }

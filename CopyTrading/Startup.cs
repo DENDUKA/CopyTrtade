@@ -57,7 +57,7 @@ public class Startup
         services.AddSingleton<IBaselinePositionService, BaselinePositionService>();
 
         // Copy Trading Services
-        services.AddSingleton<ICopyOrderService, CopyOrderService>();
+        services.AddSingleton<ICopyOrderService, CopyOrderService2>();
         services.AddSingleton<ICopyOrderResultService, CopyOrderResultService>();
         services.AddSingleton<ICopyOrderStorageService, CopyOrderStorageService>();
         services.AddSingleton<IPositionMappingService, PositionMappingService>();

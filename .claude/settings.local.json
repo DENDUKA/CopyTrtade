@@ -21,7 +21,8 @@
       "Bash(Select-String \"Build succeeded|Build FAILED|error CS\")",
       "Bash(dotnet test:*)",
       "Bash(Select-String \"(Build succeeded|Build FAILED|Passed!|Failed!|пройдено|не пройдено|error CS)\" -Context 0,2)",
-      "Bash(Select-String \"(Build succeeded|Build FAILED|error CS)\")"
+      "Bash(Select-String \"(Build succeeded|Build FAILED|error CS)\")",
+      "Bash(timeout 30 dotnet run:*)"
     ],
     "deny": [],
     "ask": []
