@@ -1,6 +1,8 @@
 ﻿using CopyTrading.DataEvents;
 using CopyTrading.Mappers;
+using CopyTrading.Models.Models;
 using CopyTrading.Models.Values;
+using CopyTrading.Providers.Hyperliquid.Interfaces;
 using CopyTrading.Providers.Hyperliquid.Providers;
 using CopyTrading.Services.Interfaces;
 using CryptoExchange.Net.Objects;
@@ -12,7 +14,8 @@ public class OrdersTradesSubscriber(
     ILogger<OrdersTradesSubscriber> _logger,
     OrdersProvider _ordersProvider,
     IFillsOrderService _fillsOrderService,
-    ICurrentWalletPositionService _currentWalletPositionService) : IOrdersTradesSubscriber
+    ICurrentWalletPositionService _currentWalletPositionService,
+    IWalletInfoProvider _walletInfoProvider) : IOrdersTradesSubscriber
 {
     private static readonly HashSet<Wallet> _orderSubscribes = [];
     private static readonly HashSet<Wallet> _pendingOrderSubscribes = [];
@@ -85,6 +88,9 @@ public class OrdersTradesSubscriber(
 
             // Загружаем открытые ордера после успешной подписки
             await LoadActiveOrdersForWallet(wallet);
+
+            // Инициализируем snapshot кошелька после загрузки исторических ордеров
+            await InitializeWalletSnapshotAsync(wallet);
 
             return true;
         }
@@ -192,6 +198,39 @@ public class OrdersTradesSubscriber(
         catch (Exception ex)
         {
             _logger.LogError(ex, $"LoadActiveOrdersForWallet: Ошибка при загрузке открытых ордеров для {wallet}");
+        }
+    }
+
+    /// <summary>
+    /// Инициализирует snapshot кошелька на основе текущих позиций.
+    /// Получает информацию о кошельке через WalletInfoProvider и создает snapshot для CurrentWalletPositionService.
+    /// </summary>
+    /// <param name="wallet">Кошелек для инициализации snapshot</param>
+    private async Task InitializeWalletSnapshotAsync(Wallet wallet)
+    {
+        try
+        {
+            var walletInfo = await _walletInfoProvider.GetInfo(wallet, useCache: false);
+            if (walletInfo != null)
+            {
+                var snapshot = new WalletPositionsSnapshot
+                {
+                    Wallet = walletInfo.Wallet,
+                    TimeStamp = walletInfo.TimeStamp,
+                    Positions = walletInfo.Positions?.Values.ToList() ?? []
+                };
+                _currentWalletPositionService.InitializeWalletSnapshot(snapshot);
+                _logger.LogInformation(
+                    $"InitializeWalletSnapshot: Инициализирован snapshot для {wallet} с {snapshot.Positions.Count} позициями");
+            }
+            else
+            {
+                _logger.LogWarning($"InitializeWalletSnapshot: Не удалось получить информацию о кошельке {wallet}");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"InitializeWalletSnapshot: Ошибка при инициализации snapshot для {wallet}");
         }
     }
 }

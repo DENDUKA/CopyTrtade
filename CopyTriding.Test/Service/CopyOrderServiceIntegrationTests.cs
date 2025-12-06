@@ -98,7 +98,8 @@ public class CopyOrderServiceIntegrationTests
             Mock.Of<ILogger<OrdersTradesSubscriber>>(),
             ordersProviderConcreteMock.Object,
             _fillsOrderServiceMock.Object,
-            currentWalletPositionServiceMock.Object);
+            currentWalletPositionServiceMock.Object,
+            Mock.Of<IWalletInfoProvider>());
         _orderBookProviderMock = new Mock<OrderBookSubscriber>(MockBehavior.Loose, Mock.Of<ILogger<OrderBookSubscriber>>());
         _tradeRepositoryInfluxMock = new Mock<TradeRepositoryInflux>(MockBehavior.Loose, Mock.Of<ILogger<TradeRepositoryInflux>>());
         _tradeRepositorySQLMock = new Mock<TradeRepositoreySQL>(MockBehavior.Loose, Mock.Of<ILogger<TradeRepositoreySQL>>());
