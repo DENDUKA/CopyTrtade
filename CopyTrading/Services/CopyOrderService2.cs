@@ -50,9 +50,32 @@ public class CopyOrderService2 : ICopyOrderService
         DataBusEvents.WalletSubscribed += OnWalletSubscribed;
     }
 
-    private void OnWalletSubscribed(Wallet wallet)
+    private async void OnWalletSubscribed(Wallet wallet)
     {
         _logger.LogInformation($"CopyOrderService2.OnWalletSubscribed: Кошелек {wallet} полностью подписан");
+
+        // Получаем snapshot позиций для кошелька
+        var snapshot = await _currentWalletPositionService.GetSnapshot(wallet);
+
+        if (snapshot == null || snapshot.Positions == null || snapshot.Positions.Count == 0)
+        {
+            _logger.LogInformation($"CopyOrderService2.OnWalletSubscribed: У кошелька {wallet} нет открытых позиций");
+            return;
+        }
+
+        // Получаем уникальные символы из позиций
+        var symbols = snapshot.Positions.Select(p => p.Symbol).Distinct().ToArray();
+
+        _logger.LogInformation(
+            $"CopyOrderService2.OnWalletSubscribed: Обработка {symbols.Length} символов для кошелька {wallet}: [{string.Join(", ", symbols)}]");
+
+        // Обрабатываем ордера для каждого символа
+        foreach (var symbol in symbols)
+        {
+            await ProcessOrdersForWalletAndSymbol(wallet, symbol);
+        }
+
+        _logger.LogInformation($"CopyOrderService2.OnWalletSubscribed: Завершена обработка для кошелька {wallet}");
     }
 
     public async Task OnNewOrders(OriginalOrder[] orders)
