@@ -20,7 +20,7 @@ public class CopyOrderService2(
     IWalletInfoProvider _walletProvider,
     IExchangeInfoProvider _exchangeInfoProvider,
     ICopyTradeWalletSettingsService _walletSettingsService,
-    ICopyOrderResultService _resultService,
+    ICopyOrderResultService _copyOrderResultService,
     ILogger<CopyOrderService2> _logger) : ICopyOrderService
 {
     private readonly Wallet _myWallet = WalletSettings.MyWallet;
@@ -159,7 +159,7 @@ public class CopyOrderService2(
             var copyOrder = await CreateCopyOrder(order);
 
             // Публикуем событие создания копируемого ордера
-            PublishCopyOrderCreated(copyOrder);
+            DataBusEvents.CopyOrderCreated?.Invoke(copyOrder);
 
             // Сохраняем результат
             SaveSuccessResult(order, copyOrder);
@@ -213,11 +213,7 @@ public class CopyOrderService2(
         // Вычисляем ВАШ объем позиции (та же доля от ВАШЕГО баланса)
         var myVolumeUsd = myAccountValue * orderRatio;
 
-        // Применяем CopyKoef если он есть в настройках
-        if (walletSettings.CopyKoef != 1.0m)
-        {
-            myVolumeUsd *= walletSettings.CopyKoef;
-        }
+        myVolumeUsd *= walletSettings.CopyKoef;        
 
         // Вычисляем количество монет по той же цене
         var myQuantity = myVolumeUsd / order.Price;
@@ -242,7 +238,7 @@ public class CopyOrderService2(
             OriginalOrder = order,
             OrderId = tempOrderId,
             OriginalOrderId = order.OrderId,
-            OrderSubType = OrderSubType.None, // Для window-based копирования не используем SubType
+            OrderSubType = OrderSubType.None,
             OrderRatio = orderRatio,
             MyPE = myAccountValue,
             AccountPE = traderWalletInfo.AccountVolume,
@@ -259,19 +255,11 @@ public class CopyOrderService2(
     }
 
     /// <summary>
-    /// Опубликовать событие создания копируемого ордера
-    /// </summary>
-    private void PublishCopyOrderCreated(CopyOrderV2 copyOrder)
-    {
-        DataBusEvents.CopyOrderCreated?.Invoke(copyOrder);
-    }
-
-    /// <summary>
     /// Сохранить успешный результат копирования
     /// </summary>
     private void SaveSuccessResult(OriginalOrder order, CopyOrderV2 copyOrder)
     {
-        _resultService.SaveSuccess(order.OrderId.ToString(), order.Wallet, order.Symbol, copyOrder.OrderId.ToString());
+        _copyOrderResultService.SaveSuccess(order.OrderId.ToString(), order.Wallet, order.Symbol, copyOrder.OrderId.ToString());
     }
 
     /// <summary>
@@ -279,7 +267,7 @@ public class CopyOrderService2(
     /// </summary>
     private void SaveFailureResult(OriginalOrder order, string errorMessage)
     {
-        _resultService.SaveFailure(order.OrderId.ToString(), order.Wallet, order.Symbol, errorMessage);
+        _copyOrderResultService.SaveFailure(order.OrderId.ToString(), order.Wallet, order.Symbol, errorMessage);
     }
 
     /// <summary>
@@ -287,7 +275,7 @@ public class CopyOrderService2(
     /// </summary>
     private void SaveWarningResult(OriginalOrder order, string warningMessage)
     {
-        _resultService.SaveWarning(order.OrderId.ToString(), order.Wallet, order.Symbol, warningMessage);
+        _copyOrderResultService.SaveWarning(order.OrderId.ToString(), order.Wallet, order.Symbol, warningMessage);
     }
 
     private void CancelOrders(CopyOrderV2[] ordersToCancel)

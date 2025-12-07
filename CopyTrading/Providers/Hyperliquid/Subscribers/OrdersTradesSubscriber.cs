@@ -90,7 +90,7 @@ public class OrdersTradesSubscriber(
             await LoadActiveOrdersForWallet(wallet);
 
             // Инициализируем snapshot кошелька после загрузки исторических ордеров
-            await InitializeWalletSnapshotAsync(wallet);
+            await InitializeWalletSnapshot(wallet);
 
             return true;
         }
@@ -206,7 +206,7 @@ public class OrdersTradesSubscriber(
     /// Получает информацию о кошельке через WalletInfoProvider и создает snapshot для CurrentWalletPositionService.
     /// </summary>
     /// <param name="wallet">Кошелек для инициализации snapshot</param>
-    private async Task InitializeWalletSnapshotAsync(Wallet wallet)
+    private async Task InitializeWalletSnapshot(Wallet wallet)
     {
         try
         {
