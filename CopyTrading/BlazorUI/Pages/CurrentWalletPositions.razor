@@ -7,6 +7,7 @@
 @using CopyTrading.Models.Models.Enums.Order
 @inject ICurrentWalletPositionService CurrentWalletPositionService
 @inject IFillsOrderService FillsOrderService
+@inject ICopyOrderStorageService CopyOrderStorageService
 @inject NavigationManager NavigationManager
 
 <h3>Отслеживаемые позиции кошельков</h3>
@@ -131,12 +132,14 @@
                                             <th>Filled</th>
                                             <th>Price</th>
                                             <th>Time</th>
+                                            <th>CopyOrderId</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         @foreach (var orderFills in GetSortedOrders(openOrders))
                                         {
                                             var order = orderFills.OriginalOrder;
+                                            var copyOrders = GetCopyOrders(order.OrderId);
                                             <tr>
                                                 <td><code>@order.OrderId</code></td>
                                                 <td><strong>@order.Symbol</strong></td>
@@ -154,13 +157,26 @@
                                                 <td>@order.Quantity.ToString("F4")</td>
                                                 <td>
                                                     @orderFills.FilledQuantity.ToString("F4")
-                                                    @if (orderFills.FilledQuantity > 0)
+                                                    @if (orderFills.FilledQuantity > 0 && order.Quantity > 0)
                                                     {
                                                         <small class="text-muted">(@((orderFills.FilledQuantity / order.Quantity * 100).ToString("F0"))%)</small>
                                                     }
                                                 </td>
                                                 <td>$@order.Price.ToString("F2")</td>
                                                 <td><small>@order.Time.ToString("HH:mm:ss")</small></td>
+                                                <td>
+                                                    @if (copyOrders.Length > 0)
+                                                    {
+                                                        @foreach (var copyOrder in copyOrders)
+                                                        {
+                                                            <code class="d-block">@copyOrder.OrderId</code>
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        <small class="text-muted">-</small>
+                                                    }
+                                                </td>
                                             </tr>
                                         }
                                     </tbody>
@@ -228,6 +244,11 @@
     private void NavigateToWallet(Wallet wallet)
     {
         NavigationManager.NavigateTo($"/wallet/{wallet.Value}");
+    }
+
+    private CopyTrading.Models.Models.Orders.CopyOrderV2[] GetCopyOrders(long originalOrderId)
+    {
+        return CopyOrderStorageService.GetOrdersByOriginalOrderId(originalOrderId);
     }
 }
 
