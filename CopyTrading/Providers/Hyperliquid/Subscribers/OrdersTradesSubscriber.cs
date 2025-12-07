@@ -92,6 +92,13 @@ public class OrdersTradesSubscriber(
             // Инициализируем snapshot кошелька после загрузки исторических ордеров
             await InitializeWalletSnapshot(wallet);
 
+            // Проверяем, подписаны ли уже на трейды - если да, генерируем событие полной подписки
+            if (_tradeSubscribes.Contains(wallet))
+            {
+                DataBusEvents.WalletSubscribed?.Invoke(wallet);
+                _logger.LogInformation($"Кошелек {wallet} полностью подписан (ордера + трейды)");
+            }
+
             return true;
         }
         else
@@ -150,6 +157,14 @@ public class OrdersTradesSubscriber(
         {
             _tradeSubscribes.Add(wallet);
             _logger.LogInformation($"Успешно подписались на Trades {wallet}");
+
+            // Проверяем, подписаны ли уже на ордера - если да, генерируем событие полной подписки
+            if (_orderSubscribes.Contains(wallet))
+            {
+                DataBusEvents.WalletSubscribed?.Invoke(wallet);
+                _logger.LogInformation($"Кошелек {wallet} полностью подписан (ордера + трейды)");
+            }
+
             return true;
         }
         else

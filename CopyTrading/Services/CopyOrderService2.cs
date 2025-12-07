@@ -12,18 +12,48 @@ namespace CopyTrading.Services;
 /// <summary>
 /// Сервис для непостредственного копирования ордеров и размещения на бирже
 /// </summary>
-public class CopyOrderService2(
-    IActiveWindowService _activeWindowService,
-    IBaselinePositionService _baselinePositionService,
-    ICurrentWalletPositionService _currentWalletPositionService,
-    ICopyOrderStorageService _copyOrderStorageService,
-    IWalletInfoProvider _walletProvider,
-    IExchangeInfoProvider _exchangeInfoProvider,
-    ICopyTradeWalletSettingsService _walletSettingsService,
-    ICopyOrderResultService _copyOrderResultService,
-    ILogger<CopyOrderService2> _logger) : ICopyOrderService
+public class CopyOrderService2 : ICopyOrderService
 {
+    private readonly IActiveWindowService _activeWindowService;
+    private readonly IBaselinePositionService _baselinePositionService;
+    private readonly ICurrentWalletPositionService _currentWalletPositionService;
+    private readonly ICopyOrderStorageService _copyOrderStorageService;
+    private readonly IWalletInfoProvider _walletProvider;
+    private readonly IExchangeInfoProvider _exchangeInfoProvider;
+    private readonly ICopyTradeWalletSettingsService _walletSettingsService;
+    private readonly ICopyOrderResultService _copyOrderResultService;
+    private readonly ILogger<CopyOrderService2> _logger;
     private readonly Wallet _myWallet = WalletSettings.MyWallet;
+
+    public CopyOrderService2(
+        IActiveWindowService activeWindowService,
+        IBaselinePositionService baselinePositionService,
+        ICurrentWalletPositionService currentWalletPositionService,
+        ICopyOrderStorageService copyOrderStorageService,
+        IWalletInfoProvider walletProvider,
+        IExchangeInfoProvider exchangeInfoProvider,
+        ICopyTradeWalletSettingsService walletSettingsService,
+        ICopyOrderResultService copyOrderResultService,
+        ILogger<CopyOrderService2> logger)
+    {
+        _activeWindowService = activeWindowService;
+        _baselinePositionService = baselinePositionService;
+        _currentWalletPositionService = currentWalletPositionService;
+        _copyOrderStorageService = copyOrderStorageService;
+        _walletProvider = walletProvider;
+        _exchangeInfoProvider = exchangeInfoProvider;
+        _walletSettingsService = walletSettingsService;
+        _copyOrderResultService = copyOrderResultService;
+        _logger = logger;
+
+        // Подписываемся на событие полной подписки кошелька
+        DataBusEvents.WalletSubscribed += OnWalletSubscribed;
+    }
+
+    private void OnWalletSubscribed(Wallet wallet)
+    {
+        _logger.LogInformation($"CopyOrderService2.OnWalletSubscribed: Кошелек {wallet} полностью подписан");
+    }
 
     public async Task OnNewOrders(OriginalOrder[] orders)
     {

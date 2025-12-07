@@ -1,6 +1,7 @@
 ﻿using CopyTrading.Models.Models.Enums.Order;
 using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Models.Trade;
+using CopyTrading.Models.Values;
 
 namespace CopyTrading.DataEvents;
 
@@ -22,6 +23,12 @@ public static class DataBusEvents
     public static Action<long> CopyOrderCancelRequested;
 
     /// <summary>
+    /// Событие успешной подписки на кошелек (и на ордера, и на трейды).
+    /// Параметр: Wallet - кошелек
+    /// </summary>
+    public static Action<Wallet> WalletSubscribed;
+
+    /// <summary>
     /// Очистить все подписки на события (используется для тестирования)
     /// ВНИМАНИЕ: После вызова этого метода все сервисы должны быть пересозданы
     /// для повторной подписки на события!
@@ -33,5 +40,6 @@ public static class DataBusEvents
         OrderFinished = null;
         CopyOrderCreated = null;
         CopyOrderCancelRequested = null;
+        WalletSubscribed = null;
     }
 }
