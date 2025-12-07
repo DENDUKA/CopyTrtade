@@ -18,6 +18,7 @@ public class CopyOrderService2 : ICopyOrderService
     private readonly IBaselinePositionService _baselinePositionService;
     private readonly ICurrentWalletPositionService _currentWalletPositionService;
     private readonly ICopyOrderStorageService _copyOrderStorageService;
+    private readonly IFillsOrderService _fillsOrderService;
     private readonly IWalletInfoProvider _walletProvider;
     private readonly IExchangeInfoProvider _exchangeInfoProvider;
     private readonly ICopyTradeWalletSettingsService _walletSettingsService;
@@ -30,6 +31,7 @@ public class CopyOrderService2 : ICopyOrderService
         IBaselinePositionService baselinePositionService,
         ICurrentWalletPositionService currentWalletPositionService,
         ICopyOrderStorageService copyOrderStorageService,
+        IFillsOrderService fillsOrderService,
         IWalletInfoProvider walletProvider,
         IExchangeInfoProvider exchangeInfoProvider,
         ICopyTradeWalletSettingsService walletSettingsService,
@@ -40,6 +42,7 @@ public class CopyOrderService2 : ICopyOrderService
         _baselinePositionService = baselinePositionService;
         _currentWalletPositionService = currentWalletPositionService;
         _copyOrderStorageService = copyOrderStorageService;
+        _fillsOrderService = fillsOrderService;
         _walletProvider = walletProvider;
         _exchangeInfoProvider = exchangeInfoProvider;
         _walletSettingsService = walletSettingsService;
@@ -54,20 +57,18 @@ public class CopyOrderService2 : ICopyOrderService
     {
         _logger.LogInformation($"CopyOrderService2.OnWalletSubscribed: Кошелек {wallet} полностью подписан");
 
-        // Получаем snapshot позиций для кошелька
-        var snapshot = await _currentWalletPositionService.GetSnapshot(wallet);
+        // Получаем все открытые (pending) ордера для кошелька
+        var openOrders = _fillsOrderService.GetOpenOrdersByWallet(wallet);
 
-        if (snapshot == null || snapshot.Positions == null || snapshot.Positions.Count == 0)
-        {
-            _logger.LogInformation($"CopyOrderService2.OnWalletSubscribed: У кошелька {wallet} нет открытых позиций");
-            return;
-        }
-
-        // Получаем уникальные символы из позиций
-        var symbols = snapshot.Positions.Select(p => p.Symbol).Distinct().ToArray();
+        // Получаем уникальные символы из ожидающих ордеров
+        var symbols = openOrders
+            .Select(orderFills => orderFills.OriginalOrder.Symbol)
+            .Distinct()
+            .ToArray();
 
         _logger.LogInformation(
-            $"CopyOrderService2.OnWalletSubscribed: Обработка {symbols.Length} символов для кошелька {wallet}: [{string.Join(", ", symbols)}]");
+            $"CopyOrderService2.OnWalletSubscribed: Найдено {openOrders.Length} открытых ордеров, " +
+            $"{symbols.Length} уникальных символов для кошелька {wallet}: [{string.Join(", ", symbols)}]");
 
         // Обрабатываем ордера для каждого символа
         foreach (var symbol in symbols)
@@ -241,6 +242,13 @@ public class CopyOrderService2 : ICopyOrderService
     /// </summary>
     private async Task<CopyOrderV2> CreateCopyOrder(OriginalOrder order)
     {
+        if (order.Quantity <= 0)
+        {
+            var errorMsg = $"Quantity оригинального ордера должно быть > 0 (текущее значение: {order.Quantity})";
+            _logger.LogError($"CopyOrderService2.CreateCopyOrder: OrderId={order.OrderId} {errorMsg}");
+            throw new InvalidOperationException(errorMsg);
+        }
+
         // Получаем информацию о кошельке трейдера
         var traderWalletInfo = await _walletProvider.GetInfo(order.Wallet);
 
