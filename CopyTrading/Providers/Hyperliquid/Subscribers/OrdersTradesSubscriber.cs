@@ -1,12 +1,14 @@
 ﻿using CopyTrading.DataEvents;
 using CopyTrading.Mappers;
 using CopyTrading.Models.Models;
+using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Values;
 using CopyTrading.Providers.Hyperliquid.Interfaces;
 using CopyTrading.Providers.Hyperliquid.Providers;
 using CopyTrading.Services.Interfaces;
 using CryptoExchange.Net.Objects;
 using HyperLiquid.Net.Clients;
+using HyperLiquid.Net.Objects.Models;
 
 namespace CopyTrading.Providers.Hyperliquid.Subscribers;
 
@@ -37,7 +39,7 @@ public class OrdersTradesSubscriber(
     //Подумать над onDisconnect Event
     public async Task SubscribeToNewOrders(Wallet[] wallets)
     {
-        var walletsForSubscribe = new List<Wallet>();      
+        var walletsForSubscribe = new List<Wallet>();
 
         foreach (var wallet in wallets)
         {
@@ -72,12 +74,7 @@ public class OrdersTradesSubscriber(
         HyperLiquidSocketClient _socketClient = new();
 
         var response = await _socketClient.FuturesApi.SubscribeToOrderUpdatesAsync(wallet.Value,
-            (newOrders) =>
-            {
-                DataBusEvents.NewOrders.Invoke([.. newOrders.Data
-                    .Where(x => x.Order.Quantity != 0)
-                    .Select(x => x.ToBll(wallet))]);
-            });
+            (newOrders) => OnOrdersReceived(newOrders.Data, wallet));
 
         _pendingOrderSubscribes.Remove(wallet);
 
@@ -187,6 +184,7 @@ public class OrdersTradesSubscriber(
             _logger.LogInformation($"LoadActiveOrdersForWallet: Загрузка открытых ордеров для {wallet}");
 
             var activeOrders = await _ordersProvider.GetActiveOrders(wallet);
+            activeOrders = activeOrders.Where(x => !x.Symbol.Contains('/')).ToArray();
 
             if (activeOrders.Length == 0)
             {
@@ -247,5 +245,21 @@ public class OrdersTradesSubscriber(
         {
             _logger.LogError(ex, $"InitializeWalletSnapshot: Ошибка при инициализации snapshot для {wallet}");
         }
+    }
+
+    /// <summary>
+    /// Обрабатывает полученные ордера из WebSocket подписки.
+    /// Фильтрует ордера с нулевым количеством и вызывает событие NewOrders.
+    /// </summary>
+    /// <param name="orderUpdates">Коллекция обновлений ордеров из WebSocket</param>
+    /// <param name="wallet">Кошелек, для которого получены ордера</param>
+    private static void OnOrdersReceived(IEnumerable<HyperLiquidOrderStatus> orderUpdates, Wallet wallet)
+    {
+        OriginalOrder[] newOrders = [.. orderUpdates
+            .Where(x => x.Order.Quantity != 0)
+            .Select(x => x.ToBll(wallet))
+            .Where(x => !x.Symbol.Contains('/'))];
+
+        DataBusEvents.NewOrders.Invoke(newOrders);
     }
 }
