@@ -23,7 +23,15 @@
       "Bash(Select-String \"(Build succeeded|Build FAILED|Passed!|Failed!|пройдено|не пройдено|error CS)\" -Context 0,2)",
       "Bash(Select-String \"(Build succeeded|Build FAILED|error CS)\")",
       "Bash(timeout 30 dotnet run:*)",
-      "Bash(Select-String \"(Build succeeded|Build FAILED|error CS)\" -Context 0,2)"
+      "Bash(Select-String \"(Build succeeded|Build FAILED|error CS)\" -Context 0,2)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker compose:*)",
+      "Bash(docker-compose ps:*)",
+      "Bash(docker-compose logs:*)",
+      "Bash(docker-compose down:*)",
+      "Bash(docker-compose exec:*)",
+      "Bash(Select-String -Pattern \"(Importing|Server|Configuration)\" -Context 0,2)",
+      "Bash(docker exec:*)"
     ],
     "deny": [],
     "ask": []

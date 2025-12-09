@@ -1,0 +1,14 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "CopyTrading PostgreSQL",
+      "Group": "Servers",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "copytrading",
+      "Username": "copytrading_user",
+      "SSLMode": "prefer",
+      "PassFile": "/pgpass"
+    }
+  }
+}

@@ -1,6 +1,6 @@
 using CopyTrading.Models.Models;
 using CopyTrading.Models.Values;
-using CopyTrading.Repository.SQLite;
+using CopyTrading.Repository.SQLInterfaces.Interfaces;
 using CopyTrading.Services.Interfaces;
 using CopyTrading.Settings;
 using System.Collections.Concurrent;

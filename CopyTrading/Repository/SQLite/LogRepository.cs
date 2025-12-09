@@ -1,4 +1,5 @@
-﻿using CopyTrading.Settings;
+﻿using CopyTrading.Repository.SQLInterfaces.Interfaces;
+using CopyTrading.Settings;
 using Microsoft.Data.Sqlite;
 
 namespace CopyTrading.Repository.SQLite;

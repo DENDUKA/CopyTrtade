@@ -1,13 +1,14 @@
 ﻿using CopyTrading.Providers.Hyperliquid.Interfaces;
 using CopyTrading.Providers.Hyperliquid.Providers;
 using CopyTrading.Providers.Hyperliquid.Subscribers;
-using CopyTrading.Repository.Influx.Interfaces;
+using CopyTrading.Repository.InfluxInterfaces;
+using CopyTrading.Repository.SQLInterfaces.Interfaces;
 using CopyTrading.Services;
 using CopyTrading.Services.Interfaces;
 using CopyTrading.Settings;
 using Serilog;
 using Serilog.Ui.Core.Extensions;
-using Serilog.Ui.SqliteDataProvider.Extensions;
+using Serilog.Ui.PostgreSqlProvider.Extensions;
 using Serilog.Ui.Web.Extensions;
 
 namespace CopyTrading;
@@ -20,11 +21,17 @@ public class Startup
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
 
+        var postgresSettings = configuration.GetSection("PostgreSQL").Get<PostgreSQLSettings>() ?? new PostgreSQLSettings();
+        var connectionString = postgresSettings.GetConnectionString();
+
         Log.Logger = new LoggerConfiguration()
             .ReadFrom.Configuration(configuration)
-            .WriteTo.SQLite(SQLLiteSettings.Path, maxDatabaseSize:0)
+            .WriteTo.PostgreSQL(
+                connectionString: connectionString,
+                tableName: "Logs",
+                needAutoCreateTable: true)
             .WriteTo.Console()
-            .WriteTo.File("logs/copytrading-.log", 
+            .WriteTo.File("logs/copytrading-.log",
                 rollingInterval: RollingInterval.Day,
                 outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
             .CreateLogger();
@@ -35,6 +42,10 @@ public class Startup
         // Logging
         services.AddLogging(loggingBuilder =>
             loggingBuilder.AddSerilog(dispose: true));
+
+        // PostgreSQL Settings
+        var postgresSettings = _configuration.GetSection("PostgreSQL").Get<PostgreSQLSettings>() ?? new PostgreSQLSettings();
+        services.AddSingleton(postgresSettings);
 
         services.AddMemoryCache();
 
@@ -79,25 +90,24 @@ public class Startup
         services.AddSingleton<IOrdersTradesSubscriber, OrdersTradesSubscriber>();
 
         // InfluxDB Repositories
-        services.AddSingleton<IOrderRepository, Repository.Influx.OrderRepository>();
-        services.AddSingleton<ITradeRepository, Repository.Influx.TradeRepository>();
+        services.AddSingleton<Repository.InfluxInterfaces.IOrderRepository, Repository.Influx.OrderRepository>();
+        services.AddSingleton<Repository.InfluxInterfaces.ITradeRepository, Repository.Influx.TradeRepository>();
         services.AddSingleton<ICandlesRepository, Repository.Influx.CandlesRepository>();
 
-        // SQLite Repositories
-        services.AddSingleton<Repository.SQLite.IOrderRepository, Repository.SQLite.OrderRepository>();
-        services.AddSingleton<Repository.SQLite.ITradeRepository, Repository.SQLite.TradeRepository>();
-        services.AddSingleton<Repository.SQLite.IWalletInfoRepository, Repository.SQLite.WalletInfoRepository>();
-        services.AddSingleton<Repository.SQLite.IWalletSettingsRepository, Repository.SQLite.WalletSettingsRepository>();
-        services.AddSingleton<Repository.SQLite.ILogRepository, Repository.SQLite.LogRepository>();
+        // Database Repositories - Use PostgreSQL
+        services.AddSingleton<Repository.SQLInterfaces.Interfaces.IOrderRepository, Repository.PostgreSQL.OrderRepository>();
+        services.AddSingleton<Repository.SQLInterfaces.Interfaces.ITradeRepository, Repository.PostgreSQL.TradeRepository>();
+        services.AddSingleton<IWalletInfoRepository, Repository.PostgreSQL.WalletInfoRepository>();
+        services.AddSingleton<IWalletSettingsRepository, Repository.PostgreSQL.WalletSettingsRepository>();
+        services.AddSingleton<ILogRepository, Repository.PostgreSQL.LogRepository>();
 
-        // Serilog UI
+        // Serilog UI - Use PostgreSQL
         services.AddSerilogUi(options =>
         {
-            options.UseSqliteServer(sqlLiteOptions =>
+            options.UseNpgSql(opt =>
             {
-                sqlLiteOptions
-                .WithConnectionString($"Data Source={SQLLiteSettings.Path}")
-                .WithTable("Logs");
+                opt.WithConnectionString(postgresSettings.GetConnectionString())
+                   .WithTable("Logs");
             });
         });
     }

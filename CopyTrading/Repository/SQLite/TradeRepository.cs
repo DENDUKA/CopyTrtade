@@ -2,6 +2,7 @@
 using CopyTrading.Models.Models.Enums.Order;
 using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Models.Trade;
+using CopyTrading.Repository.SQLInterfaces.Interfaces;
 using CopyTrading.Repository.SQLite.Dto;
 using CopyTrading.Settings;
 using Microsoft.Data.Sqlite;

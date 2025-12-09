@@ -1,0 +1,482 @@
+{
+    "type": "database",
+    "name": "CopyTradingDB",
+    "objects": [
+        {
+            "type": "table",
+            "database": null,
+            "name": "Logs",
+            "withoutRowId": false,
+            "strict": false,
+            "ddl": "CREATE TABLE Logs (id INTEGER PRIMARY KEY AUTOINCREMENT,Timestamp TEXT,Level VARCHAR(10),Exception TEXT,RenderedMessage TEXT,Properties TEXT)",
+            "columns": [
+                {
+                    "name": "id",
+                    "type": "INTEGER",
+                    "constraints": [
+                        {
+                            "type": "PRIMARY KEY",
+                            "definition": "PRIMARY KEY AUTOINCREMENT"
+                        }
+                    ]
+                },
+                {
+                    "name": "Timestamp",
+                    "type": "TEXT"
+                },
+                {
+                    "name": "Level",
+                    "type": "VARCHAR"
+                },
+                {
+                    "name": "Exception",
+                    "type": "TEXT"
+                },
+                {
+                    "name": "RenderedMessage",
+                    "type": "TEXT"
+                },
+                {
+                    "name": "Properties",
+                    "type": "TEXT"
+                }
+            ],
+            "rows": [
+            ]
+        },
+        {
+            "type": "table",
+            "database": null,
+            "name": "MinPerpEquityForOrders",
+            "withoutRowId": false,
+            "strict": false,
+            "ddl": "CREATE TABLE \"MinPerpEquityForOrders\" (\n\t\"OrderId\"\tINTEGER NOT NULL,\n\t\"AccountVolume\"\tREAL NOT NULL,\n\t\"MinPE\"\tREAL NOT NULL,\n\t\"SubType\"\tTEXT NOT NULL,\n\tPRIMARY KEY(\"OrderId\")\n)",
+            "columns": [
+                {
+                    "name": "OrderId",
+                    "type": "INTEGER",
+                    "constraints": [
+                        {
+                            "type": "NOT NULL",
+                            "definition": "NOT NULL"
+                        }
+                    ]
+                },
+                {
+                    "name": "AccountVolume",
+                    "type": "REAL",
+                    "constraints": [
+                        {
+                            "type": "NOT NULL",
+                            "definition": "NOT NULL"
+                        }
+                    ]
+                },
+                {
+                    "name": "MinPE",
+                    "type": "REAL",
+                    "constraints": [
+                        {
+                            "type": "NOT NULL",
+                            "definition": "NOT NULL"
+                        }
+                    ]
+                },
+                {
+                    "name": "SubType",
+                    "type": "TEXT",
+                    "constraints": [
+                        {
+                            "type": "NOT NULL",
+                            "definition": "NOT NULL"
+                        }
+                    ]
+                }
+            ],
+            "constraints": [
+                {
+                    "type": "PRIMARY KEY",
+                    "definition": "PRIMARY KEY(\"OrderId\")\n"
+                }
+            ],
+            "rows": [
+            ]
+        },
+        {
+            "type": "table",
+            "database": null,
+            "name": "MinPerpEquityForTrades",
+            "withoutRowId": false,
+            "strict": false,
+            "ddl": "CREATE TABLE \"MinPerpEquityForTrades\" (\n\t\"TradeId\"\tINTEGER NOT NULL,\n\t\"WalletPerpEquity\"\tREAL NOT NULL,\n\t\"MinPerpEquityForCopyTrade\"\tREAL NOT NULL,\n\t\"Spread\"\tREAL NOT NULL,\n\t\"DeltaTimeS\"\tREAL NOT NULL,\n\t\"SubType\"\tTEXT NOT NULL,\n\tPRIMARY KEY(\"TradeId\")\n)",
+            "columns": [
+                {
+                    "name": "TradeId",
+                    "type": "INTEGER",
+                    "constraints": [
+                        {
+                            "type": "NOT NULL",
+                            "definition": "NOT NULL"
+                        }
+                    ]
+                },
+                {
+                    "name": "WalletPerpEquity",
+                    "type": "REAL",
+                    "constraints": [
+                        {
+                            "type": "NOT NULL",
+                            "definition": "NOT NULL"
+                        }
+                    ]
+                },
+                {
+                    "name": "MinPerpEquityForCopyTrade",
+                    "type": "REAL",
+                    "constraints": [
+                        {
+                            "type": "NOT NULL",
+                            "definition": "NOT NULL"
+                        }
+                    ]
+                },
+                {
+                    "name": "Spread",
+                    "type": "REAL",
+                    "constraints": [
+                        {
+                            "type": "NOT NULL",
+                            "definition": "NOT NULL"
+                        }
+                    ]
+                },
+                {
+                    "name": "DeltaTimeS",
+                    "type": "REAL",
+                    "constraints": [
+                        {
+                            "type": "NOT NULL",
+                            "definition": "NOT NULL"
+                        }
+                    ]
+                },
+                {
+                    "name": "SubType",
+                    "type": "TEXT",
+                    "constraints": [
+                        {
+                            "type": "NOT NULL",
+                            "definition": "NOT NULL"
+                        }
+                    ]
+                }
+            ],
+            "constraints": [
+                {
+                    "type": "PRIMARY KEY",
+                    "definition": "PRIMARY KEY(\"TradeId\")\n"
+                }
+            ],
+            "rows": [
+            ]
+        },
+        {
+            "type": "table",
+            "database": null,
+            "name": "Orders",
+            "withoutRowId": false,
+            "strict": false,
+            "ddl": "CREATE TABLE \"Orders\" (\n\t\"OrderId\"\tINTEGER NOT NULL,\n\t\"Wallet\"\tTEXT NOT NULL,\n\t\"Time\"\tTEXT NOT NULL,\n\t\"Symbol\"\tTEXT NOT NULL,\n\t\"Direction\"\tTEXT NOT NULL,\n\t\"Price\"\tREAL NOT NULL,\n\t\"Size\"\tREAL NOT NULL,\n\t\"Value\"\tREAL NOT NULL,\n\t\"Status\"\tTEXT NOT NULL,\n\tPRIMARY KEY(\"OrderId\")\n)",
+            "columns": [
+                {
+                    "name": "OrderId",
+                    "type": "INTEGER",
+                    "constraints": [
+                        {
+                            "type": "NOT NULL",
+                            "definition": "NOT NULL"
+                        }
+                    ]
+                },
+                {
+                    "name": "Wallet",
+                    "type": "TEXT",
+                    "constraints": [
+                        {
+                            "type": "NOT NULL",
+                            "definition": "NOT NULL"
+                        }
+                    ]
+                },
+                {
+                    "name": "Time",
+                    "type": "TEXT",
+                    "constraints": [
+                        {
+                            "type": "NOT NULL",
+                            "definition": "NOT NULL"
+                        }
+                    ]
+                },
+                {
+                    "name": "Symbol",
+                    "type": "TEXT",
+                    "constraints": [
+                        {
+                            "type": "NOT NULL",
+                            "definition": "NOT NULL"
+                        }
+                    ]
+                },
+                {
+                    "name": "Direction",
+                    "type": "TEXT",
+                    "constraints": [
+                        {
+                            "type": "NOT NULL",
+                            "definition": "NOT NULL"
+                        }
+                    ]
+                },
+                {
+                    "name": "Price",
+                    "type": "REAL",
+                    "constraints": [
+                        {
+                            "type": "NOT NULL",
+                            "definition": "NOT NULL"
+                        }
+                    ]
+                },
+                {
+                    "name": "Size",
+                    "type": "REAL",
+                    "constraints": [
+                        {
+                            "type": "NOT NULL",
+                            "definition": "NOT NULL"
+                        }
+                    ]
+                },
+                {
+                    "name": "Value",
+                    "type": "REAL",
+                    "constraints": [
+                        {
+                            "type": "NOT NULL",
+                            "definition": "NOT NULL"
+                        }
+                    ]
+                },
+                {
+                    "name": "Status",
+                    "type": "TEXT",
+                    "constraints": [
+                        {
+                            "type": "NOT NULL",
+                            "definition": "NOT NULL"
+                        }
+                    ]
+                }
+            ],
+            "constraints": [
+                {
+                    "type": "PRIMARY KEY",
+                    "definition": "PRIMARY KEY(\"OrderId\")\n"
+                }
+            ],
+            "rows": [
+            ]
+        },
+        {
+            "type": "table",
+            "database": null,
+            "name": "Trades",
+            "withoutRowId": false,
+            "strict": false,
+            "ddl": "CREATE TABLE \"Trades\" (\n\t\"TradeId\"\tINTEGER NOT NULL,\n\t\"Wallet\"\tTEXT NOT NULL,\n\t\"TradeVolume\"\tREAL NOT NULL,\n\t\"Symbol\"\tTEXT NOT NULL,\n\t\"Time\"\tTEXT NOT NULL,\n\t\"OrderId\"\tINTEGER NOT NULL,\n\t\"Direction\"\tTEXT NOT NULL,\n\t\"Price\"\tREAL,\n\t\"Quantity\"\tREAL,\n\tPRIMARY KEY(\"TradeId\")\n)",
+            "columns": [
+                {
+                    "name": "TradeId",
+                    "type": "INTEGER",
+                    "constraints": [
+                        {
+                            "type": "NOT NULL",
+                            "definition": "NOT NULL"
+                        }
+                    ]
+                },
+                {
+                    "name": "Wallet",
+                    "type": "TEXT",
+                    "constraints": [
+                        {
+                            "type": "NOT NULL",
+                            "definition": "NOT NULL"
+                        }
+                    ]
+                },
+                {
+                    "name": "TradeVolume",
+                    "type": "REAL",
+                    "constraints": [
+                        {
+                            "type": "NOT NULL",
+                            "definition": "NOT NULL"
+                        }
+                    ]
+                },
+                {
+                    "name": "Symbol",
+                    "type": "TEXT",
+                    "constraints": [
+                        {
+                            "type": "NOT NULL",
+                            "definition": "NOT NULL"
+                        }
+                    ]
+                },
+                {
+                    "name": "Time",
+                    "type": "TEXT",
+                    "constraints": [
+                        {
+                            "type": "NOT NULL",
+                            "definition": "NOT NULL"
+                        }
+                    ]
+                },
+                {
+                    "name": "OrderId",
+                    "type": "INTEGER",
+                    "constraints": [
+                        {
+                            "type": "NOT NULL",
+                            "definition": "NOT NULL"
+                        }
+                    ]
+                },
+                {
+                    "name": "Direction",
+                    "type": "TEXT",
+                    "constraints": [
+                        {
+                            "type": "NOT NULL",
+                            "definition": "NOT NULL"
+                        }
+                    ]
+                },
+                {
+                    "name": "Price",
+                    "type": "REAL"
+                },
+                {
+                    "name": "Quantity",
+                    "type": "REAL"
+                }
+            ],
+            "constraints": [
+                {
+                    "type": "PRIMARY KEY",
+                    "definition": "PRIMARY KEY(\"TradeId\")\n"
+                }
+            ],
+            "rows": [
+            ]
+        },
+        {
+            "type": "table",
+            "database": null,
+            "name": "WalletSettings",
+            "withoutRowId": false,
+            "strict": false,
+            "ddl": "CREATE TABLE WalletSettings (\r\n\tWallet TEXT NOT NULL,\r\n\tValueUsd REAL NOT NULL, CopyKoef REAL DEFAULT (1) NOT NULL,\r\n\tCONSTRAINT WalletSettings_PK PRIMARY KEY (Wallet)\r\n)",
+            "columns": [
+                {
+                    "name": "Wallet",
+                    "type": "TEXT",
+                    "constraints": [
+                        {
+                            "type": "NOT NULL",
+                            "definition": "NOT NULL"
+                        }
+                    ]
+                },
+                {
+                    "name": "ValueUsd",
+                    "type": "REAL",
+                    "constraints": [
+                        {
+                            "type": "NOT NULL",
+                            "definition": "NOT NULL"
+                        }
+                    ]
+                },
+                {
+                    "name": "CopyKoef",
+                    "type": "REAL",
+                    "constraints": [
+                        {
+                            "type": "DEFAULT",
+                            "definition": "DEFAULT (1) "
+                        },
+                        {
+                            "type": "NOT NULL",
+                            "definition": "NOT NULL"
+                        }
+                    ]
+                }
+            ],
+            "constraints": [
+                {
+                    "type": "PRIMARY KEY",
+                    "definition": "PRIMARY KEY (Wallet)\r\n"
+                }
+            ],
+            "rows": [
+            ]
+        },
+        {
+            "type": "table",
+            "database": null,
+            "name": "WalletSnapshotPositions",
+            "withoutRowId": false,
+            "strict": false,
+            "ddl": "CREATE TABLE \"WalletSnapshotPositions\" (\n\t\"Wallet\"\tTEXT NOT NULL,\n\t\"DateTime\"\tTEXT NOT NULL,\n\t\"Positions\"\tTEXT NOT NULL\n)",
+            "columns": [
+                {
+                    "name": "Wallet",
+                    "type": "TEXT",
+                    "constraints": [
+                        {
+                            "type": "NOT NULL",
+                            "definition": "NOT NULL"
+                        }
+                    ]
+                },
+                {
+                    "name": "DateTime",
+                    "type": "TEXT",
+                    "constraints": [
+                        {
+                            "type": "NOT NULL",
+                            "definition": "NOT NULL"
+                        }
+                    ]
+                },
+                {
+                    "name": "Positions",
+                    "type": "TEXT",
+                    "constraints": [
+                        {
+                            "type": "NOT NULL",
+                            "definition": "NOT NULL\n"
+                        }
+                    ]
+                }
+            ],
+            "rows": [
+            ]
+        }
+    ]
+}

@@ -7,9 +7,9 @@ using CopyTrading.Providers.Hyperliquid.Interfaces;
 using CopyTrading.Providers.Hyperliquid.Subscribers;
 using CopyTrading.Services.Interfaces;
 using CopyTrading.Settings;
-using IOrderRepositoryInflux = CopyTrading.Repository.Influx.Interfaces.IOrderRepository;
-using ISQLLiteOrderRepository = CopyTrading.Repository.SQLite.IOrderRepository;
-using ITradeRepositorySQL = CopyTrading.Repository.SQLite.ITradeRepository;
+using IOrderRepositoryInflux = CopyTrading.Repository.InfluxInterfaces.IOrderRepository;
+using ISQLLiteOrderRepository = CopyTrading.Repository.SQLInterfaces.Interfaces.IOrderRepository;
+using ITradeRepositorySQL = CopyTrading.Repository.SQLInterfaces.Interfaces.ITradeRepository;
 
 namespace CopyTrading.Services;
 

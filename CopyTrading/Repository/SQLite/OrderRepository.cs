@@ -1,5 +1,6 @@
 ﻿using CopyTrading.Extensions;
 using CopyTrading.Models.Models.Orders;
+using CopyTrading.Repository.SQLInterfaces.Interfaces;
 using CopyTrading.Settings;
 using Microsoft.Data.Sqlite;
 

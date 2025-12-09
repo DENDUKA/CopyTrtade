@@ -4,8 +4,8 @@ using CopyTrading.Models.Values;
 using CopyTrading.Providers.Hyperliquid.Subscribers;
 using CopyTrading.Services.Interfaces;
 using CopyTrading.Settings;
-using ITradeRepositorySQL = CopyTrading.Repository.SQLite.ITradeRepository;
-using ITradeRepositoryInflux = CopyTrading.Repository.Influx.Interfaces.ITradeRepository;
+using ITradeRepositorySQL = CopyTrading.Repository.SQLInterfaces.Interfaces.ITradeRepository;
+using ITradeRepositoryInflux = CopyTrading.Repository.InfluxInterfaces.ITradeRepository;
 using CopyTrading.Providers.Hyperliquid.Interfaces;
 
 namespace CopyTrading.Services;

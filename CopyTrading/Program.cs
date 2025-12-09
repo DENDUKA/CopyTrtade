@@ -1,3 +1,4 @@
+using CopyTrading.Infrastructure;
 using Serilog;
 
 namespace CopyTrading
@@ -27,6 +28,18 @@ namespace CopyTrading
             try
             {
                 Log.Information("Запуск приложения CopyTrading");
+
+                // Check if Docker is available and start PostgreSQL container
+                var isDockerAvailable = await DockerHelper.IsDockerAvailable();
+                if (isDockerAvailable)
+                {
+                    await DockerHelper.EnsurePostgresRunning();
+                }
+                else
+                {
+                    Console.WriteLine("[Docker] Docker is not available. Assuming PostgreSQL is running locally.");
+                }
+
                 await CreateHostBuilder(args).Build().RunAsync();
                 Log.Information("Приложение CopyTrading завершено корректно");
             }

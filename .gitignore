@@ -65,3 +65,15 @@ CopyTriding.Test/bin/Debug/net8.0/CoverletSourceRootsMapping_CopyTriding.Test
 /CopyTriding.Test/bin/Debug
 /CopyTriding.Test/bin/Debug/net8.0
 CopyTriding.Test/bin/Debug/net8.0/CopyTrading.staticwebassets.endpoints.json
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# PostgreSQL data
+Database/Exports/
+Database/pgadmin/pgpass
+
+# Production settings
+appsettings.Production.json
