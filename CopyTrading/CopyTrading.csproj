@@ -23,10 +23,9 @@
     <PackageReference Include="Serilog.Settings.Configuration" Version="10.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
-    <PackageReference Include="Serilog.Sinks.PostgreSQL.Configuration" Version="1.0.1" />
     <PackageReference Include="Serilog.Sinks.SQLite" Version="6.0.0" />
     <PackageReference Include="Serilog.UI" Version="3.2.0" />
-    <PackageReference Include="Serilog.UI.PostgreSqlProvider" Version="4.0.0" />
+    <PackageReference Include="Serilog.UI.SQLiteProvider" Version="1.1.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.8.0" />
 	<PackageReference Include="WatsonWebsocket" Version="4.1.7" />
 

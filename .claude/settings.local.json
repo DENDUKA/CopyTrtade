@@ -31,7 +31,13 @@
       "Bash(docker-compose down:*)",
       "Bash(docker-compose exec:*)",
       "Bash(Select-String -Pattern \"(Importing|Server|Configuration)\" -Context 0,2)",
-      "Bash(docker exec:*)"
+      "Bash(docker exec:*)",
+      "Bash(dotnet restore:*)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "Bash(docker logs:*)",
+      "Bash(Select-String \"copytrading\")",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []

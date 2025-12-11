@@ -6,11 +6,9 @@ using CopyTrading.Repository.SQLInterfaces.Interfaces;
 using CopyTrading.Services;
 using CopyTrading.Services.Interfaces;
 using CopyTrading.Settings;
-using NpgsqlTypes;
 using Serilog;
-using Serilog.Sinks.PostgreSQL;
 using Serilog.Ui.Core.Extensions;
-using Serilog.Ui.PostgreSqlProvider.Extensions;
+using Serilog.Ui.SqliteDataProvider.Extensions;
 using Serilog.Ui.Web.Extensions;
 
 namespace CopyTrading;
@@ -23,16 +21,15 @@ public class Startup
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
 
-        var postgresSettings = configuration.GetSection("PostgreSQL").Get<PostgreSQLSettings>() ?? new PostgreSQLSettings();
-        var connectionString = postgresSettings.GetConnectionString();
+        // SQLite path for logs - check if running in Docker
+        var logsDbFullPath = GetSqliteLogsPath();
 
         Log.Logger = new LoggerConfiguration()
             .ReadFrom.Configuration(configuration)
-            .WriteTo.PostgreSQL(
-                connectionString,
-                "logs",
-                respectCase: true,
-                needAutoCreateTable: true)
+            .WriteTo.SQLite(
+                sqliteDbPath: logsDbFullPath,
+                tableName: "logs",
+                restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Information)
             .WriteTo.Console()
             .WriteTo.File("logs/copytrading-.log",
                 rollingInterval: RollingInterval.Day,
@@ -104,12 +101,14 @@ public class Startup
         services.AddSingleton<IWalletSettingsRepository, Repository.PostgreSQL.WalletSettingsRepository>();
         services.AddSingleton<ILogRepository, Repository.PostgreSQL.LogRepository>();
 
-        // Serilog UI - Use PostgreSQL
+        // Serilog UI - Use SQLite
+        var logsDbFullPath = GetSqliteLogsPath();
+
         services.AddSerilogUi(options =>
         {
-            options.UseNpgSql(opt =>
+            options.UseSqliteServer(opt =>
             {
-                opt.WithConnectionString(postgresSettings.GetConnectionString())
+                opt.WithConnectionString($"Data Source={logsDbFullPath}")
                    .WithTable("logs");
             });
         });
@@ -155,5 +154,23 @@ public class Startup
 
         // RealtimeUpdateService - отправка обновлений в UI через SignalR
         serviceProvider.GetRequiredService<BlazorUI.Services.Interfaces.IRealtimeUpdateService>();
+    }
+
+    private static string GetSqliteLogsPath()
+    {
+        // Check if running in Docker container
+        var isDocker = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true";
+
+        if (isDocker)
+        {
+            // Docker path
+            return "/app/data/sqlite/logs.db";
+        }
+        else
+        {
+            // Local development path
+            var logsDbPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "SQLliteBD", "logs.db");
+            return Path.GetFullPath(logsDbPath);
+        }
     }
 }

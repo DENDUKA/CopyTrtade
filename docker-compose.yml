@@ -20,11 +20,39 @@ services:
     networks:
       - copytrading-network
 
+  copytrading-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: copytrading-app
+    restart: unless-stopped
+    environment:
+      # PostgreSQL connection
+      PostgreSQL__Host: postgres
+      PostgreSQL__Port: 5432
+      PostgreSQL__Database: copytrading
+      PostgreSQL__Username: copytrading_user
+      PostgreSQL__Password: copytrading_password
+      # ASP.NET Core settings
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:5000
+      DOTNET_RUNNING_IN_CONTAINER: "true"
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./SQLliteBD:/app/data/sqlite  # SQLite database files (bind mount for DBeaver access)
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - copytrading-network
+
 volumes:
   postgres_data:
     driver: local
   pgadmin_data:
     driver: local
+  # sqlite_logs не нужен - используем bind mount ./SQLliteBD
 
 networks:
   copytrading-network:
