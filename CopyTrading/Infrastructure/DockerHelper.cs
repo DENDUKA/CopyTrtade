@@ -29,7 +29,7 @@ public static class DockerHelper
                 return;
             }
 
-            Console.WriteLine("[Docker] PostgreSQL container is not running, starting all containers (PostgreSQL, pgAdmin, Adminer)...");
+            Console.WriteLine("[Docker] PostgreSQL container is not running, starting all containers ...");
 
             // Start container using docker-compose
             var startResult = await StartPostgresContainer();

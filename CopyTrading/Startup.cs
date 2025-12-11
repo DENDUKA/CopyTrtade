@@ -6,7 +6,9 @@ using CopyTrading.Repository.SQLInterfaces.Interfaces;
 using CopyTrading.Services;
 using CopyTrading.Services.Interfaces;
 using CopyTrading.Settings;
+using NpgsqlTypes;
 using Serilog;
+using Serilog.Sinks.PostgreSQL;
 using Serilog.Ui.Core.Extensions;
 using Serilog.Ui.PostgreSqlProvider.Extensions;
 using Serilog.Ui.Web.Extensions;
@@ -27,8 +29,9 @@ public class Startup
         Log.Logger = new LoggerConfiguration()
             .ReadFrom.Configuration(configuration)
             .WriteTo.PostgreSQL(
-                connectionString: connectionString,
-                tableName: "Logs",
+                connectionString,
+                "logs",
+                respectCase: true,
                 needAutoCreateTable: true)
             .WriteTo.Console()
             .WriteTo.File("logs/copytrading-.log",
@@ -107,7 +110,7 @@ public class Startup
             options.UseNpgSql(opt =>
             {
                 opt.WithConnectionString(postgresSettings.GetConnectionString())
-                   .WithTable("Logs");
+                   .WithTable("logs");
             });
         });
     }

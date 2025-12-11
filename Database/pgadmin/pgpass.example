@@ -1,6 +1,0 @@
-# pgAdmin password file
-# Format: hostname:port:database:username:password
-# This file is automatically read by pgAdmin for automatic authentication
-# Copy this file to pgpass (without .example) and update with your credentials
-postgres:5432:copytrading:copytrading_user:copytrading_password
-postgres:5432:*:copytrading_user:copytrading_password

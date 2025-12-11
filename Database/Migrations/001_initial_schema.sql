@@ -2,19 +2,6 @@
 -- Migration: 001
 -- Description: Create initial database schema with all tables
 
--- Create Logs table (for Serilog)
-CREATE TABLE IF NOT EXISTS "Logs" (
-    "id" SERIAL PRIMARY KEY,
-    "Timestamp" TIMESTAMP NOT NULL,
-    "Level" VARCHAR(10),
-    "Exception" TEXT,
-    "RenderedMessage" TEXT,
-    "Properties" TEXT
-);
-
-CREATE INDEX IF NOT EXISTS "idx_logs_timestamp" ON "Logs"("Timestamp");
-CREATE INDEX IF NOT EXISTS "idx_logs_level" ON "Logs"("Level");
-
 -- Create MinPerpEquityForOrders table
 CREATE TABLE IF NOT EXISTS "MinPerpEquityForOrders" (
     "OrderId" BIGINT NOT NULL PRIMARY KEY,

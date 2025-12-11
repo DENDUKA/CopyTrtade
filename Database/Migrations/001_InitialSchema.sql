@@ -85,20 +85,3 @@ CREATE TABLE IF NOT EXISTS WalletSettings (
     ValueUsd NUMERIC NOT NULL,
     CopyKoef NUMERIC NOT NULL
 );
-
--- =============================================
--- Logs Table (for Serilog)
--- =============================================
-CREATE TABLE IF NOT EXISTS Logs (
-    Id SERIAL PRIMARY KEY,
-    Message TEXT,
-    MessageTemplate TEXT,
-    Level TEXT,
-    TimeStamp TIMESTAMP NOT NULL,
-    Exception TEXT,
-    Properties JSONB,
-    LogEvent JSONB
-);
-
-CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON Logs(TimeStamp DESC);
-CREATE INDEX IF NOT EXISTS idx_logs_level ON Logs(Level);
