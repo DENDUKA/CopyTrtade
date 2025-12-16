@@ -83,11 +83,11 @@ public class OrdersTradesSubscriber(
             _orderSubscribes.Add(wallet);
             _logger.LogInformation($"SubscribeToNewOrders Успешно подписались на {wallet}");
 
-            // Загружаем открытые ордера после успешной подписки
-            await LoadActiveOrdersForWallet(wallet);
-
-            // Инициализируем snapshot кошелька после загрузки исторических ордеров
+            // Сначала инициализируем snapshot кошелька (получаем текущие позиции)
             await InitializeWalletSnapshot(wallet);
+
+            // Затем загружаем открытые ордера и пересчитываем SubType (snapshot уже инициализирован)
+            await LoadActiveOrdersForWallet(wallet);
 
             // Проверяем, подписаны ли уже на трейды - если да, генерируем событие полной подписки
             if (_tradeSubscribes.Contains(wallet))
