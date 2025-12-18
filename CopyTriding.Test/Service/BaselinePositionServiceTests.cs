@@ -6,6 +6,7 @@ using CopyTrading.Models.Models.Trade;
 using CopyTrading.Models.Values;
 using CopyTrading.Services;
 using CopyTrading.Services.Interfaces;
+using CopyTrading.Test.Helpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -26,7 +27,14 @@ public class BaselinePositionServiceTests
         _currentWalletPositionServiceMock = new Mock<ICurrentWalletPositionService>();
         _fillsOrderServiceMock = new Mock<IFillsOrderService>();
         _loggerMock = new Mock<ILogger<BaselinePositionService>>();
-        _service = new BaselinePositionService(_currentWalletPositionServiceMock.Object, _fillsOrderServiceMock.Object, _loggerMock.Object);
+
+        var (redisMock, _) = MockRedisRepositoryFactory.Create();
+
+        _service = new BaselinePositionService(
+            _currentWalletPositionServiceMock.Object,
+            _fillsOrderServiceMock.Object,
+            redisMock.Object,
+            _loggerMock.Object);
     }
 
     #region Start() Tests

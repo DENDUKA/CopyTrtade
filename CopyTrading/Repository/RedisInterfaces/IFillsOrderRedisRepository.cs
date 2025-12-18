@@ -108,4 +108,124 @@ public interface IRedisRepository
     /// Удаляет несколько ордеров из Redis за один вызов
     /// </summary>
     Task DeleteOrders(IEnumerable<long> orderIds);
+
+    // ========== POSITION MAPPINGS ==========
+
+    /// <summary>
+    /// Сохраняет маппинг позиции в Redis
+    /// </summary>
+    Task SavePositionMapping(Models.Models.PositionMapping mapping);
+
+    /// <summary>
+    /// Получает маппинг позиции по ключу
+    /// </summary>
+    Task<Models.Models.PositionMapping?> GetPositionMapping(string key);
+
+    /// <summary>
+    /// Проверяет существование маппинга
+    /// </summary>
+    Task<bool> PositionMappingExists(string key);
+
+    /// <summary>
+    /// Удаляет маппинг позиции
+    /// </summary>
+    Task DeletePositionMapping(string key);
+
+    /// <summary>
+    /// Загружает все маппинги позиций
+    /// </summary>
+    Task<Dictionary<string, Models.Models.PositionMapping>> LoadAllPositionMappings();
+
+    /// <summary>
+    /// Загружает все маппинги для указанного трейдера
+    /// </summary>
+    Task<Models.Models.PositionMapping[]> GetMappingsByTrader(Models.Values.Wallet traderWallet);
+
+    // ========== BASELINE POSITIONS ==========
+
+    /// <summary>
+    /// Сохраняет базовую позицию в Redis
+    /// Ключ: {Wallet}_{Symbol}
+    /// Значение: decimal (количество с знаком: положительное = Long, отрицательное = Short)
+    /// </summary>
+    Task SaveBaselinePosition(Models.Values.Wallet wallet, string symbol, decimal quantity);
+
+    /// <summary>
+    /// Получает базовую позицию
+    /// </summary>
+    Task<decimal?> GetBaselinePosition(Models.Values.Wallet wallet, string symbol);
+
+    /// <summary>
+    /// Удаляет базовую позицию
+    /// </summary>
+    Task DeleteBaselinePosition(Models.Values.Wallet wallet, string symbol);
+
+    /// <summary>
+    /// Загружает все базовые позиции
+    /// </summary>
+    Task<Dictionary<string, decimal>> LoadAllBaselinePositions();
+
+    // ========== COPY ORDERS ==========
+
+    /// <summary>
+    /// Сохраняет копируемый ордер в Redis
+    /// </summary>
+    Task SaveCopyOrder(Models.Models.Orders.CopyOrderV2 copyOrder);
+
+    /// <summary>
+    /// Получает копируемый ордер по ID
+    /// </summary>
+    Task<Models.Models.Orders.CopyOrderV2?> GetCopyOrder(long orderId);
+
+    /// <summary>
+    /// Удаляет копируемый ордер
+    /// </summary>
+    Task DeleteCopyOrder(long orderId);
+
+    /// <summary>
+    /// Загружает все копируемые ордера
+    /// </summary>
+    Task<Dictionary<long, Models.Models.Orders.CopyOrderV2>> LoadAllCopyOrders();
+
+    /// <summary>
+    /// Получает копируемые ордера по оригинальному ID ордера
+    /// </summary>
+    Task<Models.Models.Orders.CopyOrderV2[]> GetCopyOrdersByOriginalId(long originalOrderId);
+
+    /// <summary>
+    /// Получает копируемые ордера по кошельку и символу трейдера
+    /// </summary>
+    Task<Models.Models.Orders.CopyOrderV2[]> GetCopyOrdersByWalletAndSymbol(Models.Values.Wallet traderWallet, string symbol);
+
+    /// <summary>
+    /// Удаляет несколько копируемых ордеров за один вызов
+    /// </summary>
+    Task DeleteCopyOrders(IEnumerable<long> orderIds);
+
+    // ========== COPY ORDER RESULTS ==========
+
+    /// <summary>
+    /// Сохраняет результат копирования ордера
+    /// </summary>
+    Task SaveCopyOrderResult(Models.Models.CopyOrderResult result);
+
+    /// <summary>
+    /// Получает результат копирования по ID оригинального ордера
+    /// </summary>
+    Task<Models.Models.CopyOrderResult?> GetCopyOrderResult(string originalOrderId);
+
+    /// <summary>
+    /// Удаляет результат копирования
+    /// </summary>
+    Task DeleteCopyOrderResult(string originalOrderId);
+
+    /// <summary>
+    /// Загружает все результаты копирования
+    /// </summary>
+    Task<Dictionary<string, Models.Models.CopyOrderResult>> LoadAllCopyOrderResults();
+
+    /// <summary>
+    /// Удаляет несколько результатов за один вызов
+    /// </summary>
+    Task DeleteCopyOrderResults(IEnumerable<string> originalOrderIds);
 }

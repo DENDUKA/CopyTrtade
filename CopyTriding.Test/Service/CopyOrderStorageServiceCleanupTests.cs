@@ -3,10 +3,10 @@ using CopyTrading.Models.Models.Enums.Order;
 using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Values;
 using CopyTrading.Services;
+using CopyTrading.Test.Helpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
-using System.Reflection;
 
 namespace CopyTrading.Test.Service;
 
@@ -17,11 +17,15 @@ public class CopyOrderStorageServiceCleanupTests
 {
     private readonly Mock<ILogger<CopyOrderStorageService>> _loggerMock;
     private readonly CopyOrderStorageService _service;
+    private readonly MockRedisStorage _storage;
 
     public CopyOrderStorageServiceCleanupTests()
     {
         _loggerMock = new Mock<ILogger<CopyOrderStorageService>>();
-        _service = new CopyOrderStorageService(_loggerMock.Object);
+        var (redisMock, storage) = MockRedisRepositoryFactory.Create();
+        _storage = storage;
+
+        _service = new CopyOrderStorageService(redisMock.Object, _loggerMock.Object);
     }
 
     [Fact]
@@ -58,10 +62,10 @@ public class CopyOrderStorageServiceCleanupTests
             var copyOrder = CreateCopyOrder(i, status, DateTime.Now.AddMinutes(-2000 + i));
 
             // Напрямую добавляем в словарь (без триггера очистки)
-            GetCopyOrdersDict().TryAdd(copyOrder.OrderId, copyOrder);
+            _storage.CopyOrders[copyOrder.OrderId] = copyOrder;
         }
 
-        GetCopyOrdersDict().Count.Should().Be(2000);
+        _storage.CopyOrders.Count.Should().Be(2000);
 
         // Act - добавляем новый ордер через AddOrder, который ДОЛЖЕН запустить очистку
         // (2000 в словаре + 1 добавляемый = 2001 > порог 2000)
@@ -87,10 +91,10 @@ public class CopyOrderStorageServiceCleanupTests
             var copyOrder = CreateCopyOrder(i, OrderStatus.Filled, DateTime.Now.AddMinutes(-2000 + i));
 
             // Напрямую добавляем в словарь
-            GetCopyOrdersDict().TryAdd(copyOrder.OrderId, copyOrder);
+            _storage.CopyOrders[copyOrder.OrderId] = copyOrder;
         }
 
-        GetCopyOrdersDict().Count.Should().Be(2000);
+        _storage.CopyOrders.Count.Should().Be(2000);
 
         // Act - добавляем новый ордер через AddOrder, который запустит очистку
         var newOrder1 = CreateCopyOrder(10000, OrderStatus.Open, DateTime.Now.AddMinutes(1));
@@ -131,7 +135,7 @@ public class CopyOrderStorageServiceCleanupTests
             }
 
             var copyOrder = CreateCopyOrder(i, status, DateTime.Now.AddMinutes(-2000 + i));
-            GetCopyOrdersDict().TryAdd(copyOrder.OrderId, copyOrder);
+            _storage.CopyOrders[copyOrder.OrderId] = copyOrder;
         }
 
         _service.GetAllOrders().Length.Should().Be(2000);
@@ -159,7 +163,7 @@ public class CopyOrderStorageServiceCleanupTests
         for (int i = 0; i < 2000; i++)
         {
             var copyOrder = CreateCopyOrder(i, OrderStatus.Filled, DateTime.Now.AddMinutes(-i));
-            GetCopyOrdersDict().TryAdd(copyOrder.OrderId, copyOrder);
+            _storage.CopyOrders[copyOrder.OrderId] = copyOrder;
         }
 
         // Act - добавляем 2 ордера, второй должен запустить очистку
@@ -198,10 +202,10 @@ public class CopyOrderStorageServiceCleanupTests
         for (int i = 0; i < 2000; i++)
         {
             var copyOrder = CreateCopyOrder(i, OrderStatus.Filled, DateTime.Now.AddMinutes(-2000 + i));
-            GetCopyOrdersDict().TryAdd(copyOrder.OrderId, copyOrder);
+            _storage.CopyOrders[copyOrder.OrderId] = copyOrder;
         }
 
-        GetCopyOrdersDict().Count.Should().Be(2000);
+        _storage.CopyOrders.Count.Should().Be(2000);
 
         // Act - добавляем 2 ордера, второй должен запустить очистку
         var newOrder1 = CreateCopyOrder(10000, OrderStatus.Open, DateTime.Now.AddMinutes(1));
@@ -239,7 +243,7 @@ public class CopyOrderStorageServiceCleanupTests
         for (int i = 20000; i < 21500; i++)
         {
             var copyOrder = CreateCopyOrder(i, OrderStatus.Filled, DateTime.Now.AddMinutes(3 + (i - 20000)));
-            GetCopyOrdersDict().TryAdd(copyOrder.OrderId, copyOrder);
+            _storage.CopyOrders[copyOrder.OrderId] = copyOrder;
         }
 
         // Act 2 - вторая очистка
@@ -262,7 +266,7 @@ public class CopyOrderStorageServiceCleanupTests
         {
             var status = i % 2 == 0 ? OrderStatus.Filled : OrderStatus.Open;
             var copyOrder = CreateCopyOrder(i, status, DateTime.Now.AddMinutes(-2000 + i));
-            GetCopyOrdersDict().TryAdd(copyOrder.OrderId, copyOrder);
+            _storage.CopyOrders[copyOrder.OrderId] = copyOrder;
         }
 
         // Act - добавляем 2 ордера, второй запустит очистку
@@ -309,10 +313,4 @@ public class CopyOrderStorageServiceCleanupTests
         };
     }
 
-    // Используем рефлексию для доступа к приватному полю _copyOrders
-    private System.Collections.Concurrent.ConcurrentDictionary<long, CopyOrderV2> GetCopyOrdersDict()
-    {
-        var field = typeof(CopyOrderStorageService).GetField("_copyOrders", BindingFlags.NonPublic | BindingFlags.Instance);
-        return (System.Collections.Concurrent.ConcurrentDictionary<long, CopyOrderV2>)field!.GetValue(_service)!;
-    }
 }

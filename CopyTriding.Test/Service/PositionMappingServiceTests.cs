@@ -2,6 +2,7 @@ using CopyTrading.Models.Models;
 using CopyTrading.Models.Models.Enums;
 using CopyTrading.Models.Values;
 using CopyTrading.Services;
+using CopyTrading.Test.Helpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -16,8 +17,10 @@ public class PositionMappingServiceTests
 
     public PositionMappingServiceTests()
     {
+        var (redisMock, _) = MockRedisRepositoryFactory.Create();
         var logger = new Mock<ILogger<PositionMappingService>>();
-        _service = new PositionMappingService(logger.Object);
+
+        _service = new PositionMappingService(redisMock.Object, logger.Object);
         _traderWallet = new Wallet("0x7bde2b9240a2ee352108c6823a9fa20f225b83a0");
         _myWallet = new Wallet("0x1234567890abcdef1234567890abcdef12345678");
     }

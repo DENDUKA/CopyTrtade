@@ -1,8 +1,8 @@
 using CopyTrading.Models.Models.Enums;
 using CopyTrading.Models.Models.Trade;
 using CopyTrading.Models.Values;
+using CopyTrading.Repository.RedisInterfaces;
 using CopyTrading.Services.Interfaces;
-using System.Collections.Concurrent;
 
 namespace CopyTrading.Services;
 
@@ -10,14 +10,26 @@ namespace CopyTrading.Services;
 /// Сервис для хранения базовых (начальных) позиций трейдера, которые мы не копируем.
 /// Отслеживает "точку входа" для каждой пары (wallet, symbol).
 /// Quantity: положительное значение = Long, отрицательное = Short.
+/// Хранит данные в Redis для персистентности.
 /// </summary>
-public class BaselinePositionService(
-    ICurrentWalletPositionService _currentWalletPositionService,
-    IFillsOrderService _fillsOrderService,
-    ILogger<BaselinePositionService> _logger) : IBaselinePositionService
+public class BaselinePositionService : IBaselinePositionService
 {
-    // Ключ: (Wallet, Symbol), Значение: базовая позиция (Quantity с знаком: положительное = Long, отрицательное = Short)
-    private readonly ConcurrentDictionary<(Wallet Wallet, string Symbol), decimal> _baselinePositions = new();
+    private readonly ICurrentWalletPositionService _currentWalletPositionService;
+    private readonly IFillsOrderService _fillsOrderService;
+    private readonly IRedisRepository _redisRepository;
+    private readonly ILogger<BaselinePositionService> _logger;
+
+    public BaselinePositionService(
+        ICurrentWalletPositionService currentWalletPositionService,
+        IFillsOrderService fillsOrderService,
+        IRedisRepository redisRepository,
+        ILogger<BaselinePositionService> logger)
+    {
+        _currentWalletPositionService = currentWalletPositionService;
+        _fillsOrderService = fillsOrderService;
+        _redisRepository = redisRepository;
+        _logger = logger;
+    }
 
     /// <summary>
     /// Инициализирует базовые позиции для всех отслеживаемых кошельков и символов
@@ -69,16 +81,16 @@ public class BaselinePositionService(
                 var snapshot = await _currentWalletPositionService.GetSnapshot(wallet);
                 var currentPosition = snapshot?.Positions?.FirstOrDefault(p => p.Symbol == symbol);
 
-                var key = (wallet, symbol);
-
                 // Если позиции нет у трейдера - удаляем из сервиса (если была)
                 if (currentPosition == null)
                 {
-                    if (_baselinePositions.TryRemove(key, out var removedPosition))
+                    var baseline = await _redisRepository.GetBaselinePosition(wallet, symbol);
+                    if (baseline != null)
                     {
+                        await _redisRepository.DeleteBaselinePosition(wallet, symbol);
                         _logger.LogInformation(
                             $"BaselinePositionService.OnNewTrades: Удалена базовая позиция (позиция трейдера не найдена). " +
-                            $"Wallet={wallet.Value}, Symbol={symbol}, RemovedPosition={removedPosition}");
+                            $"Wallet={wallet.Value}, Symbol={symbol}, RemovedPosition={baseline}");
                     }
                     continue;
                 }
@@ -88,36 +100,39 @@ public class BaselinePositionService(
                 // Если текущая позиция = 0 - удаляем из сервиса
                 if (currentQuantity == 0)
                 {
-                    if (_baselinePositions.TryRemove(key, out var removedPosition))
+                    var baseline = await _redisRepository.GetBaselinePosition(wallet, symbol);
+                    if (baseline != null)
                     {
+                        await _redisRepository.DeleteBaselinePosition(wallet, symbol);
                         _logger.LogInformation(
                             $"BaselinePositionService.OnNewTrades: Удалена базовая позиция (позиция трейдера = 0). " +
-                            $"Wallet={wallet.Value}, Symbol={symbol}, RemovedPosition={removedPosition}");
+                            $"Wallet={wallet.Value}, Symbol={symbol}, RemovedPosition={baseline}");
                     }
                     continue;
                 }
 
                 // Получаем базовую позицию
-                if (_baselinePositions.TryGetValue(key, out var baselineQuantity))
+                var baselineQuantity = await _redisRepository.GetBaselinePosition(wallet, symbol);
+                if (baselineQuantity != null)
                 {
                     // Проверяем уменьшился ли объем позиции
                     var currentAbsQuantity = Math.Abs(currentQuantity);
-                    var baselineAbsQuantity = Math.Abs(baselineQuantity);
+                    var baselineAbsQuantity = Math.Abs(baselineQuantity.Value);
 
                     if (currentAbsQuantity < baselineAbsQuantity)
                     {
                         // Позиция уменьшилась - обновляем базовую позицию
-                        _baselinePositions[key] = currentQuantity;
+                        await _redisRepository.SaveBaselinePosition(wallet, symbol, currentQuantity);
 
                         _logger.LogInformation(
                             $"BaselinePositionService.OnNewTrades: Обновлена базовая позиция. " +
                             $"Wallet={wallet.Value}, Symbol={symbol}, " +
                             $"OldBaseline={baselineQuantity}, NewBaseline={currentQuantity}");
                     }
-                    else if (Math.Sign(currentQuantity) != Math.Sign(baselineQuantity))
+                    else if (Math.Sign(currentQuantity) != Math.Sign(baselineQuantity.Value))
                     {
                         // Произошла смена направления (Long → Short или Short → Long)
-                        _baselinePositions[key] = currentQuantity;
+                        await _redisRepository.SaveBaselinePosition(wallet, symbol, currentQuantity);
 
                         _logger.LogInformation(
                             $"BaselinePositionService.OnNewTrades: Создана новая базовая позиция (смена направления). " +
@@ -140,8 +155,16 @@ public class BaselinePositionService(
     /// </summary>
     public decimal GetBaselinePosition(Wallet wallet, string symbol)
     {
-        var key = (wallet, symbol);
-        return _baselinePositions.TryGetValue(key, out var position) ? position : 0;
+        try
+        {
+            var position = _redisRepository.GetBaselinePosition(wallet, symbol).GetAwaiter().GetResult();
+            return position ?? 0;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get baseline position for {Wallet}/{Symbol}", wallet.Value, symbol);
+            return 0;
+        }
     }
 
     /// <summary>
@@ -297,7 +320,7 @@ public class BaselinePositionService(
                 return 0;
             }
 
-            return SavePositionsAsBaseline(wallet, snapshot.Positions);
+            return await SavePositionsAsBaseline(wallet, snapshot.Positions);
         }
         catch (Exception ex)
         {
@@ -312,15 +335,14 @@ public class BaselinePositionService(
     /// <param name="wallet">Кошелек</param>
     /// <param name="positions">Позиции для сохранения</param>
     /// <returns>Количество сохраненных позиций</returns>
-    private int SavePositionsAsBaseline(Wallet wallet, IEnumerable<Models.Models.Position> positions)
+    private async Task<int> SavePositionsAsBaseline(Wallet wallet, IEnumerable<Models.Models.Position> positions)
     {
         int count = 0;
 
         foreach (var position in positions)
         {
-            var key = (wallet, position.Symbol);
             // Quantity содержит знак: положительное = Long, отрицательное = Short
-            _baselinePositions[key] = position.Quantity;
+            await _redisRepository.SaveBaselinePosition(wallet, position.Symbol, position.Quantity);
             count++;
 
             _logger.LogDebug(

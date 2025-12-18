@@ -1,29 +1,61 @@
 using CopyTrading.Models.Models;
 using CopyTrading.Models.Models.Enums;
 using CopyTrading.Models.Values;
+using CopyTrading.Repository.RedisInterfaces;
 using CopyTrading.Services.Interfaces;
-using System.Collections.Concurrent;
 
 namespace CopyTrading.Services;
 
 /// <summary>
 /// Сервис для управления маппингами между позициями трейдера и копируемыми позициями
-/// Хранит данные в памяти (in-memory)
+/// Хранит данные в Redis для персистентности
 /// </summary>
-public class PositionMappingService(ILogger<PositionMappingService> _logger) : IPositionMappingService
+public class PositionMappingService : IPositionMappingService
 {
-    private readonly ConcurrentDictionary<string, PositionMapping> _mappings = new();
+    private readonly IRedisRepository _redisRepository;
+    private readonly ILogger<PositionMappingService> _logger;
 
-    public int GetMappingsCount => _mappings.Count;
+    public PositionMappingService(
+        IRedisRepository redisRepository,
+        ILogger<PositionMappingService> logger)
+    {
+        _redisRepository = redisRepository;
+        _logger = logger;
+    }
+
+    public int GetMappingsCount
+    {
+        get
+        {
+            try
+            {
+                var mappings = _redisRepository.LoadAllPositionMappings().GetAwaiter().GetResult();
+                return mappings.Count;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get mappings count");
+                return 0;
+            }
+        }
+    }
 
     /// <summary>
     /// Получить маппинг по параметрам
     /// </summary>
     public PositionMapping? GetMapping(Wallet traderWallet, Wallet myWallet, string symbol, Direction direction)
     {
-        var key = PositionMapping.CreateKey(traderWallet, myWallet, symbol, direction);
-        _mappings.TryGetValue(key, out var mapping);
-        return mapping;
+        try
+        {
+            var key = PositionMapping.CreateKey(traderWallet, myWallet, symbol, direction);
+            var mapping = _redisRepository.GetPositionMapping(key).GetAwaiter().GetResult();
+            return mapping;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get mapping for {Symbol} {Direction}", symbol, direction);
+            return null;
+        }
     }
 
     /// <summary>
@@ -31,12 +63,16 @@ public class PositionMappingService(ILogger<PositionMappingService> _logger) : I
     /// </summary>
     public void SaveOrUpdateMapping(PositionMapping mapping)
     {
-        mapping.LastUpdate = DateTime.Now;
-        var key = mapping.GetKey();
-
-        _mappings.AddOrUpdate(key, mapping, (k, old) => mapping);
-
-        _logger.LogInformation($"Маппинг сохранен: {mapping}");
+        try
+        {
+            mapping.LastUpdate = DateTime.Now;
+            _redisRepository.SavePositionMapping(mapping).GetAwaiter().GetResult();
+            _logger.LogInformation($"Маппинг сохранен: {mapping}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save mapping: {Mapping}", mapping);
+        }
     }
 
     /// <summary>
@@ -44,19 +80,28 @@ public class PositionMappingService(ILogger<PositionMappingService> _logger) : I
     /// </summary>
     public bool DeleteMapping(Wallet traderWallet, Wallet myWallet, string symbol, Direction direction)
     {
-        var key = PositionMapping.CreateKey(traderWallet, myWallet, symbol, direction);
-        var removed = _mappings.TryRemove(key, out var mapping);
-
-        if (removed)
+        try
         {
+            var key = PositionMapping.CreateKey(traderWallet, myWallet, symbol, direction);
+
+            // Сначала получаем маппинг для логирования
+            var mapping = _redisRepository.GetPositionMapping(key).GetAwaiter().GetResult();
+
+            if (mapping == null)
+            {
+                _logger.LogWarning($"Не удалось удалить маппинг: {key} - не найден");
+                return false;
+            }
+
+            _redisRepository.DeletePositionMapping(key).GetAwaiter().GetResult();
             _logger.LogInformation($"Маппинг удален: {mapping}");
+            return true;
         }
-        else
+        catch (Exception ex)
         {
-            _logger.LogWarning($"Не удалось удалить маппинг: {key}");
+            _logger.LogError(ex, "Failed to delete mapping for {Symbol} {Direction}", symbol, direction);
+            return false;
         }
-
-        return removed;
     }
 
     /// <summary>
@@ -64,16 +109,24 @@ public class PositionMappingService(ILogger<PositionMappingService> _logger) : I
     /// </summary>
     public bool UpdateMyQuantity(Wallet traderWallet, Wallet myWallet, string symbol, Direction direction, decimal newQuantity)
     {
-        var mapping = GetMapping(traderWallet, myWallet, symbol, direction);
-        if (mapping == null)
+        try
         {
-            _logger.LogWarning($"Маппинг не найден для обновления MyQuantity: {symbol} {direction}");
+            var mapping = GetMapping(traderWallet, myWallet, symbol, direction);
+            if (mapping == null)
+            {
+                _logger.LogWarning($"Маппинг не найден для обновления MyQuantity: {symbol} {direction}");
+                return false;
+            }
+
+            mapping.MyQuantity = newQuantity;
+            SaveOrUpdateMapping(mapping);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update MyQuantity for {Symbol} {Direction}", symbol, direction);
             return false;
         }
-
-        mapping.MyQuantity = newQuantity;
-        SaveOrUpdateMapping(mapping);
-        return true;
     }
 
     /// <summary>
@@ -81,7 +134,16 @@ public class PositionMappingService(ILogger<PositionMappingService> _logger) : I
     /// </summary>
     public IEnumerable<PositionMapping> GetMappingsByTrader(Wallet traderWallet, Wallet myWallet)
     {
-        return [.. _mappings.Values.Where(m => m.TraderWallet.Equals(traderWallet) && m.MyWallet.Equals(myWallet))];
+        try
+        {
+            var mappings = _redisRepository.GetMappingsByTrader(traderWallet).GetAwaiter().GetResult();
+            return mappings.Where(m => m.MyWallet.Equals(myWallet));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get mappings for trader {Wallet}", traderWallet.Value);
+            return Array.Empty<PositionMapping>();
+        }
     }
 
     /// <summary>
@@ -89,7 +151,16 @@ public class PositionMappingService(ILogger<PositionMappingService> _logger) : I
     /// </summary>
     public IEnumerable<PositionMapping> GetAllMappings()
     {
-        return [.. _mappings.Values];
+        try
+        {
+            var mappings = _redisRepository.LoadAllPositionMappings().GetAwaiter().GetResult();
+            return mappings.Values;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get all mappings");
+            return Array.Empty<PositionMapping>();
+        }
     }
 
     /// <summary>
@@ -97,8 +168,21 @@ public class PositionMappingService(ILogger<PositionMappingService> _logger) : I
     /// </summary>
     public void ClearAllMappings()
     {
-        var count = _mappings.Count;
-        _mappings.Clear();
-        _logger.LogInformation($"Все маппинги очищены (было {count})");
+        try
+        {
+            var mappings = _redisRepository.LoadAllPositionMappings().GetAwaiter().GetResult();
+            var count = mappings.Count;
+
+            foreach (var key in mappings.Keys)
+            {
+                _redisRepository.DeletePositionMapping(key).GetAwaiter().GetResult();
+            }
+
+            _logger.LogInformation($"Все маппинги очищены (было {count})");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to clear all mappings");
+        }
     }
 }
