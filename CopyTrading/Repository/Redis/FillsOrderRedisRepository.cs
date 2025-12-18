@@ -23,6 +23,8 @@ public class RedisRepository : IRedisRepository
     private const string BaselinePositionsHashKey = "baseline_positions:all";
     private const string CopyOrdersHashKey = "copy_orders:all";
     private const string CopyOrderResultsHashKey = "copy_order_results:all";
+    private const string WalletSettingsHashKey = "wallet_settings:all";
+    private const string WalletSnapshotsHashKey = "wallet_snapshots:all";
 
     public RedisRepository(
         IRedisCacheService redisCache,
@@ -714,6 +716,146 @@ public class RedisRepository : IRedisRepository
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to delete multiple copy order results from Redis");
+        }
+    }
+
+    // ========== COPY TRADE WALLET SETTINGS ==========
+
+    public async Task SaveWalletSettings(Models.Models.CopyTradeWalletSettings settings)
+    {
+        try
+        {
+            await _redisCache.HashSet(WalletSettingsHashKey, settings.Wallet.Value, settings);
+            _logger.LogDebug("Saved wallet settings for {Wallet} to Redis", settings.Wallet.Value);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save wallet settings for {Wallet} to Redis", settings.Wallet.Value);
+        }
+    }
+
+    public async Task<Models.Models.CopyTradeWalletSettings?> GetWalletSettings(Models.Values.Wallet wallet)
+    {
+        try
+        {
+            var settings = await _redisCache.HashGetAsync<Models.Models.CopyTradeWalletSettings>(WalletSettingsHashKey, wallet.Value);
+            return settings;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get wallet settings for {Wallet} from Redis", wallet.Value);
+            return null;
+        }
+    }
+
+    public async Task DeleteWalletSettings(Models.Values.Wallet wallet)
+    {
+        try
+        {
+            await _redisCache.HashDeleteAsync(WalletSettingsHashKey, wallet.Value);
+            _logger.LogDebug("Deleted wallet settings for {Wallet} from Redis", wallet.Value);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to delete wallet settings for {Wallet} from Redis", wallet.Value);
+        }
+    }
+
+    public async Task<Dictionary<Models.Values.Wallet, Models.Models.CopyTradeWalletSettings>> LoadAllWalletSettings()
+    {
+        try
+        {
+            var settingsDict = await _redisCache.HashGetAllAsync<Models.Models.CopyTradeWalletSettings>(WalletSettingsHashKey);
+            var result = settingsDict.ToDictionary(
+                kvp => new Models.Values.Wallet(kvp.Key),
+                kvp => kvp.Value
+            );
+            _logger.LogInformation("Loaded {Count} wallet settings from Redis", result.Count);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load wallet settings from Redis");
+            return new Dictionary<Models.Values.Wallet, Models.Models.CopyTradeWalletSettings>();
+        }
+    }
+
+    // ========== WALLET POSITION SNAPSHOTS ==========
+
+    public async Task SaveWalletSnapshot(Models.Models.WalletPositionsSnapshot snapshot)
+    {
+        try
+        {
+            await _redisCache.HashSet(WalletSnapshotsHashKey, snapshot.Wallet.Value, snapshot);
+            _logger.LogDebug("Saved wallet snapshot for {Wallet} to Redis", snapshot.Wallet.Value);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save wallet snapshot for {Wallet} to Redis", snapshot.Wallet.Value);
+        }
+    }
+
+    public async Task<Models.Models.WalletPositionsSnapshot?> GetWalletSnapshot(Models.Values.Wallet wallet)
+    {
+        try
+        {
+            var snapshot = await _redisCache.HashGetAsync<Models.Models.WalletPositionsSnapshot>(WalletSnapshotsHashKey, wallet.Value);
+            return snapshot;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get wallet snapshot for {Wallet} from Redis", wallet.Value);
+            return null;
+        }
+    }
+
+    public async Task DeleteWalletSnapshot(Models.Values.Wallet wallet)
+    {
+        try
+        {
+            await _redisCache.HashDeleteAsync(WalletSnapshotsHashKey, wallet.Value);
+            _logger.LogDebug("Deleted wallet snapshot for {Wallet} from Redis", wallet.Value);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to delete wallet snapshot for {Wallet} from Redis", wallet.Value);
+        }
+    }
+
+    public async Task<Dictionary<Models.Values.Wallet, Models.Models.WalletPositionsSnapshot>> LoadAllWalletSnapshots()
+    {
+        try
+        {
+            var snapshotsDict = await _redisCache.HashGetAllAsync<Models.Models.WalletPositionsSnapshot>(WalletSnapshotsHashKey);
+            var result = snapshotsDict.ToDictionary(
+                kvp => new Models.Values.Wallet(kvp.Key),
+                kvp => kvp.Value
+            );
+            _logger.LogInformation("Loaded {Count} wallet snapshots from Redis", result.Count);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load wallet snapshots from Redis");
+            return new Dictionary<Models.Values.Wallet, Models.Models.WalletPositionsSnapshot>();
+        }
+    }
+
+    public async Task ClearAllWalletSnapshots()
+    {
+        try
+        {
+            // Загружаем все снапшоты и удаляем по одному
+            var snapshots = await LoadAllWalletSnapshots();
+            foreach (var wallet in snapshots.Keys)
+            {
+                await _redisCache.HashDeleteAsync(WalletSnapshotsHashKey, wallet.Value);
+            }
+            _logger.LogInformation("Cleared {Count} wallet snapshots from Redis", snapshots.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to clear all wallet snapshots from Redis");
         }
     }
 }

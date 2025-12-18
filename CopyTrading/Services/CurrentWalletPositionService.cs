@@ -7,6 +7,7 @@ using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Models.Trade;
 using CopyTrading.Models.Values;
 using CopyTrading.Providers.Hyperliquid.Interfaces;
+using CopyTrading.Repository.RedisInterfaces;
 using CopyTrading.Services.Interfaces;
 
 namespace CopyTrading.Services;
@@ -14,9 +15,10 @@ namespace CopyTrading.Services;
 public class CurrentWalletPositionService(
     IWalletInfoProvider _walletInfoProvider,
     IFillsOrderService _fillsOrderService,
+    IRedisRepository _redisRepository,
     ILogger<CurrentWalletPositionService> _logger) : ICurrentWalletPositionService
 {
-    private readonly ConcurrentDictionary<Wallet, WalletPositionsSnapshot> _walletPositionSnapshot = [];
+    // Семафоры для синхронизации доступа к snapshots (остаются для thread-safety)
     private readonly ConcurrentDictionary<Wallet, SemaphoreSlim> _walletSemaphores = [];
 
     public async Task OnNewTrades((OriginalTrade[] Trades, bool IsSnapshot) newTrades)
@@ -52,26 +54,40 @@ public class CurrentWalletPositionService(
 
     /// <summary>
     /// Инициализирует snapshot для кошелька из готового объекта
+    /// Сохраняет только в Redis
     /// </summary>
-    public void InitializeWalletSnapshot(WalletPositionsSnapshot snapshot)
+    public async Task InitializeWalletSnapshot(WalletPositionsSnapshot snapshot)
     {
         ArgumentNullException.ThrowIfNull(snapshot, nameof(snapshot));
 
-        if (_walletPositionSnapshot.ContainsKey(snapshot.Wallet)) return;
-
-        if (!_walletPositionSnapshot.TryAdd(snapshot.Wallet, snapshot))
+        // Проверяем, есть ли уже snapshot в Redis
+        var existing = await _redisRepository.GetWalletSnapshot(snapshot.Wallet);
+        if (existing != null)
         {
-            _logger.LogError($"CurrentWalletPositionService.InitializeWalletSnapshot: Wallet={snapshot.Wallet} Не получилось инициализировать Snapshot");
+            _logger.LogDebug($"CurrentWalletPositionService.InitializeWalletSnapshot: Wallet={snapshot.Wallet} Snapshot уже существует в Redis");
+            return;
+        }
+
+        // Сохраняем в Redis
+        try
+        {
+            await _redisRepository.SaveWalletSnapshot(snapshot);
+            _logger.LogInformation($"CurrentWalletPositionService.InitializeWalletSnapshot: Wallet={snapshot.Wallet} Snapshot сохранен в Redis");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"CurrentWalletPositionService.InitializeWalletSnapshot: Wallet={snapshot.Wallet} Ошибка сохранения в Redis");
+            throw;
         }
     }
 
     /// <summary>
     /// Очищает все snapshots и семафоры
     /// Используется для: тестирования, управления памятью в runtime, полного сброса состояния
+    /// Очищает из Redis
     /// </summary>
-    public void ClearAllSnapshots()
+    public async Task ClearAllSnapshots()
     {
-        var snapshotCount = _walletPositionSnapshot.Count;
         var semaphoreCount = _walletSemaphores.Count;
 
         // Освобождаем все семафоры перед удалением
@@ -87,10 +103,21 @@ public class CurrentWalletPositionService(
             }
         }
 
-        _walletPositionSnapshot.Clear();
         _walletSemaphores.Clear();
 
-        _logger.LogInformation($"CurrentWalletPositionService.ClearAllSnapshots: Все snapshots и семафоры очищены (было snapshots: {snapshotCount}, семафоров: {semaphoreCount})");
+        // Очищаем из Redis
+        try
+        {
+            await _redisRepository.ClearAllWalletSnapshots();
+            _logger.LogInformation("CurrentWalletPositionService.ClearAllSnapshots: Все snapshots очищены из Redis");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "CurrentWalletPositionService.ClearAllSnapshots: Ошибка очистки Redis");
+            throw;
+        }
+
+        _logger.LogInformation($"CurrentWalletPositionService.ClearAllSnapshots: Семафоры очищены (было семафоров: {semaphoreCount})");
     }
 
     /// <summary>
@@ -153,9 +180,15 @@ public class CurrentWalletPositionService(
     /// </summary>
     public async Task<decimal> CalculatePotentialPosition(OriginalOrder order)
     {
-        // Получаем реальную позицию
-        var realPositions = GetPositionsFromSnapshot(order.Wallet, order.Symbol);
-        decimal realQuantity = realPositions.Length > 0 ? realPositions[0].Quantity : 0;
+        // Получаем snapshot из Redis
+        var snapshot = await _redisRepository.GetWalletSnapshot(order.Wallet);
+        decimal realQuantity = 0;
+
+        if (snapshot != null)
+        {
+            var realPositions = GetPositionsFromSnapshot(snapshot, order.Symbol);
+            realQuantity = realPositions.Length > 0 ? realPositions[0].Quantity : 0;
+        }
 
         // Рассчитываем количество из pending ордеров
         decimal pendingQuantity = await CalculatePendingOrdersQuantity(order);
@@ -174,9 +207,11 @@ public class CurrentWalletPositionService(
     {
         ArgumentNullException.ThrowIfNull(trade, nameof(trade));
 
-        if (!_walletPositionSnapshot.ContainsKey(trade.Wallet))
+        // Проверяем существование snapshot в Redis
+        var snapshot = await _redisRepository.GetWalletSnapshot(trade.Wallet);
+        if (snapshot == null)
         {
-            _logger.LogError($"CurrentWalletPositionService.AddTrade: TradeId={trade.TradeId} Wallet={trade.Wallet} Snapshot не инициализирован");
+            _logger.LogError($"CurrentWalletPositionService.AddTrade: TradeId={trade.TradeId} Wallet={trade.Wallet} Snapshot не найден в Redis");
             return OrderSubType.None;
         }
 
@@ -184,28 +219,54 @@ public class CurrentWalletPositionService(
         await semaphore.WaitAsync();
         try
         {
-            var openPos = GetPositionsFromSnapshot(trade.Wallet, trade.Symbol);
+            // Перезагружаем snapshot внутри семафора чтобы получить актуальные данные
+            snapshot = await _redisRepository.GetWalletSnapshot(trade.Wallet);
+            if (snapshot == null)
+            {
+                _logger.LogError($"CurrentWalletPositionService.AddTrade: TradeId={trade.TradeId} Wallet={trade.Wallet} Snapshot исчез из Redis");
+                return OrderSubType.None;
+            }
+
+            var openPos = GetPositionsFromSnapshot(snapshot, trade.Symbol);
+
+            OrderSubType result;
 
             // Нет открытых позиций - открываем новую
             if (openPos.Length == 0)
             {
-                return await HandleOpenPosition(trade);
+                result = await HandleOpenPosition(trade, snapshot);
             }
-
             // Одна открытая позиция - обрабатываем
-            if (openPos.Length == 1)
+            else if (openPos.Length == 1)
             {
-                return await ProcessTradeWithPosition(openPos[0], trade);
+                result = await ProcessTradeWithPosition(openPos[0], trade, snapshot);
             }
-
             // Больше одной позиции - ошибка
-            if (openPos.Length > 1)
+            else if (openPos.Length > 1)
             {
                 _logger.LogError($"CurrentWalletPositionService.AddTrade: TradeId={trade.TradeId} Wallet={trade.Wallet} Symbol={trade.Symbol} Обнаружено {openPos.Length} открытых позиций (разнонаправленные)");
-                return OrderSubType.None;
+                result = OrderSubType.None;
+            }
+            else
+            {
+                result = OrderSubType.None;
             }
 
-            return OrderSubType.None;
+            // Сохраняем обновленный snapshot в Redis
+            if (result != OrderSubType.None)
+            {
+                try
+                {
+                    await _redisRepository.SaveWalletSnapshot(snapshot);
+                    _logger.LogDebug($"CurrentWalletPositionService.AddTrade: TradeId={trade.TradeId} Wallet={trade.Wallet} Snapshot обновлен в Redis");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"CurrentWalletPositionService.AddTrade: TradeId={trade.TradeId} Wallet={trade.Wallet} Ошибка сохранения snapshot в Redis");
+                }
+            }
+
+            return result;
         }
         finally
         {
@@ -214,45 +275,49 @@ public class CurrentWalletPositionService(
     }
 
     /// <summary>
-    /// Пытаемся получить snapshot по кошельку из MemoryCache , если нет, то запрашиваем у провайдера
+    /// Получает snapshot по кошельку из Redis → провайдера
     /// </summary>
     public async Task<WalletPositionsSnapshot> GetSnapshot(Wallet wallet)
     {
         ArgumentNullException.ThrowIfNull(wallet, nameof(wallet));
-
-        // Быстрая проверка без блокировки
-        if (_walletPositionSnapshot.TryGetValue(wallet, out WalletPositionsSnapshot snapshot))
-        {
-            return snapshot;
-        }
 
         // Получаем семафор для этого кошелька (создаем если нет)
         var semaphore = _walletSemaphores.GetOrAdd(wallet, _ => new SemaphoreSlim(1, 1));
         await semaphore.WaitAsync();
         try
         {
-            // Double-check: проверяем снова после получения блокировки
-            // (другой поток мог добавить пока мы ждали)
-            if (_walletPositionSnapshot.TryGetValue(wallet, out snapshot))
+            // Пытаемся загрузить из Redis
+            try
             {
-                return snapshot;
+                var redisSnapshot = await _redisRepository.GetWalletSnapshot(wallet);
+                if (redisSnapshot != null)
+                {
+                    _logger.LogDebug($"CurrentWalletPositionService.GetSnapshot: Wallet={wallet} Snapshot загружен из Redis");
+                    return redisSnapshot;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, $"CurrentWalletPositionService.GetSnapshot: Wallet={wallet} Ошибка загрузки из Redis, запрашиваем у провайдера");
             }
 
-            // Теперь точно нужно создать snapshot
+            // Если нет в Redis - создаем snapshot из провайдера
             var walletInfo = await _walletInfoProvider.GetInfo(wallet);
             var walletSnapshot = walletInfo.ToWalletSnapshot();
 
-            // Добавляем в dictionary
-            if (_walletPositionSnapshot.TryAdd(wallet, walletSnapshot))
+            // Сохраняем в Redis
+            try
             {
-                _logger.LogInformation($"CurrentWalletPositionService.GetSnapshot: Wallet={wallet} Создан новый snapshot");
-                return walletSnapshot;
+                await _redisRepository.SaveWalletSnapshot(walletSnapshot);
+                _logger.LogInformation($"CurrentWalletPositionService.GetSnapshot: Wallet={wallet} Создан новый snapshot и сохранен в Redis");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"CurrentWalletPositionService.GetSnapshot: Wallet={wallet} Ошибка сохранения в Redis");
+                // Возвращаем snapshot даже если не удалось сохранить в Redis
             }
 
-            // Если TryAdd вернул false (другой поток успел добавить между проверкой и добавлением)
-            // возвращаем ту версию что в dictionary
-            _logger.LogWarning($"CurrentWalletPositionService.GetSnapshot: Wallet={wallet} Snapshot уже был добавлен другим потоком");
-            return _walletPositionSnapshot[wallet];
+            return walletSnapshot;
         }
         finally
         {
@@ -264,9 +329,11 @@ public class CurrentWalletPositionService(
     {
         ArgumentNullException.ThrowIfNull(order, nameof(order));
 
-        if (!_walletPositionSnapshot.TryGetValue(order.Wallet, out var snapshot))
+        // Проверяем существование snapshot в Redis
+        var snapshot = await _redisRepository.GetWalletSnapshot(order.Wallet);
+        if (snapshot == null)
         {
-            _logger.LogError($"CurrentWalletPositionService.GetOrderSubType: OrderId={order.OrderId} Wallet={order.Wallet} walletPositionSnapshot не инициализирован - возвращаем OrderSubType.None");
+            _logger.LogError($"CurrentWalletPositionService.GetOrderSubType: OrderId={order.OrderId} Wallet={order.Wallet} Snapshot не найден в Redis - возвращаем OrderSubType.None");
             return OrderSubType.None;
         }
 
@@ -351,11 +418,20 @@ public class CurrentWalletPositionService(
     }
 
     /// <summary>
-    /// Получить все отслеживаемые кошельки
+    /// Получить все отслеживаемые кошельки из Redis
     /// </summary>
-    public IEnumerable<Wallet> GetAllWallets()
+    public async Task<IEnumerable<Wallet>> GetAllWallets()
     {
-        return [.. _walletPositionSnapshot.Keys];
+        try
+        {
+            var snapshots = await _redisRepository.LoadAllWalletSnapshots();
+            return snapshots.Keys;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "CurrentWalletPositionService.GetAllWallets: Ошибка загрузки кошельков из Redis");
+            return Enumerable.Empty<Wallet>();
+        }
     }
 
     #region Private Event Handlers
@@ -377,7 +453,7 @@ public class CurrentWalletPositionService(
             var walletInfo = await _walletInfoProvider.GetInfo(wallet, false);
             var walletSnapshot = walletInfo.ToWalletSnapshot();
 
-            InitializeWalletSnapshot(walletSnapshot);
+            await InitializeWalletSnapshot(walletSnapshot);
 
             _logger.LogInformation($"CurrentWalletPositionService.CreateSnapshotByTradesSnapshot: Wallet={wallet} Инициализирован snapshot с {walletSnapshot.Positions.Count} позициями");
         }
@@ -394,9 +470,10 @@ public class CurrentWalletPositionService(
     /// <summary>
     /// Получает позицию из snapshot
     /// </summary>
-    private Position[] GetPositionsFromSnapshot(Wallet wallet, string symbol)
+    private Position[] GetPositionsFromSnapshot(WalletPositionsSnapshot snapshot, string symbol)
     {
-        var snapshot = _walletPositionSnapshot[wallet];
+        ArgumentNullException.ThrowIfNull(snapshot, nameof(snapshot));
+
         var positions = snapshot.Positions;
 
         // Быстрая проверка - если нет позиций вообще
@@ -470,16 +547,16 @@ public class CurrentWalletPositionService(
     /// <summary>
     /// Удаляет позицию из snapshot
     /// </summary>
-    private void RemovePositionFromSnapshot(Wallet wallet, Position position)
+    private void RemovePositionFromSnapshot(WalletPositionsSnapshot snapshot, Position position)
     {
-        _walletPositionSnapshot[wallet].Positions.Remove(position);
-        _logger.LogInformation($"CurrentWalletPositionService.RemovePositionFromSnapshot: Wallet={wallet} Symbol={position.Symbol} Позиция удалена из snapshot");
+        snapshot.Positions.Remove(position);
+        _logger.LogInformation($"CurrentWalletPositionService.RemovePositionFromSnapshot: Wallet={snapshot.Wallet} Symbol={position.Symbol} Позиция удалена из snapshot");
     }
 
     /// <summary>
     /// Добавляет позицию в snapshot из провайдера
     /// </summary>
-    private async Task<Position?> AddPositionToSnapshotFromServer(Wallet wallet, string symbol)
+    private async Task<Position?> AddPositionToSnapshotFromServer(Wallet wallet, string symbol, WalletPositionsSnapshot snapshot)
     {
         var walletInfo = await _walletInfoProvider.GetInfo(wallet, false);
 
@@ -489,7 +566,7 @@ public class CurrentWalletPositionService(
             return null;
         }
 
-        _walletPositionSnapshot[wallet].Positions.Add(position);
+        snapshot.Positions.Add(position);
         _logger.LogInformation($"CurrentWalletPositionService.AddPositionToSnapshotFromServer: Wallet={wallet} Symbol={symbol} Позиция добавлена в snapshot");
 
         return position;
@@ -543,9 +620,9 @@ public class CurrentWalletPositionService(
     /// <summary>
     /// Обрабатывает открытие новой позиции (Open)
     /// </summary>
-    private async Task<OrderSubType> HandleOpenPosition(OriginalTrade trade)
+    private async Task<OrderSubType> HandleOpenPosition(OriginalTrade trade, WalletPositionsSnapshot snapshot)
     {
-        var position = await AddPositionToSnapshotFromServer(trade.Wallet, trade.Symbol);
+        var position = await AddPositionToSnapshotFromServer(trade.Wallet, trade.Symbol, snapshot);
 
         if (position == null)
         {
@@ -583,11 +660,11 @@ public class CurrentWalletPositionService(
     /// <summary>
     /// Обрабатывает полное закрытие позиции (Close)
     /// </summary>
-    private OrderSubType HandleClosePosition(Wallet wallet, Position position, OriginalTrade trade)
+    private OrderSubType HandleClosePosition(Position position, OriginalTrade trade, WalletPositionsSnapshot snapshot)
     {
-        _logger.LogInformation($"CurrentWalletPositionService.HandleClosePosition: Wallet={wallet} Symbol={trade.Symbol} Полное закрытие позиции");
+        _logger.LogInformation($"CurrentWalletPositionService.HandleClosePosition: Wallet={trade.Wallet} Symbol={trade.Symbol} Полное закрытие позиции");
 
-        RemovePositionFromSnapshot(wallet, position);
+        RemovePositionFromSnapshot(snapshot, position);
 
         return OrderSubType.Close;
     }
@@ -595,19 +672,19 @@ public class CurrentWalletPositionService(
     /// <summary>
     /// Обрабатывает переворот позиции (Close текущей + Open противоположной)
     /// </summary>
-    private async Task<OrderSubType> HandleFlipPosition(Wallet wallet, Position position, OriginalTrade trade)
+    private async Task<OrderSubType> HandleFlipPosition(Position position, OriginalTrade trade, WalletPositionsSnapshot snapshot)
     {
-        _logger.LogWarning($"CurrentWalletPositionService.HandleFlipPosition: Wallet={wallet} Symbol={trade.Symbol} ПЕРЕВОРОТ позиции! Было: {position.Direction} {position.Quantity}, Trade: {trade.Direction} {trade.RealQuantity}");
+        _logger.LogWarning($"CurrentWalletPositionService.HandleFlipPosition: Wallet={trade.Wallet} Symbol={trade.Symbol} ПЕРЕВОРОТ позиции! Было: {position.Direction} {position.Quantity}, Trade: {trade.Direction} {trade.RealQuantity}");
 
         // Удаляем старую позицию
-        RemovePositionFromSnapshot(wallet, position);
+        RemovePositionFromSnapshot(snapshot, position);
 
         // Запрашиваем новую позицию у провайдера
-        var newPosition = await AddPositionToSnapshotFromServer(wallet, trade.Symbol);
+        var newPosition = await AddPositionToSnapshotFromServer(trade.Wallet, trade.Symbol, snapshot);
 
         if (newPosition != null)
         {
-            _logger.LogInformation($"CurrentWalletPositionService.HandleFlipPosition: Wallet={wallet} Symbol={trade.Symbol} После переворота добавлена новая позиция: {newPosition}");
+            _logger.LogInformation($"CurrentWalletPositionService.HandleFlipPosition: Wallet={trade.Wallet} Symbol={trade.Symbol} После переворота добавлена новая позиция: {newPosition}");
         }
 
         // Возвращаем Close (так как текущая позиция закрылась)
@@ -617,7 +694,7 @@ public class CurrentWalletPositionService(
     /// <summary>
     /// Определяет тип операции и направляет обработку в соответствующий handler
     /// </summary>
-    private async Task<OrderSubType> ProcessTradeWithPosition(Position position, OriginalTrade trade)
+    private async Task<OrderSubType> ProcessTradeWithPosition(Position position, OriginalTrade trade, WalletPositionsSnapshot snapshot)
     {
         // Одинаковое направление = INCREASE
         if (position.Direction == trade.Direction)
@@ -631,7 +708,7 @@ public class CurrentWalletPositionService(
         if (newQuantity == 0)
         {
             // Полное закрытие
-            return HandleClosePosition(trade.Wallet, position, trade);
+            return HandleClosePosition(position, trade, snapshot);
         }
 
         if (Math.Sign(position.Quantity) == Math.Sign(newQuantity))
@@ -642,7 +719,7 @@ public class CurrentWalletPositionService(
         else
         {
             // Переворот позиции
-            return await HandleFlipPosition(trade.Wallet, position, trade);
+            return await HandleFlipPosition(position, trade, snapshot);
         }
     }
 

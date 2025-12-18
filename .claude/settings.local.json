@@ -41,7 +41,9 @@
       "Bash(dotnet clean:*)",
       "Bash(/dev/null)",
       "Bash(Select-String -Pattern \"(Build succeeded|Build FAILED|error CS)\" -Context 0,2)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(Select-String -Pattern \"(Build succeeded|Build FAILED|error CS)\")",
+      "Bash(docker stop:*)"
     ],
     "deny": [],
     "ask": []

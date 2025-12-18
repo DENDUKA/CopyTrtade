@@ -40,7 +40,7 @@ public class BaselinePositionService : IBaselinePositionService
 
         try
         {
-            var wallets = _currentWalletPositionService.GetAllWallets();
+            var wallets = await _currentWalletPositionService.GetAllWallets();
             var totalPositions = await InitializeAllWallets(wallets);
 
             LogInitializationComplete(totalPositions, wallets.Count());

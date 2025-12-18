@@ -64,6 +64,7 @@ public class Startup
         services.AddSignalR();
 
         // Core Business Services
+        services.AddSingleton<IDockerHealthCheckService, DockerHealthCheckService>();
         services.AddSingleton<IOrderService, OrderService>();
         services.AddSingleton<ITradeService, TradeService>();
         services.AddSingleton<ICandleService, CandleService>();
@@ -123,6 +124,16 @@ public class Startup
 
     public void Configure(IApplicationBuilder app, IHostEnvironment env, IServiceProvider serviceProvider)
     {
+        // Проверка доступности зависимостей (Redis, PostgreSQL) при старте
+        var healthCheckService = serviceProvider.GetRequiredService<IDockerHealthCheckService>();
+        var healthCheckTask = healthCheckService.CheckAllDependencies();
+        healthCheckTask.Wait(); // Блокируем запуск пока не проверим зависимости
+
+        if (!healthCheckTask.Result)
+        {
+            Log.Warning("⚠️  Приложение запущено с недоступными зависимостями. Некоторые функции могут не работать.");
+        }
+
         // Exception handling и HSTS должны быть первыми
         app.UseExceptionHandler("/Error");
         app.UseHsts();

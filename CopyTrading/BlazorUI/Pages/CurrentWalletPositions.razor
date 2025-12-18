@@ -201,9 +201,10 @@
         await LoadAllOpenOrders();
     }
 
-    private void LoadWallets()
+    private async Task LoadWallets()
     {
-        wallets = CurrentWalletPositionService.GetAllWallets().ToList();
+        var allWallets = await CurrentWalletPositionService.GetAllWallets();
+        wallets = allWallets.ToList();
     }
 
     private async Task LoadAllSnapshots()

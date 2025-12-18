@@ -228,4 +228,53 @@ public interface IRedisRepository
     /// Удаляет несколько результатов за один вызов
     /// </summary>
     Task DeleteCopyOrderResults(IEnumerable<string> originalOrderIds);
+
+    // ========== COPY TRADE WALLET SETTINGS ==========
+
+    /// <summary>
+    /// Сохраняет настройки копитрейда для кошелька
+    /// </summary>
+    Task SaveWalletSettings(Models.Models.CopyTradeWalletSettings settings);
+
+    /// <summary>
+    /// Получает настройки копитрейда по кошельку
+    /// </summary>
+    Task<Models.Models.CopyTradeWalletSettings?> GetWalletSettings(Models.Values.Wallet wallet);
+
+    /// <summary>
+    /// Удаляет настройки копитрейда для кошелька
+    /// </summary>
+    Task DeleteWalletSettings(Models.Values.Wallet wallet);
+
+    /// <summary>
+    /// Загружает все настройки копитрейда
+    /// </summary>
+    Task<Dictionary<Models.Values.Wallet, Models.Models.CopyTradeWalletSettings>> LoadAllWalletSettings();
+
+    // ========== WALLET POSITION SNAPSHOTS ==========
+
+    /// <summary>
+    /// Сохраняет снапшот позиций кошелька
+    /// </summary>
+    Task SaveWalletSnapshot(Models.Models.WalletPositionsSnapshot snapshot);
+
+    /// <summary>
+    /// Получает снапшот позиций кошелька
+    /// </summary>
+    Task<Models.Models.WalletPositionsSnapshot?> GetWalletSnapshot(Models.Values.Wallet wallet);
+
+    /// <summary>
+    /// Удаляет снапшот позиций кошелька
+    /// </summary>
+    Task DeleteWalletSnapshot(Models.Values.Wallet wallet);
+
+    /// <summary>
+    /// Загружает все снапшоты позиций кошельков
+    /// </summary>
+    Task<Dictionary<Models.Values.Wallet, Models.Models.WalletPositionsSnapshot>> LoadAllWalletSnapshots();
+
+    /// <summary>
+    /// Очищает все снапшоты позиций
+    /// </summary>
+    Task ClearAllWalletSnapshots();
 }
