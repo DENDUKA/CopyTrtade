@@ -28,12 +28,12 @@ public class ActiveWindowService(
     /// <param name="direction">Направление ордеров (Long или Short)</param>
     /// <param name="count">Количество ордеров (по умолчанию 3)</param>
     /// <returns>Массив ближайших ордеров указанного направления</returns>
-    public OriginalOrder[] GetNearestOrders(Wallet wallet, string symbol, Direction direction, int count = DefaultOrderCount)
+    public async Task<OriginalOrder[]> GetNearestOrders(Wallet wallet, string symbol, Direction direction, int count = DefaultOrderCount)
     {
         _logger.LogInformation($"ActiveWindowService.GetNearestOrders: Wallet={wallet.Value}, Symbol={symbol}, Direction={direction}, Count={count}");
 
         // Получаем все pending ордера для указанного кошелька и символа
-        var allPendingOrders = _fillsOrderService.GetPendingOrdersByWalletAndSymbol(wallet, symbol);
+        var allPendingOrders = await _fillsOrderService.GetPendingOrdersByWalletAndSymbol(wallet, symbol);
 
         // Фильтруем ордера по направлению и сортируем
         OriginalOrder[] nearestOrders = [];

@@ -58,7 +58,7 @@ public class CopyOrderService2 : ICopyOrderService
         _logger.LogInformation($"CopyOrderService2.OnWalletSubscribed: Кошелек {wallet} полностью подписан");
 
         // Получаем все открытые (pending) ордера для кошелька
-        var openOrders = _fillsOrderService.GetOpenOrdersByWallet(wallet);
+        var openOrders = await _fillsOrderService.GetOpenOrdersByWallet(wallet);
 
         // Получаем уникальные символы из ожидающих ордеров
         var symbols = openOrders
@@ -124,8 +124,8 @@ public class CopyOrderService2 : ICopyOrderService
     /// </summary>
     private async Task ProcessOrdersForWalletAndSymbol(Wallet wallet, string symbol)
     {
-        var nearestLongOrders = _activeWindowService.GetNearestOrders(wallet, symbol, Direction.Long, count: 3);
-        var nearestShortOrders = _activeWindowService.GetNearestOrders(wallet, symbol, Direction.Short, count: 3);
+        var nearestLongOrders = await _activeWindowService.GetNearestOrders(wallet, symbol, Direction.Long, count: 3);
+        var nearestShortOrders = await _activeWindowService.GetNearestOrders(wallet, symbol, Direction.Short, count: 3);
 
         var copyedOrders = _copyOrderStorageService.GetOrdersByWalletAndSymbol(wallet, symbol);
 

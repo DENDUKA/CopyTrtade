@@ -20,6 +20,28 @@ services:
     networks:
       - copytrading-network
 
+  redis:
+    image: redis:7-alpine
+    container_name: copytrading-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 2gb
+      --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    networks:
+      - copytrading-network
+
   copytrading-app:
     build:
       context: .
@@ -33,6 +55,10 @@ services:
       PostgreSQL__Database: copytrading
       PostgreSQL__Username: copytrading_user
       PostgreSQL__Password: copytrading_password
+      # Redis connection
+      Redis__Host: redis
+      Redis__Port: 6379
+      Redis__Password: ""
       # ASP.NET Core settings
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:5000
@@ -44,6 +70,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - copytrading-network
 
@@ -51,6 +79,8 @@ volumes:
   postgres_data:
     driver: local
   pgadmin_data:
+    driver: local
+  redis_data:
     driver: local
   # sqlite_logs не нужен - используем bind mount ./SQLliteBD
 

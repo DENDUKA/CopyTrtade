@@ -151,7 +151,7 @@ public class BaselinePositionService(
     public async Task<BaselineCheckResult> WillOrderCloseBelowBaseline(long orderId)
     {
         // Получаем информацию об ордере
-        var orderFills = _fillsOrderService.GetOrderFillsByOrderId(orderId);
+        var orderFills = await _fillsOrderService.GetOrderFillsByOrderId(orderId);
         if (orderFills == null)
         {
             return BaselineCheckResult.AboveBaseline;
@@ -187,7 +187,7 @@ public class BaselinePositionService(
 
         // Рассчитываем потенциальную позицию с учетом pending ордеров, которые исполнятся раньше
         // Это позиция ПЕРЕД исполнением текущего ордера
-        var potentialQuantity = _currentWalletPositionService.CalculatePotentialPosition(order);
+        var potentialQuantity = await _currentWalletPositionService.CalculatePotentialPosition(order);
 
         // Рассчитываем позицию ПОСЛЕ исполнения ордера
         // RealQuantity учитывает направление: Long = положительное, Short = отрицательное

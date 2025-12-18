@@ -319,20 +319,20 @@
     private bool filterPartiallyFilled = false;
     private bool filterNoFills = false;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        LoadData();
+        await LoadData();
     }
 
-    private void LoadData()
+    private async Task LoadData()
     {
-        orderFills = FillsOrderService.GetAllOrderFills();
+        orderFills = await FillsOrderService.GetAllOrderFills();
         Logger.LogInformation($"Загружено {orderFills.Length} ордеров");
     }
 
-    private void RefreshData()
+    private async Task RefreshData()
     {
-        LoadData();
+        await LoadData();
         StateHasChanged();
     }
 

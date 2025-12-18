@@ -113,9 +113,9 @@
 
                         @* Открытые ордера *@
                         @{
-                            var openOrders = FillsOrderService.GetOpenOrdersByWallet(wallet);
+                            var openOrders = GetOpenOrders(wallet);
                         }
-                        @if (openOrders.Length > 0)
+                        @if (openOrders != null && openOrders.Length > 0)
                         {
                             <hr class="my-3" />
                             <h6 class="mb-3">Открытые ордера (@openOrders.Length)</h6>
@@ -192,11 +192,13 @@
 @code {
     private List<Wallet> wallets = new();
     private Dictionary<Wallet, WalletPositionsSnapshot?> snapshotsCache = new();
+    private Dictionary<Wallet, OrderFills[]> openOrdersCache = new();
 
     protected override async Task OnInitializedAsync()
     {
         LoadWallets();
         await LoadAllSnapshots();
+        await LoadAllOpenOrders();
     }
 
     private void LoadWallets()
@@ -212,6 +214,21 @@
             snapshotsCache[wallet] = snapshot;
         }
         StateHasChanged();
+    }
+
+    private async Task LoadAllOpenOrders()
+    {
+        foreach (var wallet in wallets)
+        {
+            var openOrders = await FillsOrderService.GetOpenOrdersByWallet(wallet);
+            openOrdersCache[wallet] = openOrders;
+        }
+        StateHasChanged();
+    }
+
+    private OrderFills[]? GetOpenOrders(Wallet wallet)
+    {
+        return openOrdersCache.TryGetValue(wallet, out var orders) ? orders : null;
     }
 
     private WalletPositionsSnapshot? GetSnapshot(Wallet wallet)

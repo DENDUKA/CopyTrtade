@@ -13,10 +13,10 @@ public interface ICurrentWalletPositionService
     void ClearAllSnapshots();
     Task<OrderSubType> AddTrade(OriginalTrade trade);
     Task<WalletPositionsSnapshot> GetSnapshot(Wallet wallet);
-    OrderSubType GetOrderSubType(OriginalOrder order);
+    Task<OrderSubType> GetOrderSubType(OriginalOrder order);
     Task<int?> TryGetLeverage(Wallet wallet, string symbol);
-    void RecalculateSubTypesForSymbol(Wallet wallet, string symbol);
+    Task RecalculateSubTypesForSymbol(Wallet wallet, string symbol);
     IEnumerable<Wallet> GetAllWallets();
-    decimal CalculatePotentialPosition(OriginalOrder order);
-    decimal CalculatePendingOrdersQuantity(OriginalOrder order);
+    Task<decimal> CalculatePotentialPosition(OriginalOrder order);
+    Task<decimal> CalculatePendingOrdersQuantity(OriginalOrder order);
 }

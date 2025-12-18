@@ -104,10 +104,10 @@ public class CurrentWalletPositionService(
     /// </summary>
     /// <param name="order">Ордер, для которого рассчитывается потенциальная позиция (будет исключен из расчета)</param>
     /// <returns>Суммарное количество из pending ордеров (со знаком: Long = положительное, Short = отрицательное)</returns>
-    public decimal CalculatePendingOrdersQuantity(OriginalOrder order)
+    public async Task<decimal> CalculatePendingOrdersQuantity(OriginalOrder order)
     {
         // Получаем pending ордера для данного кошелька и символа
-        var pendingOrderFills = _fillsOrderService.GetPendingOrdersByWalletAndSymbol(order.Wallet, order.Symbol);
+        var pendingOrderFills = await _fillsOrderService.GetPendingOrdersByWalletAndSymbol(order.Wallet, order.Symbol);
 
         // Суммируем pending ордера с фильтрацией по цене в одном проходе
         decimal pendingQuantity = 0;
@@ -151,14 +151,14 @@ public class CurrentWalletPositionService(
     /// Потенциальная позиция = реальная позиция + все открытые pending ордера (кроме указанного)
     /// Используется для определения SubType ордера
     /// </summary>
-    public decimal CalculatePotentialPosition(OriginalOrder order)
+    public async Task<decimal> CalculatePotentialPosition(OriginalOrder order)
     {
         // Получаем реальную позицию
         var realPositions = GetPositionsFromSnapshot(order.Wallet, order.Symbol);
         decimal realQuantity = realPositions.Length > 0 ? realPositions[0].Quantity : 0;
 
         // Рассчитываем количество из pending ордеров
-        decimal pendingQuantity = CalculatePendingOrdersQuantity(order);
+        decimal pendingQuantity = await CalculatePendingOrdersQuantity(order);
 
         decimal potentialPosition = realQuantity + pendingQuantity;
 
@@ -260,7 +260,7 @@ public class CurrentWalletPositionService(
         }
     }
 
-    public OrderSubType GetOrderSubType(OriginalOrder order)
+    public async Task<OrderSubType> GetOrderSubType(OriginalOrder order)
     {
         ArgumentNullException.ThrowIfNull(order, nameof(order));
 
@@ -272,7 +272,7 @@ public class CurrentWalletPositionService(
 
         // Рассчитываем потенциальную позицию (реальная + все открытые pending ордера, кроме текущего)
         // С учетом Direction и Price текущего ордера для правильной фильтрации pending ордеров
-        decimal potentialPosition = CalculatePotentialPosition(order);
+        decimal potentialPosition = await CalculatePotentialPosition(order);
 
         // Нет ни реальной позиции, ни pending ордеров - это Open
         if (potentialPosition == 0)
@@ -305,7 +305,7 @@ public class CurrentWalletPositionService(
     /// Пересчитать SubType для всех pending оригинальных ордеров по указанному кошельку и символу
     /// Вызывается при изменении статуса любого ордера для обновления SubType остальных pending ордеров
     /// </summary>
-    public void RecalculateSubTypesForSymbol(Wallet wallet, string symbol)
+    public async Task RecalculateSubTypesForSymbol(Wallet wallet, string symbol)
     {
         ArgumentNullException.ThrowIfNull(wallet, nameof(wallet));
         ArgumentException.ThrowIfNullOrWhiteSpace(symbol, nameof(symbol));
@@ -313,7 +313,7 @@ public class CurrentWalletPositionService(
         try
         {
             // Получаем все pending оригинальные ордера для данного кошелька и символа из FillsOrderService
-            var pendingOrderFills = _fillsOrderService.GetPendingOrdersByWalletAndSymbol(wallet, symbol);
+            var pendingOrderFills = await _fillsOrderService.GetPendingOrdersByWalletAndSymbol(wallet, symbol);
 
             if (pendingOrderFills.Length == 0)
             {
@@ -330,12 +330,12 @@ public class CurrentWalletPositionService(
             {
                 var originalOrder = orderFills.OriginalOrder;
                 var oldSubType = originalOrder.SubType;
-                var newSubType = GetOrderSubType(originalOrder);
+                var newSubType = await GetOrderSubType(originalOrder);
 
                 // Обновляем только если SubType изменился
                 if (newSubType != oldSubType)
                 {
-                    _fillsOrderService.UpdateOrderSubType(originalOrder.OrderId, newSubType);
+                    await _fillsOrderService.UpdateOrderSubType(originalOrder.OrderId, newSubType);
                     updatedCount++;
 
                     _logger.LogInformation($"CurrentWalletPositionService.RecalculateSubTypesForSymbol: OrderId={originalOrder.OrderId} OrderSubType изменен: {oldSubType} -> {newSubType}");

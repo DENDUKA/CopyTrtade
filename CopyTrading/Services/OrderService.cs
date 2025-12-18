@@ -88,7 +88,7 @@ public class OrderService : IOrderService
             _logger.LogInformation($"OrderService.OnNewOrders: OrderId={order.OrderId} Получен новый ордер {order.Symbol} {order.Direction} Status={order.Status}");
 
             // Рассчитываем SubType для каждого нового ордера
-            order.SubType = _currentWalletPositionService.GetOrderSubType(order);
+            order.SubType = await _currentWalletPositionService.GetOrderSubType(order);
 
             _orderSQLLiteRepository.WriteOrder(order);
 
@@ -99,10 +99,10 @@ public class OrderService : IOrderService
         }
 
         _realtimeUpdateService.OnNewOrders(orders);
-        _fillsOrderService.OnNewOrders(orders);
+        await _fillsOrderService.OnNewOrders(orders);
 
         // Пересчитываем SubType для всех pending ордеров, затронутых изменениями
-        RecalculateSubTypesForOrders(orders);
+        await RecalculateSubTypesForOrders(orders);
 
         await _copyOrderService.OnNewOrders(orders);
     }
@@ -131,7 +131,7 @@ public class OrderService : IOrderService
     /// Пересчитывает SubType для всех pending ордеров, затронутых изменениями
     /// Группирует ордера по (Wallet, Symbol) и вызывает пересчёт для каждой группы
     /// </summary>
-    private void RecalculateSubTypesForOrders(OriginalOrder[] orders)
+    private async Task RecalculateSubTypesForOrders(OriginalOrder[] orders)
     {
         var orderGroups = orders
             .GroupBy(o => new { o.Wallet, o.Symbol })
@@ -139,7 +139,7 @@ public class OrderService : IOrderService
 
         foreach (var group in orderGroups)
         {
-            _currentWalletPositionService.RecalculateSubTypesForSymbol(group.Key.Wallet, group.Key.Symbol);
+            await _currentWalletPositionService.RecalculateSubTypesForSymbol(group.Key.Wallet, group.Key.Symbol);
         }
     }
 

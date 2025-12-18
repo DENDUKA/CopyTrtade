@@ -1,4 +1,5 @@
-﻿using CopyTrading.Providers.Hyperliquid.Interfaces;
+﻿using CopyTrading.Extensions;
+using CopyTrading.Providers.Hyperliquid.Interfaces;
 using CopyTrading.Providers.Hyperliquid.Providers;
 using CopyTrading.Providers.Hyperliquid.Subscribers;
 using CopyTrading.Repository.InfluxInterfaces;
@@ -47,6 +48,9 @@ public class Startup
         var postgresSettings = _configuration.GetSection("PostgreSQL").Get<PostgreSQLSettings>() ?? new PostgreSQLSettings();
         services.AddSingleton(postgresSettings);
 
+        // Redis Services
+        services.AddRedisServices(_configuration);
+
         services.AddMemoryCache();
 
         // ASP.NET Core Services
@@ -93,6 +97,9 @@ public class Startup
         services.AddSingleton<Repository.InfluxInterfaces.IOrderRepository, Repository.Influx.OrderRepository>();
         services.AddSingleton<Repository.InfluxInterfaces.ITradeRepository, Repository.Influx.TradeRepository>();
         services.AddSingleton<ICandlesRepository, Repository.Influx.CandlesRepository>();
+
+        // Redis Repositories
+        services.AddSingleton<Repository.RedisInterfaces.IRedisRepository, Repository.Redis.RedisRepository>();
 
         // Database Repositories - Use PostgreSQL
         services.AddSingleton<Repository.SQLInterfaces.Interfaces.IOrderRepository, Repository.PostgreSQL.OrderRepository>();
@@ -144,6 +151,7 @@ public class Startup
 
         // Инициализация singleton сервисов для подписки на события
         // FillsOrderService - корреляция трейдов с ордерами, генерация OrderFinished событий
+        // ВАЖНО: RestoreFromRedis() вызывается вручную через UI (страница Redis Admin)
         serviceProvider.GetService<IFillsOrderService>();
 
         // CopyOrderService - автоматическое копирование ордеров от отслеживаемых кошельков

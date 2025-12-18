@@ -202,7 +202,7 @@ public class OrdersTradesSubscriber(
             var uniqueSymbols = activeOrders.Select(o => o.Symbol).Distinct().ToArray();
             foreach (var symbol in uniqueSymbols)
             {
-                _currentWalletPositionService.RecalculateSubTypesForSymbol(wallet, symbol);
+                await _currentWalletPositionService.RecalculateSubTypesForSymbol(wallet, symbol);
             }
 
             _logger.LogInformation(

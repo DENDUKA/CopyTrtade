@@ -312,7 +312,7 @@ public class CopyOrderService(
             return null;
         }
 
-        var orderFills = _fillsOrderService.GetOrderFillsByOrderId(orderId);
+        var orderFills = await _fillsOrderService.GetOrderFillsByOrderId(orderId);
 
         if (orderFills is null)
         {

@@ -14,15 +14,13 @@ namespace CopyTrading.Services.Interfaces;
 /// 3. Генерация событий OrderFinished при достижении финальных статусов
 /// 4. Обработка pending трейдов, которые приходят раньше своих ордеров
 /// 5. Валидация корректности исполнения (соответствие количества трейдов ордеру)
-/// 6. Автоматическая очистка памяти от старых завершенных ордеров
 ///
 /// АРХИТЕКТУРНЫЕ ОСОБЕННОСТИ:
 /// - НЕ подписан напрямую на DataBusEvents.NewOrders и DataBusEvents.NewTrades
 /// - Получает данные через методы OnNewOrders() и OnNewTrades(), которые вызывают
 ///   OrderService и TradeService соответственно (паттерн "Медиатор")
-/// - Хранит все ордера в памяти (ConcurrentDictionary) с их трейдами
-/// - Поддерживает словарь _pendingTrades для трейдов без соответствующих ордеров
-/// - Автоматически очищает память: при превышении 2000 ордеров удаляет старые завершенные до 500
+/// - Хранит все данные в Redis (OrderFills, PendingTrades, OrderErrors)
+/// - Прямой доступ к Redis через IRedisRepository без кеширования в памяти
 ///
 /// ПОТОК ОБРАБОТКИ ОРДЕРОВ:
 /// 1. OrderService получает новые ордера через WebSocket
@@ -44,19 +42,19 @@ namespace CopyTrading.Services.Interfaces;
 /// </summary>
 public interface IFillsOrderService
 {
-    void OnNewOrders(OriginalOrder[] orders);
+    Task OnNewOrders(OriginalOrder[] orders);
 
     void OnNewTrades((OriginalTrade[] Trades, bool IsSnapshot) trades);
 
-    OrderFills[] GetAllOrderFills();
+    Task<OrderFills[]> GetAllOrderFills();
 
-    OrderFills? GetOrderFillsByOrderId(long orderId);
+    Task<OrderFills?> GetOrderFillsByOrderId(long orderId);
 
-    OrderFills[] GetOpenOrdersByWallet(Wallet wallet);
+    Task<OrderFills[]> GetOpenOrdersByWallet(Wallet wallet);
 
-    OrderFills[] GetPendingOrdersByWalletAndSymbol(Wallet wallet, string symbol);
+    Task<OrderFills[]> GetPendingOrdersByWalletAndSymbol(Wallet wallet, string symbol);
 
-    bool UpdateOrderSubType(long orderId, OrderSubType newSubType);
+    Task<bool> UpdateOrderSubType(long orderId, OrderSubType newSubType);
 
     int AddHistoricalOrders(OriginalOrder[] orders);
 }

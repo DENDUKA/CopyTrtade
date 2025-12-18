@@ -107,10 +107,7 @@
         }
 
         @* Открытые ордера *@
-        @if (wallet != null)
-        {
-            var openOrders = FillsOrderService.GetOpenOrdersByWallet(wallet);
-            if (openOrders.Length > 0)
+        @if (wallet != null && openOrders != null && openOrders.Length > 0)
             {
                 <hr class="my-4" />
                 <h5>Открытые ордера (@openOrders.Length)</h5>
@@ -173,6 +170,7 @@
 
     private Wallet? wallet;
     private WalletPositionsSnapshot? snapshot;
+    private OrderFills[]? openOrders;
 
     protected override async Task OnInitializedAsync()
     {
@@ -180,6 +178,7 @@
         {
             wallet = new Wallet(WalletAddress);
             snapshot = await CurrentWalletPositionService.GetSnapshot(wallet);
+            openOrders = await FillsOrderService.GetOpenOrdersByWallet(wallet);
         }
     }
 
@@ -189,6 +188,7 @@
         {
             wallet = new Wallet(WalletAddress);
             snapshot = await CurrentWalletPositionService.GetSnapshot(wallet);
+            openOrders = await FillsOrderService.GetOpenOrdersByWallet(wallet);
             StateHasChanged();
         }
     }

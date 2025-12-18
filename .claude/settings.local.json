@@ -37,7 +37,11 @@
       "WebFetch(domain:github.com)",
       "Bash(docker logs:*)",
       "Bash(Select-String \"copytrading\")",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(dotnet clean:*)",
+      "Bash(/dev/null)",
+      "Bash(Select-String -Pattern \"(Build succeeded|Build FAILED|error CS)\" -Context 0,2)",
+      "Bash(timeout:*)"
     ],
     "deny": [],
     "ask": []

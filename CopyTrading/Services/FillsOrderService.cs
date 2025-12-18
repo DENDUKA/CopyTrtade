@@ -3,27 +3,34 @@ using CopyTrading.Models.Models.Enums;
 using CopyTrading.Models.Models.Enums.Order;
 using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Models.Trade;
+using CopyTrading.Repository.RedisInterfaces;
 using CopyTrading.Services.Interfaces;
-using System.Collections.Concurrent;
 
 namespace CopyTrading.Services;
 
-public class FillsOrderService(ILogger<FillsOrderService> _logger) : IFillsOrderService
+public class FillsOrderService : IFillsOrderService
 {
-    private readonly ConcurrentDictionary<long, OrderFills> _orders = [];
-    private readonly ConcurrentDictionary<long, OriginalTrade> _pendingTrades = [];
-    internal readonly ConcurrentDictionary<long, string> _ordersWithError = [];
+    private readonly ILogger<FillsOrderService> _logger;
+    private readonly IRedisRepository _redisRepository;
 
     private readonly OrderStatus[] _orderFinalStatuses = [OrderStatus.Canceled, OrderStatus.Filled, OrderStatus.Rejected];
 
-    // Константы для управления размером кэша
-    private const int MaxOrdersThreshold = 2000;  // Порог для начала очистки
-    private const int TargetOrdersCount = 500;    // Целевое количество после очистки
     private const decimal ExpectedCanceledQuantity = 0;  // Ожидаемое количество для отмененного ордера
 
-    public OrderFills[] GetAllOrderFills()
+    public FillsOrderService(
+        ILogger<FillsOrderService> logger,
+        IRedisRepository redisRepository)
     {
-        return [.. _orders.Values];
+        _logger = logger;
+        _redisRepository = redisRepository;
+
+        _logger.LogInformation("FillsOrderService initialized - all data stored in Redis");
+    }
+
+    public async Task<OrderFills[]> GetAllOrderFills()
+    {
+        var allOrders = await _redisRepository.LoadAllOrders();
+        return [.. allOrders.Values];
     }
 
     /// <summary>
@@ -31,9 +38,9 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger) : IFillsOrder
     /// </summary>
     /// <param name="orderId">ID ордера</param>
     /// <returns>OrderFills или null если ордер не найден</returns>
-    public OrderFills? GetOrderFillsByOrderId(long orderId)
+    public async Task<OrderFills?> GetOrderFillsByOrderId(long orderId)
     {
-        return _orders.TryGetValue(orderId, out var orderFills) ? orderFills : null;
+        return await _redisRepository.GetOrder(orderId);
     }
 
     /// <summary>
@@ -41,9 +48,10 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger) : IFillsOrder
     /// </summary>
     /// <param name="wallet">Кошелек для фильтрации</param>
     /// <returns>Массив открытых OrderFills для указанного кошелька</returns>
-    public OrderFills[] GetOpenOrdersByWallet(Models.Values.Wallet wallet)
+    public async Task<OrderFills[]> GetOpenOrdersByWallet(Models.Values.Wallet wallet)
     {
-        return _orders.Values
+        var allOrders = await _redisRepository.LoadAllOrders();
+        return allOrders.Values
             .Where(orderFills => IsOpenOrderForWallet(orderFills, wallet))
             .ToArray();
     }
@@ -54,11 +62,9 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger) : IFillsOrder
     /// <param name="wallet">Кошелек для фильтрации</param>
     /// <param name="symbol">Символ для фильтрации</param>
     /// <returns>Массив pending OrderFills для указанного кошелька и символа</returns>
-    public OrderFills[] GetPendingOrdersByWalletAndSymbol(Models.Values.Wallet wallet, string symbol)
+    public async Task<OrderFills[]> GetPendingOrdersByWalletAndSymbol(Models.Values.Wallet wallet, string symbol)
     {
-        return _orders.Values
-            .Where(orderFills => IsPendingOrderForWalletAndSymbol(orderFills, wallet, symbol))
-            .ToArray();
+        return await _redisRepository.GetPendingOrdersByWalletAndSymbol(wallet.Value, symbol);
     }
 
     /// <summary>
@@ -67,22 +73,26 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger) : IFillsOrder
     /// <param name="orderId">ID ордера</param>
     /// <param name="newSubType">Новый SubType</param>
     /// <returns>True если обновление успешно, false если ордер не найден</returns>
-    public bool UpdateOrderSubType(long orderId, OrderSubType newSubType)
+    public async Task<bool> UpdateOrderSubType(long orderId, OrderSubType newSubType)
     {
-        if (_orders.TryGetValue(orderId, out var orderFills))
+        var result = await _redisRepository.UpdateOrderSubType(orderId, newSubType);
+
+        if (result)
         {
-            var oldSubType = orderFills.OriginalOrder.SubType;
-            orderFills.OriginalOrder.SubType = newSubType;
-
-            _logger.LogInformation(
-                $"FillsOrderService.UpdateOrderSubType: OrderId={orderId} {oldSubType} -> {newSubType}, " +
-                $"Wallet={orderFills.OriginalOrder.Wallet}, Symbol={orderFills.OriginalOrder.Symbol}");
-
-            return true;
+            var orderFills = await _redisRepository.GetOrder(orderId);
+            if (orderFills != null)
+            {
+                _logger.LogInformation(
+                    $"FillsOrderService.UpdateOrderSubType: OrderId={orderId} -> {newSubType}, " +
+                    $"Wallet={orderFills.OriginalOrder.Wallet}, Symbol={orderFills.OriginalOrder.Symbol}");
+            }
+        }
+        else
+        {
+            _logger.LogWarning($"FillsOrderService.UpdateOrderSubType: OrderId={orderId} Ордер не найден");
         }
 
-        _logger.LogWarning($"FillsOrderService.UpdateOrderSubType: OrderId={orderId} Ордер не найден");
-        return false;
+        return result;
     }
 
     /// <summary>
@@ -100,8 +110,9 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger) : IFillsOrder
 
         foreach (var order in orders)
         {
-            // Игнорируем ордера, которые уже есть в системе
-            if (_orders.ContainsKey(order.OrderId))
+            // Проверяем, существует ли ордер в Redis
+            bool exists = _redisRepository.OrderExists(order.OrderId).GetAwaiter().GetResult();
+            if (exists)
             {
                 skippedCount++;
                 _logger.LogDebug($"FillsOrderService.AddHistoricalOrders: OrderId={order.OrderId} Уже существует, пропускаем");
@@ -111,7 +122,8 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger) : IFillsOrder
             // Создаем новый OrderFills для исторического ордера
             var orderFills = new OrderFills(order);
 
-            _orders.TryAdd(order.OrderId, orderFills);
+            // Сохраняем в Redis
+            _redisRepository.SaveOrder(orderFills).GetAwaiter().GetResult();
             addedCount++;
         }
 
@@ -121,27 +133,26 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger) : IFillsOrder
         return addedCount;
     }
 
-    public void OnNewOrders(OriginalOrder[] orders)
+    public async Task OnNewOrders(OriginalOrder[] orders)
     {
         foreach (var newOrder in orders)
         {
-            if (_orders.TryGetValue(newOrder.OrderId, out var orderFills))
+            var orderFills = await _redisRepository.GetOrder(newOrder.OrderId);
+
+            if (orderFills != null)
             {
-                ProcessExistingOrder(newOrder, orderFills);
+                await ProcessExistingOrder(newOrder, orderFills);
             }
             else
             {
-                CreateNewOrderFills(newOrder);
+                await CreateNewOrderFills(newOrder);
             }
 
-            OnOrderFinished(newOrder);
+            await OnOrderFinished(newOrder);
         }
-
-        // Проверяем необходимость очистки после обработки ордеров
-        CleanupOldCompletedOrdersIfNeeded();
     }
 
-    public void OnNewTrades((OriginalTrade[] Trades, bool IsSnapshot) trades)
+    public async void OnNewTrades((OriginalTrade[] Trades, bool IsSnapshot) trades)
     {
         if (trades.IsSnapshot)
         {
@@ -152,17 +163,18 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger) : IFillsOrder
         foreach (var trade in trades.Trades)
         {
             LogNewTrade(trade);
-            ProcessTrade(trade);
+            await ProcessTrade(trade);
         }
     }
 
-    private void OnOrderFinished(OriginalOrder order)
+    private async Task OnOrderFinished(OriginalOrder order)
     {
         _logger.LogInformation($"FillsOrderService.OnOrderFinished: OrderId={order.OrderId} Status={order.Status}");
 
         if (!IsFinalStatus(order.Status)) return;
 
-        if (!_orders.TryGetValue(order.OrderId, out var orderFills))
+        var orderFills = await _redisRepository.GetOrder(order.OrderId);
+        if (orderFills == null)
         {
             _logger.LogWarning($"FillsOrderService.OnOrderFinished: OrderId={order.OrderId} OrderFills не найден");
             return;
@@ -171,15 +183,15 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger) : IFillsOrder
         switch (order.Status)
         {
             case OrderStatus.Filled:
-                HandleFilledOrder(order, orderFills);
+                await HandleFilledOrder(order, orderFills);
                 break;
 
             case OrderStatus.Canceled:
-                HandleCanceledOrder(order, orderFills);
+                await HandleCanceledOrder(order, orderFills);
                 break;
 
             default:
-                HandleUnknownFinalStatus(order);
+                await HandleUnknownFinalStatus(order);
                 break;
         }
     }
@@ -233,16 +245,17 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger) : IFillsOrder
         }
     }
 
-    private void AddTradesFromPending(OrderFills newOrderFills)
+    private async Task AddTradesFromPending(OrderFills newOrderFills)
     {
-        var pendingTradesForOrder = _pendingTrades.Values
+        var allPendingTrades = await _redisRepository.LoadAllPendingTrades();
+        var pendingTradesForOrder = allPendingTrades.Values
             .Where(t => t.OrderId == newOrderFills.OriginalOrder.OrderId)
             .ToArray();
 
         foreach (var pendingTrade in pendingTradesForOrder)
         {
             newOrderFills.Trades.Add(pendingTrade);
-            _pendingTrades.TryRemove(pendingTrade.TradeId, out _);
+            await _redisRepository.DeletePendingTrade(pendingTrade.TradeId);
         }
 
         if (pendingTradesForOrder.Length > 0)
@@ -254,47 +267,49 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger) : IFillsOrder
     /// <summary>
     /// Обрабатывает трейд (новый или из pending)
     /// </summary>
-    private void ProcessTrade(OriginalTrade trade)
+    private async Task ProcessTrade(OriginalTrade trade)
     {
-        if (_orders.TryGetValue(trade.OrderId, out var orderFills))
+        var orderFills = await _redisRepository.GetOrder(trade.OrderId);
+
+        if (orderFills != null)
         {
-            ProcessTradeForExistingOrder(trade, orderFills);
+            await ProcessTradeForExistingOrder(trade, orderFills);
         }
         else
         {
-            AddTradeToPending(trade);
+            await AddTradeToPending(trade);
         }
     }
 
     /// <summary>
     /// Обрабатывает существующий ордер при получении обновления
     /// </summary>
-    private void ProcessExistingOrder(OriginalOrder newOrder, OrderFills orderFills)
+    private async Task ProcessExistingOrder(OriginalOrder newOrder, OrderFills orderFills)
     {
         var orderChanges = GetChangesInOrder(newOrder, orderFills.OriginalOrder);
         orderFills.UpdateOrder(newOrder);
+
+        // Сохранить в Redis
+        await _redisRepository.SaveOrder(orderFills);
     }
 
     /// <summary>
     /// Создает новый OrderFills и добавляет pending трейды
     /// </summary>
-    private void CreateNewOrderFills(OriginalOrder newOrder)
+    private async Task CreateNewOrderFills(OriginalOrder newOrder)
     {
         var newOrderFills = new OrderFills(newOrder);
 
-        if (!_orders.TryAdd(newOrder.OrderId, newOrderFills))
-        {
-            _logger.LogError($"FillsOrderService.CreateNewOrderFills: OrderId={newOrder.OrderId} Не удалось добавить ордер");
-            return;
-        }
+        await AddTradesFromPending(newOrderFills);
 
-        AddTradesFromPending(newOrderFills);
+        // Сохранить в Redis
+        await _redisRepository.SaveOrder(newOrderFills);
     }
 
     /// <summary>
     /// Обрабатывает трейд для существующего ордера
     /// </summary>
-    private void ProcessTradeForExistingOrder(OriginalTrade trade, OrderFills orderFills)
+    private async Task ProcessTradeForExistingOrder(OriginalTrade trade, OrderFills orderFills)
     {
         if (IsDuplicateTrade(orderFills, trade))
         {
@@ -303,33 +318,46 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger) : IFillsOrder
         }
 
         orderFills.Trades.Add(trade);
+        await _redisRepository.SaveOrder(orderFills);
         LogTradeAdded(trade, orderFills);
-        OnOrderFinished(orderFills.OriginalOrder);
+        await OnOrderFinished(orderFills.OriginalOrder);
     }
 
     /// <summary>
     /// Добавляет трейд в pending если ордер еще не получен
     /// </summary>
-    private void AddTradeToPending(OriginalTrade trade)
+    private async Task AddTradeToPending(OriginalTrade trade)
     {
-        _pendingTrades.TryAdd(trade.TradeId, trade);
+        bool exists = await _redisRepository.PendingTradeExists(trade.TradeId);
+        if (!exists)
+        {
+            await _redisRepository.SavePendingTrade(trade);
+        }
         LogOrderNotFoundForTrade(trade);
     }
 
     /// <summary>
     /// Удаляет ордер из списка ошибок
     /// </summary>
-    private void RemoveOrderError(long orderId)
+    private async Task RemoveOrderError(long orderId)
     {
-        _ordersWithError.Remove(orderId, out var _);
+        bool hasError = await _redisRepository.OrderHasError(orderId);
+        if (hasError)
+        {
+            await _redisRepository.DeleteOrderError(orderId);
+        }
     }
 
     /// <summary>
     /// Добавляет ордер в список ошибок
     /// </summary>
-    private void AddOrderError(long orderId, string errorMessage)
+    private async Task AddOrderError(long orderId, string errorMessage)
     {
-        _ordersWithError.TryAdd(orderId, errorMessage);
+        bool hasError = await _redisRepository.OrderHasError(orderId);
+        if (!hasError)
+        {
+            await _redisRepository.SaveOrderError(orderId, errorMessage);
+        }
         _logger.LogError($"FillsOrderService.AddOrderError: OrderId={orderId} {errorMessage}");
     }
 
@@ -352,83 +380,39 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger) : IFillsOrder
         }
     }
 
-    #region Memory Management
-
-    /// <summary>
-    /// Проверяет необходимость очистки старых завершенных ордеров и выполняет её при необходимости
-    /// </summary>
-    private void CleanupOldCompletedOrdersIfNeeded()
-    {
-        // Проверяем, превышен ли порог
-        if (_orders.Count <= MaxOrdersThreshold)
-        {
-            return;
-        }
-
-        _logger.LogInformation($"FillsOrderService.CleanupOldCompletedOrdersIfNeeded: Начинаем очистку, текущее количество {_orders.Count}");
-
-        // Получаем все завершенные ордера, отсортированные по времени (от старых к новым)
-        var completedOrders = _orders.Values
-            .Where(orderFills => IsFinalStatus(orderFills.OriginalOrder.Status))
-            .OrderBy(orderFills => orderFills.OriginalOrder.Time)
-            .ToList();
-
-        _logger.LogInformation($"FillsOrderService.CleanupOldCompletedOrdersIfNeeded: Найдено {completedOrders.Count} завершенных ордеров");
-
-        // Вычисляем сколько нужно удалить
-        int ordersToRemove = _orders.Count - TargetOrdersCount;
-        int removedCount = 0;
-
-        // Удаляем старые завершенные ордера
-        foreach (var orderFills in completedOrders)
-        {
-            if (removedCount >= ordersToRemove)
-            {
-                break;
-            }
-
-            if (_orders.TryRemove(orderFills.OriginalOrder.OrderId, out _))
-            {
-                removedCount++;
-                _ordersWithError.TryRemove(orderFills.OriginalOrder.OrderId, out _);
-                _logger.LogDebug($"FillsOrderService.CleanupOldCompletedOrdersIfNeeded: OrderId={orderFills.OriginalOrder.OrderId} Удален завершенный ордер");
-            }
-        }
-
-        _logger.LogInformation($"FillsOrderService.CleanupOldCompletedOrdersIfNeeded: Очистка завершена, удалено {removedCount}, осталось {_orders.Count}");
-    }
-
-    #endregion
 
     #region Order Status Handlers
 
     /// <summary>
     /// Обрабатывает ордер со статусом Filled
     /// </summary>
-    private void HandleFilledOrder(OriginalOrder order, OrderFills orderFills)
+    private async Task HandleFilledOrder(OriginalOrder order, OrderFills orderFills)
     {
         if (IsQuantityMatched(orderFills, order.Quantity))
         {
             // Успех: весь Order заполнен/выполнен, соответствует статусу
             PublishOrderFinished(orderFills);
-            RemoveOrderError(order.OrderId);
+            await RemoveOrderError(order.OrderId);
             _logger.LogInformation($"FillsOrderService.HandleFilledOrder: OrderId={order.OrderId} Success");
         }
         else
         {
             // Ошибка: сумма всех trades не соответствует order.Quantity
             string error = $"FillsOrderService.HandleFilledOrder: OrderId={order.OrderId} Не сходится сумма всех trades и order.Quantity";
-            AddOrderError(order.OrderId, error);
+            await AddOrderError(order.OrderId, error);
         }
+
+        // Сохранить в Redis
+        await _redisRepository.SaveOrder(orderFills);
     }
 
     /// <summary>
     /// Обрабатывает ордер со статусом Canceled
     /// </summary>
-    private void HandleCanceledOrder(OriginalOrder order, OrderFills orderFills)
+    private async Task HandleCanceledOrder(OriginalOrder order, OrderFills orderFills)
     {
         PublishOrderFinished(orderFills);
-        RemoveOrderError(order.OrderId);
+        await RemoveOrderError(order.OrderId);
 
         if (IsQuantityMatched(orderFills, ExpectedCanceledQuantity))
         {
@@ -440,15 +424,18 @@ public class FillsOrderService(ILogger<FillsOrderService> _logger) : IFillsOrder
             // Закрытие Order: ордер был выполнен частично
             _logger.LogWarning($"FillsOrderService.HandleCanceledOrder: OrderId={order.OrderId} Ордер был выполнен частично");
         }
+
+        // Сохранить в Redis
+        await _redisRepository.SaveOrder(orderFills);
     }
 
     /// <summary>
     /// Обрабатывает ордер с неизвестным финальным статусом (Rejected и др.)
     /// </summary>
-    private void HandleUnknownFinalStatus(OriginalOrder order)
+    private async Task HandleUnknownFinalStatus(OriginalOrder order)
     {
         string error = $"Неизвестная ошибка";
-        AddOrderError(order.OrderId, error);
+        await AddOrderError(order.OrderId, error);
         _logger.LogWarning($"FillsOrderService.HandleUnknownFinalStatus: OrderId={order.OrderId} {error}");
     }
 
