@@ -1,37 +1,26 @@
 using Microsoft.AspNetCore.SignalR;
 using CopyTrading.Services.Interfaces;
 using CopyTrading.Models.Models;
+using System.Threading.Tasks;
 
 namespace CopyTrading.BlazorUI.Hubs;
 
 /// <summary>
 /// SignalR Hub для real-time обновлений Copy Trading данных
 /// </summary>
-public class CopyTradingHub : Hub
+public class CopyTradingHub(
+    IPositionMappingService positionMappingService,
+    ICurrentWalletPositionService walletPositionService,
+    IOrderService orderService,
+    ILogger<CopyTradingHub> logger) : Hub
 {
-    private readonly IPositionMappingService _positionMappingService;
-    private readonly ICurrentWalletPositionService _walletPositionService;
-    private readonly IOrderService _orderService;
-    private readonly ILogger<CopyTradingHub> _logger;
-
-    public CopyTradingHub(
-        IPositionMappingService positionMappingService,
-        ICurrentWalletPositionService walletPositionService,
-        IOrderService orderService,
-        ILogger<CopyTradingHub> logger)
-    {
-        _positionMappingService = positionMappingService;
-        _walletPositionService = walletPositionService;
-        _orderService = orderService;
-        _logger = logger;
-    }
 
     /// <summary>
     /// Клиент подключился - отправляем текущее состояние
     /// </summary>
     public override async Task OnConnectedAsync()
     {
-        _logger.LogInformation($"Клиент подключился: {Context.ConnectionId}");
+        logger.LogInformation($"Клиент подключился: {Context.ConnectionId}");
 
         // Отправляем начальные данные клиенту
         await SendInitialData();
@@ -44,7 +33,7 @@ public class CopyTradingHub : Hub
     /// </summary>
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
-        _logger.LogInformation($"Клиент отключился: {Context.ConnectionId}");
+        logger.LogInformation($"Клиент отключился: {Context.ConnectionId}");
         await base.OnDisconnectedAsync(exception);
     }
 
@@ -55,14 +44,14 @@ public class CopyTradingHub : Hub
     {
         try
         {
-            _logger.LogDebug("GetAllPositions вызван");
-            var positions = _positionMappingService.GetAllMappings().ToArray();
-            _logger.LogDebug($"GetAllPositions возвращает {positions.Length} позиций");
+            logger.LogDebug("GetAllPositions вызван");
+            var positions = (await positionMappingService.GetAllMappings()).ToArray();
+            logger.LogDebug($"GetAllPositions возвращает {positions.Length} позиций");
             return positions;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка в GetAllPositions");
+            logger.LogError(ex, "Ошибка в GetAllPositions");
             throw;
         }
     }
@@ -70,10 +59,12 @@ public class CopyTradingHub : Hub
     /// <summary>
     /// Клиент запрашивает позиции по конкретному символу
     /// </summary>
-    public PositionMapping[] GetPositionsBySymbol(string symbol)
+    public async Task<PositionMapping[]> GetPositionsBySymbol(string symbol)
     {
-        _logger.LogDebug($"GetPositionsBySymbol вызван: {symbol}");
-        return [.. _positionMappingService.GetAllMappings().Where(p => p.Symbol == symbol)];
+        logger.LogDebug($"GetPositionsBySymbol вызван: {symbol}");
+        var positions = await positionMappingService.GetAllMappings();
+
+        return [.. positions.Where(p => p.Symbol == symbol)];
     }
 
     /// <summary>
@@ -81,7 +72,7 @@ public class CopyTradingHub : Hub
     /// </summary>
     public int GetPositionsCount()
     {
-        return _positionMappingService.GetMappingsCount;
+        return positionMappingService.GetMappingsCount;
     }
 
     /// <summary>
@@ -91,26 +82,26 @@ public class CopyTradingHub : Hub
     {
         try
         {
-            _logger.LogInformation("Начинаем отправку начальных данных");
+            logger.LogInformation("Начинаем отправку начальных данных");
 
             // Отправляем текущие позиции
-            var positions = _positionMappingService.GetAllMappings().ToArray();
-            _logger.LogInformation($"Получено {positions.Length} позиций из сервиса");
+            var positions = (await positionMappingService.GetAllMappings()).ToArray();
+            logger.LogInformation($"Получено {positions.Length} позиций из сервиса");
 
             // Логируем каждую позицию для отладки
             foreach (var pos in positions)
             {
-                _logger.LogDebug($"Позиция: {pos.Symbol} {pos.Direction}, Trader: {pos.TraderWallet?.ToString() ?? "null"}, My: {pos.MyWallet?.ToString() ?? "null"}");
+                logger.LogDebug($"Позиция: {pos.Symbol} {pos.Direction}, Trader: {pos.TraderWallet?.ToString() ?? "null"}, My: {pos.MyWallet?.ToString() ?? "null"}");
             }
 
-            _logger.LogInformation("Попытка сериализации и отправки позиций...");
+            logger.LogInformation("Попытка сериализации и отправки позиций...");
             await Clients.Caller.SendAsync("ReceiveInitialPositions", positions);
 
-            _logger.LogInformation($"Успешно отправлено {positions.Length} позиций клиенту {Context.ConnectionId}");
+            logger.LogInformation($"Успешно отправлено {positions.Length} позиций клиенту {Context.ConnectionId}");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при отправке начальных данных");
+            logger.LogError(ex, "Ошибка при отправке начальных данных");
             throw;
         }
     }

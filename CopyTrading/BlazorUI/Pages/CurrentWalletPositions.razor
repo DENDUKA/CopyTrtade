@@ -264,7 +264,7 @@
         NavigationManager.NavigateTo($"/wallet/{wallet.Value}");
     }
 
-    private CopyTrading.Models.Models.Orders.CopyOrderV2[] GetCopyOrders(long originalOrderId)
+    private Task<CopyOrderV2[]> GetCopyOrders(long originalOrderId)
     {
         return CopyOrderStorageService.GetOrdersByOriginalOrderId(originalOrderId);
     }

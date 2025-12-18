@@ -470,7 +470,7 @@ public class CurrentWalletPositionService(
     /// <summary>
     /// Получает позицию из snapshot
     /// </summary>
-    private Position[] GetPositionsFromSnapshot(WalletPositionsSnapshot snapshot, string symbol)
+    private static Position[] GetPositionsFromSnapshot(WalletPositionsSnapshot snapshot, string symbol)
     {
         ArgumentNullException.ThrowIfNull(snapshot, nameof(snapshot));
 

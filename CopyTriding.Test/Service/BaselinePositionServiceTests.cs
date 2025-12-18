@@ -46,7 +46,7 @@ public class BaselinePositionServiceTests
         var wallets = new[] { _wallet1, _wallet2 };
         _currentWalletPositionServiceMock
             .Setup(x => x.GetAllWallets())
-            .Returns(wallets);
+            .ReturnsAsync(wallets);
 
         var snapshot1 = new WalletPositionsSnapshot
         {
@@ -91,7 +91,7 @@ public class BaselinePositionServiceTests
         var wallets = new[] { _wallet1 };
         _currentWalletPositionServiceMock
             .Setup(x => x.GetAllWallets())
-            .Returns(wallets);
+            .ReturnsAsync(wallets);
 
         _currentWalletPositionServiceMock
             .Setup(x => x.GetSnapshot(_wallet1))
@@ -111,7 +111,7 @@ public class BaselinePositionServiceTests
         var wallets = new[] { _wallet1 };
         _currentWalletPositionServiceMock
             .Setup(x => x.GetAllWallets())
-            .Returns(wallets);
+            .ReturnsAsync(wallets);
 
         var snapshot = new WalletPositionsSnapshot
         {
@@ -137,7 +137,7 @@ public class BaselinePositionServiceTests
         var wallets = new[] { _wallet1, _wallet2 };
         _currentWalletPositionServiceMock
             .Setup(x => x.GetAllWallets())
-            .Returns(wallets);
+            .ReturnsAsync(wallets);
 
         _currentWalletPositionServiceMock
             .Setup(x => x.GetSnapshot(_wallet1))
@@ -532,7 +532,7 @@ public class BaselinePositionServiceTests
 
         _currentWalletPositionServiceMock
             .Setup(x => x.GetAllWallets())
-            .Returns(new[] { _wallet1 });
+            .ReturnsAsync([_wallet1]);
 
         _currentWalletPositionServiceMock
             .Setup(x => x.GetSnapshot(_wallet1))
@@ -572,7 +572,7 @@ public class BaselinePositionServiceTests
 
         _currentWalletPositionServiceMock
             .Setup(x => x.GetAllWallets())
-            .Returns(new[] { _wallet1 });
+            .ReturnsAsync([_wallet1]);
 
         _currentWalletPositionServiceMock
             .Setup(x => x.GetSnapshot(_wallet1))
@@ -602,7 +602,7 @@ public class BaselinePositionServiceTests
 
         _currentWalletPositionServiceMock
             .Setup(x => x.GetAllWallets())
-            .Returns(new[] { _wallet1 });
+            .ReturnsAsync([_wallet1]);
 
         _currentWalletPositionServiceMock
             .Setup(x => x.GetSnapshot(_wallet1))
@@ -627,7 +627,7 @@ public class BaselinePositionServiceTests
         // Arrange
         _fillsOrderServiceMock
             .Setup(x => x.GetOrderFillsByOrderId(123))
-            .Returns((OrderFills?)null);
+            .ReturnsAsync((OrderFills?)null);
 
         // Act
         var result = await _service.WillOrderCloseBelowBaseline(123);
@@ -1036,7 +1036,7 @@ public class BaselinePositionServiceTests
 
     #region Helper Methods
 
-    private OriginalTrade CreateTrade(Wallet wallet, string symbol, decimal quantity)
+    private static OriginalTrade CreateTrade(Wallet wallet, string symbol, decimal quantity)
     {
         return new OriginalTrade
         {
@@ -1065,7 +1065,7 @@ public class BaselinePositionServiceTests
 
         _currentWalletPositionServiceMock
             .Setup(x => x.GetAllWallets())
-            .Returns(new[] { wallet });
+            .ReturnsAsync([wallet]);
 
         _currentWalletPositionServiceMock
             .Setup(x => x.GetSnapshot(wallet))
@@ -1077,7 +1077,7 @@ public class BaselinePositionServiceTests
         _currentWalletPositionServiceMock.Reset();
     }
 
-    private OriginalOrder CreateOrder(long orderId, Wallet wallet, string symbol, Direction direction, decimal quantity, decimal price)
+    private static OriginalOrder CreateOrder(long orderId, Wallet wallet, string symbol, Direction direction, decimal quantity, decimal price)
     {
         return new OriginalOrder
         {
@@ -1096,7 +1096,7 @@ public class BaselinePositionServiceTests
         var orderFills = new OrderFills(order);
         _fillsOrderServiceMock
             .Setup(x => x.GetOrderFillsByOrderId(order.OrderId))
-            .Returns(orderFills);
+            .ReturnsAsync(orderFills);
     }
 
     private void SetupCurrentPosition(Wallet wallet, string symbol, decimal quantity)
@@ -1119,7 +1119,7 @@ public class BaselinePositionServiceTests
     {
         _currentWalletPositionServiceMock
             .Setup(x => x.CalculatePotentialPosition(order))
-            .Returns(potentialQuantity);
+            .ReturnsAsync(potentialQuantity);
     }
 
     #endregion

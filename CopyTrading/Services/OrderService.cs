@@ -7,6 +7,7 @@ using CopyTrading.Providers.Hyperliquid.Interfaces;
 using CopyTrading.Providers.Hyperliquid.Subscribers;
 using CopyTrading.Services.Interfaces;
 using CopyTrading.Settings;
+using System.Threading.Tasks;
 using IOrderRepositoryInflux = CopyTrading.Repository.InfluxInterfaces.IOrderRepository;
 using ISQLLiteOrderRepository = CopyTrading.Repository.SQLInterfaces.Interfaces.IOrderRepository;
 using ITradeRepositorySQL = CopyTrading.Repository.SQLInterfaces.Interfaces.ITradeRepository;
@@ -171,9 +172,9 @@ public class OrderService : IOrderService
     /// <summary>
     /// Отменяет копируемый ордер на бирже
     /// </summary>
-    public void CloseOrderWithStatus(long orderId, OrderStatus status)
+    public async Task CloseOrderWithStatus(long orderId, OrderStatus status)
     {
-        var copyOrders = _copyOrderStorageService.GetOrdersByOriginalOrderId(orderId);
+        var copyOrders = await _copyOrderStorageService.GetOrdersByOriginalOrderId(orderId);
 
         foreach (var copyOrder in copyOrders)
         {

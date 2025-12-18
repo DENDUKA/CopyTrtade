@@ -284,7 +284,7 @@ public class CopyOrderStorageServiceCleanupTests
     }
 
     // Вспомогательный метод для создания тестового CopyOrderV2
-    private CopyOrderV2 CreateCopyOrder(long orderId, OrderStatus status, DateTime time)
+    private static CopyOrderV2 CreateCopyOrder(long orderId, OrderStatus status, DateTime time)
     {
         var originalOrder = new OriginalOrder
         {

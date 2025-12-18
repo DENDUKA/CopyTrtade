@@ -21,12 +21,12 @@ public interface IRedisCacheService
     /// <summary>
     /// Удалить ключ из Redis
     /// </summary>
-    Task<bool> DeleteAsync(string key);
+    Task<bool> Delete(string key);
 
     /// <summary>
     /// Проверить существование ключа
     /// </summary>
-    Task<bool> ExistsAsync(string key);
+    Task<bool> Exists(string key);
 
     // ========== HASH OPERATIONS (для OrderFills по wallet:symbol) ==========
 
@@ -43,12 +43,12 @@ public interface IRedisCacheService
     /// <summary>
     /// Удалить поле из Redis Hash
     /// </summary>
-    Task<bool> HashDeleteAsync(string hashKey, string field);
+    Task<bool> HashDelete(string hashKey, string field);
 
     /// <summary>
     /// Проверить существование поля в Redis Hash
     /// </summary>
-    Task<bool> HashExistsAsync(string hashKey, string field);
+    Task<bool> HashExists(string hashKey, string field);
 
     /// <summary>
     /// Получить все поля и значения из Redis Hash
@@ -58,7 +58,7 @@ public interface IRedisCacheService
     /// <summary>
     /// Получить список всех ключей (полей) в Redis Hash
     /// </summary>
-    Task<List<string>> HashKeysAsync(string hashKey);
+    Task<List<string>> HashKeys(string hashKey);
 
     // ========== BATCH OPERATIONS ==========
 
@@ -87,5 +87,5 @@ public interface IRedisCacheService
     /// <summary>
     /// Очистить всю базу данных (использовать только для тестов!)
     /// </summary>
-    Task FlushDatabaseAsync();
+    Task FlushDatabase();
 }

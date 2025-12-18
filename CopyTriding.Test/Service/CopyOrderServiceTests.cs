@@ -1141,7 +1141,7 @@ public class CopyOrderServiceTests
         // Должно быть: order2, order3, order4 (order1 filled)
 
         // Проверяем SubType у OriginalOrder через FillsOrderService
-        var orderFills4Before = _fillsOrderService.GetOrderFillsByOrderId(4);
+        var orderFills4Before = await _fillsOrderService.GetOrderFillsByOrderId(4);
         orderFills4Before.Should().NotBeNull("order4 должен быть в FillsOrderService");
         orderFills4Before!.OriginalOrder.SubType.Should().Be(OrderSubType.Decrease,
             "order4 должен быть Decrease т.к. 100 (real) + 50 (order2) + 25 (order3) - 150 (order4) = 25 (остается Long)");
@@ -1152,21 +1152,21 @@ public class CopyOrderServiceTests
         await Task.Delay(100);
 
         // Assert часть 2 - проверяем что order3 был отменен
-        var openOrdersAfterCancel = _fillsOrderService.GetOpenOrdersByWallet(_traderWallet);
+        var openOrdersAfterCancel = await _fillsOrderService.GetOpenOrdersByWallet(_traderWallet);
         openOrdersAfterCancel.Should().HaveCount(2, "после отмены order3 должно остаться только 2 открытых ордера (order2 и order4)");
         openOrdersAfterCancel.Should().NotContain(o => o.OriginalOrder.OrderId == 3, "order3 не должен быть в открытых ордерах");
 
         // Assert часть 3 - проверяем что SubType для order4 автоматически изменился с Decrease на Close
         // После отмены order3: реальная позиция = 100, pending = order2 (50) + order4 (-150)
         // Потенциальная позиция = 100 + 50 - 150 = 0 → order4 должен стать Close
-        var orderFills4After = _fillsOrderService.GetOrderFillsByOrderId(4);
+        var orderFills4After = await _fillsOrderService.GetOrderFillsByOrderId(4);
         orderFills4After.Should().NotBeNull("order4 должен быть в FillsOrderService");
         orderFills4After!.OriginalOrder.SubType.Should().Be(OrderSubType.Close,
             "SubType для order4 должен автоматически измениться с Decrease на Close после отмены order3, " +
             "т.к. потенциальная позиция стала 100 + 50 - 150 = 0");
 
         // Дополнительная проверка: order2 должен остаться без изменений
-        var orderFills2After = _fillsOrderService.GetOrderFillsByOrderId(2);
+        var orderFills2After = await _fillsOrderService.GetOrderFillsByOrderId(2);
         orderFills2After.Should().NotBeNull("order2 должен быть в FillsOrderService");
         orderFills2After!.OriginalOrder.SubType.Should().Be(OrderSubType.Increase,
             "SubType для order2 не должен измениться, он остается Increase");

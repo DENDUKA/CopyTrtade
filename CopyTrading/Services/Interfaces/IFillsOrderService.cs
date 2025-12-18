@@ -56,5 +56,5 @@ public interface IFillsOrderService
 
     Task<bool> UpdateOrderSubType(long orderId, OrderSubType newSubType);
 
-    int AddHistoricalOrders(OriginalOrder[] orders);
+    Task<int> AddHistoricalOrders(OriginalOrder[] orders);
 }

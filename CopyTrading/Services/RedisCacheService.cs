@@ -7,12 +7,11 @@ namespace CopyTrading.Services;
 /// <summary>
 /// Реализация сервиса для работы с Redis кэшем
 /// </summary>
-public class RedisCacheService : IRedisCacheService
+public class RedisCacheService(
+    IConnectionMultiplexer redis,
+    ILogger<RedisCacheService> logger) : IRedisCacheService
 {
-    private readonly IConnectionMultiplexer _redis;
-    private readonly IDatabase _db;
-    private readonly ILogger<RedisCacheService> _logger;
-
+    private readonly IDatabase _db = redis.GetDatabase();
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -24,15 +23,6 @@ public class RedisCacheService : IRedisCacheService
             new OrderFillsJsonConverter() // Кастомный конвертер для OrderFills
         }
     };
-
-    public RedisCacheService(
-        IConnectionMultiplexer redis,
-        ILogger<RedisCacheService> logger)
-    {
-        _redis = redis;
-        _db = redis.GetDatabase();
-        _logger = logger;
-    }
 
     // ========== STRING OPERATIONS ==========
 
@@ -48,7 +38,7 @@ public class RedisCacheService : IRedisCacheService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Redis GetAsync failed for key={Key}", key);
+            logger.LogError(ex, "Redis GetAsync failed for key={Key}", key);
             return null;
         }
     }
@@ -62,12 +52,12 @@ public class RedisCacheService : IRedisCacheService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Redis SetAsync failed for key={Key}", key);
+            logger.LogError(ex, "Redis SetAsync failed for key={Key}", key);
             return false;
         }
     }
 
-    public async Task<bool> DeleteAsync(string key)
+    public async Task<bool> Delete(string key)
     {
         try
         {
@@ -75,12 +65,12 @@ public class RedisCacheService : IRedisCacheService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Redis DeleteAsync failed for key={Key}", key);
+            logger.LogError(ex, "Redis DeleteAsync failed for key={Key}", key);
             return false;
         }
     }
 
-    public async Task<bool> ExistsAsync(string key)
+    public async Task<bool> Exists(string key)
     {
         try
         {
@@ -88,7 +78,7 @@ public class RedisCacheService : IRedisCacheService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Redis ExistsAsync failed for key={Key}", key);
+            logger.LogError(ex, "Redis ExistsAsync failed for key={Key}", key);
             return false;
         }
     }
@@ -107,7 +97,7 @@ public class RedisCacheService : IRedisCacheService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Redis HashGetAsync failed for hash={HashKey} field={Field}", hashKey, field);
+            logger.LogError(ex, "Redis HashGetAsync failed for hash={HashKey} field={Field}", hashKey, field);
             return null;
         }
     }
@@ -121,12 +111,12 @@ public class RedisCacheService : IRedisCacheService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Redis HashSetAsync failed for hash={HashKey} field={Field}", hashKey, field);
+            logger.LogError(ex, "Redis HashSetAsync failed for hash={HashKey} field={Field}", hashKey, field);
             return false;
         }
     }
 
-    public async Task<bool> HashDeleteAsync(string hashKey, string field)
+    public async Task<bool> HashDelete(string hashKey, string field)
     {
         try
         {
@@ -134,12 +124,12 @@ public class RedisCacheService : IRedisCacheService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Redis HashDeleteAsync failed for hash={HashKey} field={Field}", hashKey, field);
+            logger.LogError(ex, "Redis HashDeleteAsync failed for hash={HashKey} field={Field}", hashKey, field);
             return false;
         }
     }
 
-    public async Task<bool> HashExistsAsync(string hashKey, string field)
+    public async Task<bool> HashExists(string hashKey, string field)
     {
         try
         {
@@ -147,7 +137,7 @@ public class RedisCacheService : IRedisCacheService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Redis HashExistsAsync failed for hash={HashKey} field={Field}", hashKey, field);
+            logger.LogError(ex, "Redis HashExistsAsync failed for hash={HashKey} field={Field}", hashKey, field);
             return false;
         }
     }
@@ -170,12 +160,12 @@ public class RedisCacheService : IRedisCacheService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Redis HashGetAllAsync failed for hash={HashKey}", hashKey);
+            logger.LogError(ex, "Redis HashGetAllAsync failed for hash={HashKey}", hashKey);
             return new Dictionary<string, T>();
         }
     }
 
-    public async Task<List<string>> HashKeysAsync(string hashKey)
+    public async Task<List<string>> HashKeys(string hashKey)
     {
         try
         {
@@ -184,7 +174,7 @@ public class RedisCacheService : IRedisCacheService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Redis HashKeysAsync failed for hash={HashKey}", hashKey);
+            logger.LogError(ex, "Redis HashKeysAsync failed for hash={HashKey}", hashKey);
             return new List<string>();
         }
     }
@@ -216,7 +206,7 @@ public class RedisCacheService : IRedisCacheService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Redis GetManyAsync failed");
+            logger.LogError(ex, "Redis GetManyAsync failed");
             return keys.ToDictionary(k => k, _ => (T?)null);
         }
     }
@@ -239,7 +229,7 @@ public class RedisCacheService : IRedisCacheService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Redis SetManyAsync failed");
+            logger.LogError(ex, "Redis SetManyAsync failed");
         }
     }
 
@@ -250,12 +240,12 @@ public class RedisCacheService : IRedisCacheService
         try
         {
             var latency = await _db.PingAsync();
-            _logger.LogDebug("Redis ping: {Latency}ms", latency.TotalMilliseconds);
+            logger.LogDebug("Redis ping: {Latency}ms", latency.TotalMilliseconds);
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Redis Ping failed");
+            logger.LogError(ex, "Redis Ping failed");
             return false;
         }
     }
@@ -264,27 +254,27 @@ public class RedisCacheService : IRedisCacheService
     {
         try
         {
-            var server = _redis.GetServer(_redis.GetEndPoints().First());
+            var server = redis.GetServer(redis.GetEndPoints().First());
             return await server.DatabaseSizeAsync(_db.Database);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Redis GetDatabaseSize failed");
+            logger.LogError(ex, "Redis GetDatabaseSize failed");
             return -1;
         }
     }
 
-    public async Task FlushDatabaseAsync()
+    public async Task FlushDatabase()
     {
         try
         {
-            var server = _redis.GetServer(_redis.GetEndPoints().First());
+            var server = redis.GetServer(redis.GetEndPoints().First());
             await server.FlushDatabaseAsync(_db.Database);
-            _logger.LogWarning("⚠️ Redis database flushed!");
+            logger.LogWarning("⚠️ Redis database flushed!");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Redis FlushDatabaseAsync failed");
+            logger.LogError(ex, "Redis FlushDatabaseAsync failed");
         }
     }
 }

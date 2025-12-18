@@ -1388,7 +1388,7 @@ public class CopyOrderServiceIntegrationTests
         }
     }
 
-    private OriginalOrder CreateOrder(long orderId, Wallet wallet, string symbol, decimal price, decimal quantity,
+    private static OriginalOrder CreateOrder(long orderId, Wallet wallet, string symbol, decimal price, decimal quantity,
         Direction direction, decimal leverage = 5m, OrderStatus status = OrderStatus.Open)
     {
         return new OriginalOrder
@@ -1404,7 +1404,7 @@ public class CopyOrderServiceIntegrationTests
         };
     }
 
-    private OriginalTrade CreateTrade(long tradeId, long orderId, Wallet wallet, string symbol, decimal price,
+    private static OriginalTrade CreateTrade(long tradeId, long orderId, Wallet wallet, string symbol, decimal price,
         decimal quantity, Direction direction, OrderSubType subType)
     {
         return new OriginalTrade
@@ -1421,7 +1421,7 @@ public class CopyOrderServiceIntegrationTests
         };
     }
 
-    private WalletPositionsSnapshot CreateSnapshot(
+    private static WalletPositionsSnapshot CreateSnapshot(
         Wallet wallet,
         string symbol,
         decimal quantity,

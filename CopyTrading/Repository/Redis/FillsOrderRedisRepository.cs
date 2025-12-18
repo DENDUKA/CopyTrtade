@@ -10,10 +10,10 @@ namespace CopyTrading.Repository.Redis;
 /// Реализация общего репозитория для работы с Redis.
 /// Может быть расширен методами для работы с данными различных сервисов.
 /// </summary>
-public class RedisRepository : IRedisRepository
+public class RedisRepository(
+    IRedisCacheService redisCache,
+    ILogger<RedisRepository> logger) : IRedisRepository
 {
-    private readonly IRedisCacheService _redisCache;
-    private readonly ILogger<RedisRepository> _logger;
 
     // Redis ключи - инкапсулированы в репозитории
     private const string OrdersHashKey = "orders:all";
@@ -26,14 +26,6 @@ public class RedisRepository : IRedisRepository
     private const string WalletSettingsHashKey = "wallet_settings:all";
     private const string WalletSnapshotsHashKey = "wallet_snapshots:all";
 
-    public RedisRepository(
-        IRedisCacheService redisCache,
-        ILogger<RedisRepository> logger)
-    {
-        _redisCache = redisCache;
-        _logger = logger;
-    }
-
     // ========== ORDERS ==========
 
     public async Task SaveOrder(OrderFills orderFills)
@@ -41,12 +33,12 @@ public class RedisRepository : IRedisRepository
         try
         {
             var orderId = orderFills.OriginalOrder.OrderId;
-            await _redisCache.HashSet(OrdersHashKey, orderId.ToString(), orderFills);
-            _logger.LogDebug("Saved order {OrderId} to Redis", orderId);
+            await redisCache.HashSet(OrdersHashKey, orderId.ToString(), orderFills);
+            logger.LogDebug("Saved order {OrderId} to Redis", orderId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to save order {OrderId} to Redis", orderFills.OriginalOrder.OrderId);
+            logger.LogError(ex, "Failed to save order {OrderId} to Redis", orderFills.OriginalOrder.OrderId);
         }
     }
 
@@ -54,12 +46,12 @@ public class RedisRepository : IRedisRepository
     {
         try
         {
-            var order = await _redisCache.HashGetAsync<OrderFills>(OrdersHashKey, orderId.ToString());
+            var order = await redisCache.HashGetAsync<OrderFills>(OrdersHashKey, orderId.ToString());
             return order;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get order {OrderId} from Redis", orderId);
+            logger.LogError(ex, "Failed to get order {OrderId} from Redis", orderId);
             return null;
         }
     }
@@ -68,11 +60,11 @@ public class RedisRepository : IRedisRepository
     {
         try
         {
-            return await _redisCache.HashExistsAsync(OrdersHashKey, orderId.ToString());
+            return await redisCache.HashExists(OrdersHashKey, orderId.ToString());
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to check order existence {OrderId} in Redis", orderId);
+            logger.LogError(ex, "Failed to check order existence {OrderId} in Redis", orderId);
             return false;
         }
     }
@@ -81,7 +73,7 @@ public class RedisRepository : IRedisRepository
     {
         try
         {
-            var ordersDict = await _redisCache.HashGetAllAsync<OrderFills>(OrdersHashKey);
+            var ordersDict = await redisCache.HashGetAllAsync<OrderFills>(OrdersHashKey);
             var result = new Dictionary<long, OrderFills>();
 
             foreach (var kvp in ordersDict)
@@ -92,12 +84,12 @@ public class RedisRepository : IRedisRepository
                 }
             }
 
-            _logger.LogInformation("Loaded {Count} orders from Redis", result.Count);
+            logger.LogInformation("Loaded {Count} orders from Redis", result.Count);
             return result;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load orders from Redis");
+            logger.LogError(ex, "Failed to load orders from Redis");
             return new Dictionary<long, OrderFills>();
         }
     }
@@ -114,13 +106,13 @@ public class RedisRepository : IRedisRepository
                 .OrderBy(o => o.OriginalOrder.OrderId)
                 .ToArray();
 
-            _logger.LogDebug("Found {Count} pending orders for {Wallet}/{Symbol}",
+            logger.LogDebug("Found {Count} pending orders for {Wallet}/{Symbol}",
                 pendingOrders.Length, wallet, symbol);
             return pendingOrders;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get pending orders for {Wallet}/{Symbol}", wallet, symbol);
+            logger.LogError(ex, "Failed to get pending orders for {Wallet}/{Symbol}", wallet, symbol);
             return Array.Empty<OrderFills>();
         }
     }
@@ -132,7 +124,7 @@ public class RedisRepository : IRedisRepository
             var order = await GetOrder(orderId);
             if (order == null)
             {
-                _logger.LogWarning("Cannot update SubType for order {OrderId} - not found", orderId);
+                logger.LogWarning("Cannot update SubType for order {OrderId} - not found", orderId);
                 return false;
             }
 
@@ -140,12 +132,12 @@ public class RedisRepository : IRedisRepository
             order.OriginalOrder.SubType = newSubType;
             await SaveOrder(order);
 
-            _logger.LogDebug("Updated SubType for order {OrderId} to {SubType}", orderId, newSubType);
+            logger.LogDebug("Updated SubType for order {OrderId} to {SubType}", orderId, newSubType);
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to update SubType for order {OrderId}", orderId);
+            logger.LogError(ex, "Failed to update SubType for order {OrderId}", orderId);
             return false;
         }
     }
@@ -161,12 +153,12 @@ public class RedisRepository : IRedisRepository
     {
         try
         {
-            await _redisCache.HashDeleteAsync(OrdersHashKey, orderId.ToString());
-            _logger.LogDebug("Deleted order {OrderId} from Redis", orderId);
+            await redisCache.HashDelete(OrdersHashKey, orderId.ToString());
+            logger.LogDebug("Deleted order {OrderId} from Redis", orderId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to delete order {OrderId} from Redis", orderId);
+            logger.LogError(ex, "Failed to delete order {OrderId} from Redis", orderId);
         }
     }
 
@@ -176,13 +168,13 @@ public class RedisRepository : IRedisRepository
         {
             foreach (var orderId in orderIds)
             {
-                await _redisCache.HashDeleteAsync(OrdersHashKey, orderId.ToString());
+                await redisCache.HashDelete(OrdersHashKey, orderId.ToString());
             }
-            _logger.LogDebug("Deleted {Count} orders from Redis", orderIds.Count());
+            logger.LogDebug("Deleted {Count} orders from Redis", orderIds.Count());
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to delete multiple orders from Redis");
+            logger.LogError(ex, "Failed to delete multiple orders from Redis");
         }
     }
 
@@ -192,12 +184,12 @@ public class RedisRepository : IRedisRepository
     {
         try
         {
-            await _redisCache.HashSet(PendingTradesHashKey, trade.TradeId.ToString(), trade);
-            _logger.LogDebug("Saved pending trade {TradeId} to Redis", trade.TradeId);
+            await redisCache.HashSet(PendingTradesHashKey, trade.TradeId.ToString(), trade);
+            logger.LogDebug("Saved pending trade {TradeId} to Redis", trade.TradeId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to save pending trade {TradeId} to Redis", trade.TradeId);
+            logger.LogError(ex, "Failed to save pending trade {TradeId} to Redis", trade.TradeId);
         }
     }
 
@@ -205,12 +197,12 @@ public class RedisRepository : IRedisRepository
     {
         try
         {
-            var trade = await _redisCache.HashGetAsync<OriginalTrade>(PendingTradesHashKey, tradeId.ToString());
+            var trade = await redisCache.HashGetAsync<OriginalTrade>(PendingTradesHashKey, tradeId.ToString());
             return trade;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get pending trade {TradeId} from Redis", tradeId);
+            logger.LogError(ex, "Failed to get pending trade {TradeId} from Redis", tradeId);
             return null;
         }
     }
@@ -219,11 +211,11 @@ public class RedisRepository : IRedisRepository
     {
         try
         {
-            return await _redisCache.HashExistsAsync(PendingTradesHashKey, tradeId.ToString());
+            return await redisCache.HashExists(PendingTradesHashKey, tradeId.ToString());
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to check pending trade existence {TradeId} in Redis", tradeId);
+            logger.LogError(ex, "Failed to check pending trade existence {TradeId} in Redis", tradeId);
             return false;
         }
     }
@@ -232,7 +224,7 @@ public class RedisRepository : IRedisRepository
     {
         try
         {
-            var tradesDict = await _redisCache.HashGetAllAsync<OriginalTrade>(PendingTradesHashKey);
+            var tradesDict = await redisCache.HashGetAllAsync<OriginalTrade>(PendingTradesHashKey);
             var result = new Dictionary<long, OriginalTrade>();
 
             foreach (var kvp in tradesDict)
@@ -243,12 +235,12 @@ public class RedisRepository : IRedisRepository
                 }
             }
 
-            _logger.LogInformation("Loaded {Count} pending trades from Redis", result.Count);
+            logger.LogInformation("Loaded {Count} pending trades from Redis", result.Count);
             return result;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load pending trades from Redis");
+            logger.LogError(ex, "Failed to load pending trades from Redis");
             return new Dictionary<long, OriginalTrade>();
         }
     }
@@ -257,12 +249,12 @@ public class RedisRepository : IRedisRepository
     {
         try
         {
-            await _redisCache.HashDeleteAsync(PendingTradesHashKey, tradeId.ToString());
-            _logger.LogDebug("Deleted pending trade {TradeId} from Redis", tradeId);
+            await redisCache.HashDelete(PendingTradesHashKey, tradeId.ToString());
+            logger.LogDebug("Deleted pending trade {TradeId} from Redis", tradeId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to delete pending trade {TradeId} from Redis", tradeId);
+            logger.LogError(ex, "Failed to delete pending trade {TradeId} from Redis", tradeId);
         }
     }
 
@@ -272,12 +264,12 @@ public class RedisRepository : IRedisRepository
     {
         try
         {
-            await _redisCache.HashSet(OrdersWithErrorHashKey, orderId.ToString(), errorMessage);
-            _logger.LogDebug("Saved order error for {OrderId} to Redis", orderId);
+            await redisCache.HashSet(OrdersWithErrorHashKey, orderId.ToString(), errorMessage);
+            logger.LogDebug("Saved order error for {OrderId} to Redis", orderId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to save order error for {OrderId} to Redis", orderId);
+            logger.LogError(ex, "Failed to save order error for {OrderId} to Redis", orderId);
         }
     }
 
@@ -285,12 +277,12 @@ public class RedisRepository : IRedisRepository
     {
         try
         {
-            var error = await _redisCache.HashGetAsync<string>(OrdersWithErrorHashKey, orderId.ToString());
+            var error = await redisCache.HashGetAsync<string>(OrdersWithErrorHashKey, orderId.ToString());
             return error;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get order error for {OrderId} from Redis", orderId);
+            logger.LogError(ex, "Failed to get order error for {OrderId} from Redis", orderId);
             return null;
         }
     }
@@ -299,11 +291,11 @@ public class RedisRepository : IRedisRepository
     {
         try
         {
-            return await _redisCache.HashExistsAsync(OrdersWithErrorHashKey, orderId.ToString());
+            return await redisCache.HashExists(OrdersWithErrorHashKey, orderId.ToString());
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to check order error existence for {OrderId} in Redis", orderId);
+            logger.LogError(ex, "Failed to check order error existence for {OrderId} in Redis", orderId);
             return false;
         }
     }
@@ -312,7 +304,7 @@ public class RedisRepository : IRedisRepository
     {
         try
         {
-            var errorsDict = await _redisCache.HashGetAllAsync<string>(OrdersWithErrorHashKey);
+            var errorsDict = await redisCache.HashGetAllAsync<string>(OrdersWithErrorHashKey);
             var result = new Dictionary<long, string>();
 
             foreach (var kvp in errorsDict)
@@ -323,12 +315,12 @@ public class RedisRepository : IRedisRepository
                 }
             }
 
-            _logger.LogInformation("Loaded {Count} order errors from Redis", result.Count);
+            logger.LogInformation("Loaded {Count} order errors from Redis", result.Count);
             return result;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load order errors from Redis");
+            logger.LogError(ex, "Failed to load order errors from Redis");
             return new Dictionary<long, string>();
         }
     }
@@ -337,12 +329,12 @@ public class RedisRepository : IRedisRepository
     {
         try
         {
-            await _redisCache.HashDeleteAsync(OrdersWithErrorHashKey, orderId.ToString());
-            _logger.LogDebug("Deleted order error for {OrderId} from Redis", orderId);
+            await redisCache.HashDelete(OrdersWithErrorHashKey, orderId.ToString());
+            logger.LogDebug("Deleted order error for {OrderId} from Redis", orderId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to delete order error for {OrderId} from Redis", orderId);
+            logger.LogError(ex, "Failed to delete order error for {OrderId} from Redis", orderId);
         }
     }
 
@@ -353,12 +345,12 @@ public class RedisRepository : IRedisRepository
         try
         {
             var key = mapping.GetKey();
-            await _redisCache.HashSet(PositionMappingsHashKey, key, mapping);
-            _logger.LogDebug("Saved position mapping {Key} to Redis", key);
+            await redisCache.HashSet(PositionMappingsHashKey, key, mapping);
+            logger.LogDebug("Saved position mapping {Key} to Redis", key);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to save position mapping to Redis");
+            logger.LogError(ex, "Failed to save position mapping to Redis");
         }
     }
 
@@ -366,12 +358,12 @@ public class RedisRepository : IRedisRepository
     {
         try
         {
-            var mapping = await _redisCache.HashGetAsync<Models.Models.PositionMapping>(PositionMappingsHashKey, key);
+            var mapping = await redisCache.HashGetAsync<Models.Models.PositionMapping>(PositionMappingsHashKey, key);
             return mapping;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get position mapping {Key} from Redis", key);
+            logger.LogError(ex, "Failed to get position mapping {Key} from Redis", key);
             return null;
         }
     }
@@ -380,11 +372,11 @@ public class RedisRepository : IRedisRepository
     {
         try
         {
-            return await _redisCache.HashExistsAsync(PositionMappingsHashKey, key);
+            return await redisCache.HashExists(PositionMappingsHashKey, key);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to check position mapping existence {Key} in Redis", key);
+            logger.LogError(ex, "Failed to check position mapping existence {Key} in Redis", key);
             return false;
         }
     }
@@ -393,12 +385,12 @@ public class RedisRepository : IRedisRepository
     {
         try
         {
-            await _redisCache.HashDeleteAsync(PositionMappingsHashKey, key);
-            _logger.LogDebug("Deleted position mapping {Key} from Redis", key);
+            await redisCache.HashDelete(PositionMappingsHashKey, key);
+            logger.LogDebug("Deleted position mapping {Key} from Redis", key);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to delete position mapping {Key} from Redis", key);
+            logger.LogError(ex, "Failed to delete position mapping {Key} from Redis", key);
         }
     }
 
@@ -406,13 +398,13 @@ public class RedisRepository : IRedisRepository
     {
         try
         {
-            var mappingsDict = await _redisCache.HashGetAllAsync<Models.Models.PositionMapping>(PositionMappingsHashKey);
-            _logger.LogInformation("Loaded {Count} position mappings from Redis", mappingsDict.Count);
+            var mappingsDict = await redisCache.HashGetAllAsync<Models.Models.PositionMapping>(PositionMappingsHashKey);
+            logger.LogInformation("Loaded {Count} position mappings from Redis", mappingsDict.Count);
             return mappingsDict;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load position mappings from Redis");
+            logger.LogError(ex, "Failed to load position mappings from Redis");
             return new Dictionary<string, Models.Models.PositionMapping>();
         }
     }
@@ -426,13 +418,13 @@ public class RedisRepository : IRedisRepository
                 .Where(m => m.TraderWallet.Value == traderWallet.Value)
                 .ToArray();
 
-            _logger.LogDebug("Found {Count} mappings for trader {Wallet}",
+            logger.LogDebug("Found {Count} mappings for trader {Wallet}",
                 traderMappings.Length, traderWallet.Value);
             return traderMappings;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get mappings for trader {Wallet}", traderWallet.Value);
+            logger.LogError(ex, "Failed to get mappings for trader {Wallet}", traderWallet.Value);
             return Array.Empty<Models.Models.PositionMapping>();
         }
     }
@@ -445,12 +437,12 @@ public class RedisRepository : IRedisRepository
         {
             var key = $"{wallet.Value}_{symbol}";
             // Convert decimal to string for Redis storage
-            await _redisCache.HashSet(BaselinePositionsHashKey, key, quantity.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            _logger.LogDebug("Saved baseline position {Key}={Quantity} to Redis", key, quantity);
+            await redisCache.HashSet(BaselinePositionsHashKey, key, quantity.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            logger.LogDebug("Saved baseline position {Key}={Quantity} to Redis", key, quantity);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to save baseline position {Wallet}/{Symbol} to Redis", wallet.Value, symbol);
+            logger.LogError(ex, "Failed to save baseline position {Wallet}/{Symbol} to Redis", wallet.Value, symbol);
         }
     }
 
@@ -460,19 +452,19 @@ public class RedisRepository : IRedisRepository
         {
             var key = $"{wallet.Value}_{symbol}";
             // Get as string from Redis and parse to decimal
-            var quantityStr = await _redisCache.HashGetAsync<string>(BaselinePositionsHashKey, key);
+            var quantityStr = await redisCache.HashGetAsync<string>(BaselinePositionsHashKey, key);
             if (string.IsNullOrEmpty(quantityStr))
                 return null;
 
             if (decimal.TryParse(quantityStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var quantity))
                 return quantity;
 
-            _logger.LogWarning("Failed to parse baseline position value '{Value}' for {Wallet}/{Symbol}", quantityStr, wallet.Value, symbol);
+            logger.LogWarning("Failed to parse baseline position value '{Value}' for {Wallet}/{Symbol}", quantityStr, wallet.Value, symbol);
             return null;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get baseline position {Wallet}/{Symbol} from Redis", wallet.Value, symbol);
+            logger.LogError(ex, "Failed to get baseline position {Wallet}/{Symbol} from Redis", wallet.Value, symbol);
             return null;
         }
     }
@@ -482,12 +474,12 @@ public class RedisRepository : IRedisRepository
         try
         {
             var key = $"{wallet.Value}_{symbol}";
-            await _redisCache.HashDeleteAsync(BaselinePositionsHashKey, key);
-            _logger.LogDebug("Deleted baseline position {Key} from Redis", key);
+            await redisCache.HashDelete(BaselinePositionsHashKey, key);
+            logger.LogDebug("Deleted baseline position {Key} from Redis", key);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to delete baseline position {Wallet}/{Symbol} from Redis", wallet.Value, symbol);
+            logger.LogError(ex, "Failed to delete baseline position {Wallet}/{Symbol} from Redis", wallet.Value, symbol);
         }
     }
 
@@ -496,7 +488,7 @@ public class RedisRepository : IRedisRepository
         try
         {
             // Get all as strings from Redis
-            var positionsStrDict = await _redisCache.HashGetAllAsync<string>(BaselinePositionsHashKey);
+            var positionsStrDict = await redisCache.HashGetAllAsync<string>(BaselinePositionsHashKey);
 
             // Parse strings to decimals
             var positionsDict = new Dictionary<string, decimal>();
@@ -508,16 +500,16 @@ public class RedisRepository : IRedisRepository
                 }
                 else
                 {
-                    _logger.LogWarning("Failed to parse baseline position value '{Value}' for key '{Key}'", kvp.Value, kvp.Key);
+                    logger.LogWarning("Failed to parse baseline position value '{Value}' for key '{Key}'", kvp.Value, kvp.Key);
                 }
             }
 
-            _logger.LogInformation("Loaded {Count} baseline positions from Redis", positionsDict.Count);
+            logger.LogInformation("Loaded {Count} baseline positions from Redis", positionsDict.Count);
             return positionsDict;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load baseline positions from Redis");
+            logger.LogError(ex, "Failed to load baseline positions from Redis");
             return new Dictionary<string, decimal>();
         }
     }
@@ -528,12 +520,12 @@ public class RedisRepository : IRedisRepository
     {
         try
         {
-            await _redisCache.HashSet(CopyOrdersHashKey, copyOrder.OrderId.ToString(), copyOrder);
-            _logger.LogDebug("Saved copy order {OrderId} to Redis", copyOrder.OrderId);
+            await redisCache.HashSet(CopyOrdersHashKey, copyOrder.OrderId.ToString(), copyOrder);
+            logger.LogDebug("Saved copy order {OrderId} to Redis", copyOrder.OrderId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to save copy order {OrderId} to Redis", copyOrder.OrderId);
+            logger.LogError(ex, "Failed to save copy order {OrderId} to Redis", copyOrder.OrderId);
         }
     }
 
@@ -541,12 +533,12 @@ public class RedisRepository : IRedisRepository
     {
         try
         {
-            var copyOrder = await _redisCache.HashGetAsync<Models.Models.Orders.CopyOrderV2>(CopyOrdersHashKey, orderId.ToString());
+            var copyOrder = await redisCache.HashGetAsync<Models.Models.Orders.CopyOrderV2>(CopyOrdersHashKey, orderId.ToString());
             return copyOrder;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get copy order {OrderId} from Redis", orderId);
+            logger.LogError(ex, "Failed to get copy order {OrderId} from Redis", orderId);
             return null;
         }
     }
@@ -555,12 +547,12 @@ public class RedisRepository : IRedisRepository
     {
         try
         {
-            await _redisCache.HashDeleteAsync(CopyOrdersHashKey, orderId.ToString());
-            _logger.LogDebug("Deleted copy order {OrderId} from Redis", orderId);
+            await redisCache.HashDelete(CopyOrdersHashKey, orderId.ToString());
+            logger.LogDebug("Deleted copy order {OrderId} from Redis", orderId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to delete copy order {OrderId} from Redis", orderId);
+            logger.LogError(ex, "Failed to delete copy order {OrderId} from Redis", orderId);
         }
     }
 
@@ -568,7 +560,7 @@ public class RedisRepository : IRedisRepository
     {
         try
         {
-            var ordersDict = await _redisCache.HashGetAllAsync<Models.Models.Orders.CopyOrderV2>(CopyOrdersHashKey);
+            var ordersDict = await redisCache.HashGetAllAsync<Models.Models.Orders.CopyOrderV2>(CopyOrdersHashKey);
             var result = new Dictionary<long, Models.Models.Orders.CopyOrderV2>();
 
             foreach (var kvp in ordersDict)
@@ -579,12 +571,12 @@ public class RedisRepository : IRedisRepository
                 }
             }
 
-            _logger.LogInformation("Loaded {Count} copy orders from Redis", result.Count);
+            logger.LogInformation("Loaded {Count} copy orders from Redis", result.Count);
             return result;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load copy orders from Redis");
+            logger.LogError(ex, "Failed to load copy orders from Redis");
             return new Dictionary<long, Models.Models.Orders.CopyOrderV2>();
         }
     }
@@ -598,13 +590,13 @@ public class RedisRepository : IRedisRepository
                 .Where(o => o.OriginalOrderId == originalOrderId)
                 .ToArray();
 
-            _logger.LogDebug("Found {Count} copy orders for original order {OriginalOrderId}",
+            logger.LogDebug("Found {Count} copy orders for original order {OriginalOrderId}",
                 matchingOrders.Length, originalOrderId);
             return matchingOrders;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get copy orders by original ID {OriginalOrderId}", originalOrderId);
+            logger.LogError(ex, "Failed to get copy orders by original ID {OriginalOrderId}", originalOrderId);
             return Array.Empty<Models.Models.Orders.CopyOrderV2>();
         }
     }
@@ -619,13 +611,13 @@ public class RedisRepository : IRedisRepository
                          && o.OriginalOrder.Symbol == symbol)
                 .ToArray();
 
-            _logger.LogDebug("Found {Count} copy orders for {Wallet}/{Symbol}",
+            logger.LogDebug("Found {Count} copy orders for {Wallet}/{Symbol}",
                 matchingOrders.Length, traderWallet.Value, symbol);
             return matchingOrders;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get copy orders for {Wallet}/{Symbol}", traderWallet.Value, symbol);
+            logger.LogError(ex, "Failed to get copy orders for {Wallet}/{Symbol}", traderWallet.Value, symbol);
             return Array.Empty<Models.Models.Orders.CopyOrderV2>();
         }
     }
@@ -636,13 +628,13 @@ public class RedisRepository : IRedisRepository
         {
             foreach (var orderId in orderIds)
             {
-                await _redisCache.HashDeleteAsync(CopyOrdersHashKey, orderId.ToString());
+                await redisCache.HashDelete(CopyOrdersHashKey, orderId.ToString());
             }
-            _logger.LogDebug("Deleted {Count} copy orders from Redis", orderIds.Count());
+            logger.LogDebug("Deleted {Count} copy orders from Redis", orderIds.Count());
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to delete multiple copy orders from Redis");
+            logger.LogError(ex, "Failed to delete multiple copy orders from Redis");
         }
     }
 
@@ -652,12 +644,12 @@ public class RedisRepository : IRedisRepository
     {
         try
         {
-            await _redisCache.HashSet(CopyOrderResultsHashKey, result.OriginalOrderId, result);
-            _logger.LogDebug("Saved copy order result for {OriginalOrderId} to Redis", result.OriginalOrderId);
+            await redisCache.HashSet(CopyOrderResultsHashKey, result.OriginalOrderId, result);
+            logger.LogDebug("Saved copy order result for {OriginalOrderId} to Redis", result.OriginalOrderId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to save copy order result for {OriginalOrderId} to Redis", result.OriginalOrderId);
+            logger.LogError(ex, "Failed to save copy order result for {OriginalOrderId} to Redis", result.OriginalOrderId);
         }
     }
 
@@ -665,12 +657,12 @@ public class RedisRepository : IRedisRepository
     {
         try
         {
-            var result = await _redisCache.HashGetAsync<Models.Models.CopyOrderResult>(CopyOrderResultsHashKey, originalOrderId);
+            var result = await redisCache.HashGetAsync<Models.Models.CopyOrderResult>(CopyOrderResultsHashKey, originalOrderId);
             return result;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get copy order result for {OriginalOrderId} from Redis", originalOrderId);
+            logger.LogError(ex, "Failed to get copy order result for {OriginalOrderId} from Redis", originalOrderId);
             return null;
         }
     }
@@ -679,12 +671,12 @@ public class RedisRepository : IRedisRepository
     {
         try
         {
-            await _redisCache.HashDeleteAsync(CopyOrderResultsHashKey, originalOrderId);
-            _logger.LogDebug("Deleted copy order result for {OriginalOrderId} from Redis", originalOrderId);
+            await redisCache.HashDelete(CopyOrderResultsHashKey, originalOrderId);
+            logger.LogDebug("Deleted copy order result for {OriginalOrderId} from Redis", originalOrderId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to delete copy order result for {OriginalOrderId} from Redis", originalOrderId);
+            logger.LogError(ex, "Failed to delete copy order result for {OriginalOrderId} from Redis", originalOrderId);
         }
     }
 
@@ -692,13 +684,13 @@ public class RedisRepository : IRedisRepository
     {
         try
         {
-            var resultsDict = await _redisCache.HashGetAllAsync<Models.Models.CopyOrderResult>(CopyOrderResultsHashKey);
-            _logger.LogInformation("Loaded {Count} copy order results from Redis", resultsDict.Count);
+            var resultsDict = await redisCache.HashGetAllAsync<Models.Models.CopyOrderResult>(CopyOrderResultsHashKey);
+            logger.LogInformation("Loaded {Count} copy order results from Redis", resultsDict.Count);
             return resultsDict;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load copy order results from Redis");
+            logger.LogError(ex, "Failed to load copy order results from Redis");
             return new Dictionary<string, Models.Models.CopyOrderResult>();
         }
     }
@@ -709,13 +701,13 @@ public class RedisRepository : IRedisRepository
         {
             foreach (var originalOrderId in originalOrderIds)
             {
-                await _redisCache.HashDeleteAsync(CopyOrderResultsHashKey, originalOrderId);
+                await redisCache.HashDelete(CopyOrderResultsHashKey, originalOrderId);
             }
-            _logger.LogDebug("Deleted {Count} copy order results from Redis", originalOrderIds.Count());
+            logger.LogDebug("Deleted {Count} copy order results from Redis", originalOrderIds.Count());
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to delete multiple copy order results from Redis");
+            logger.LogError(ex, "Failed to delete multiple copy order results from Redis");
         }
     }
 
@@ -725,12 +717,12 @@ public class RedisRepository : IRedisRepository
     {
         try
         {
-            await _redisCache.HashSet(WalletSettingsHashKey, settings.Wallet.Value, settings);
-            _logger.LogDebug("Saved wallet settings for {Wallet} to Redis", settings.Wallet.Value);
+            await redisCache.HashSet(WalletSettingsHashKey, settings.Wallet.Value, settings);
+            logger.LogDebug("Saved wallet settings for {Wallet} to Redis", settings.Wallet.Value);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to save wallet settings for {Wallet} to Redis", settings.Wallet.Value);
+            logger.LogError(ex, "Failed to save wallet settings for {Wallet} to Redis", settings.Wallet.Value);
         }
     }
 
@@ -738,12 +730,12 @@ public class RedisRepository : IRedisRepository
     {
         try
         {
-            var settings = await _redisCache.HashGetAsync<Models.Models.CopyTradeWalletSettings>(WalletSettingsHashKey, wallet.Value);
+            var settings = await redisCache.HashGetAsync<Models.Models.CopyTradeWalletSettings>(WalletSettingsHashKey, wallet.Value);
             return settings;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get wallet settings for {Wallet} from Redis", wallet.Value);
+            logger.LogError(ex, "Failed to get wallet settings for {Wallet} from Redis", wallet.Value);
             return null;
         }
     }
@@ -752,12 +744,12 @@ public class RedisRepository : IRedisRepository
     {
         try
         {
-            await _redisCache.HashDeleteAsync(WalletSettingsHashKey, wallet.Value);
-            _logger.LogDebug("Deleted wallet settings for {Wallet} from Redis", wallet.Value);
+            await redisCache.HashDelete(WalletSettingsHashKey, wallet.Value);
+            logger.LogDebug("Deleted wallet settings for {Wallet} from Redis", wallet.Value);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to delete wallet settings for {Wallet} from Redis", wallet.Value);
+            logger.LogError(ex, "Failed to delete wallet settings for {Wallet} from Redis", wallet.Value);
         }
     }
 
@@ -765,17 +757,17 @@ public class RedisRepository : IRedisRepository
     {
         try
         {
-            var settingsDict = await _redisCache.HashGetAllAsync<Models.Models.CopyTradeWalletSettings>(WalletSettingsHashKey);
+            var settingsDict = await redisCache.HashGetAllAsync<Models.Models.CopyTradeWalletSettings>(WalletSettingsHashKey);
             var result = settingsDict.ToDictionary(
                 kvp => new Models.Values.Wallet(kvp.Key),
                 kvp => kvp.Value
             );
-            _logger.LogInformation("Loaded {Count} wallet settings from Redis", result.Count);
+            logger.LogInformation("Loaded {Count} wallet settings from Redis", result.Count);
             return result;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load wallet settings from Redis");
+            logger.LogError(ex, "Failed to load wallet settings from Redis");
             return new Dictionary<Models.Values.Wallet, Models.Models.CopyTradeWalletSettings>();
         }
     }
@@ -786,12 +778,12 @@ public class RedisRepository : IRedisRepository
     {
         try
         {
-            await _redisCache.HashSet(WalletSnapshotsHashKey, snapshot.Wallet.Value, snapshot);
-            _logger.LogDebug("Saved wallet snapshot for {Wallet} to Redis", snapshot.Wallet.Value);
+            await redisCache.HashSet(WalletSnapshotsHashKey, snapshot.Wallet.Value, snapshot);
+            logger.LogDebug("Saved wallet snapshot for {Wallet} to Redis", snapshot.Wallet.Value);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to save wallet snapshot for {Wallet} to Redis", snapshot.Wallet.Value);
+            logger.LogError(ex, "Failed to save wallet snapshot for {Wallet} to Redis", snapshot.Wallet.Value);
         }
     }
 
@@ -799,12 +791,12 @@ public class RedisRepository : IRedisRepository
     {
         try
         {
-            var snapshot = await _redisCache.HashGetAsync<Models.Models.WalletPositionsSnapshot>(WalletSnapshotsHashKey, wallet.Value);
+            var snapshot = await redisCache.HashGetAsync<Models.Models.WalletPositionsSnapshot>(WalletSnapshotsHashKey, wallet.Value);
             return snapshot;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get wallet snapshot for {Wallet} from Redis", wallet.Value);
+            logger.LogError(ex, "Failed to get wallet snapshot for {Wallet} from Redis", wallet.Value);
             return null;
         }
     }
@@ -813,12 +805,12 @@ public class RedisRepository : IRedisRepository
     {
         try
         {
-            await _redisCache.HashDeleteAsync(WalletSnapshotsHashKey, wallet.Value);
-            _logger.LogDebug("Deleted wallet snapshot for {Wallet} from Redis", wallet.Value);
+            await redisCache.HashDelete(WalletSnapshotsHashKey, wallet.Value);
+            logger.LogDebug("Deleted wallet snapshot for {Wallet} from Redis", wallet.Value);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to delete wallet snapshot for {Wallet} from Redis", wallet.Value);
+            logger.LogError(ex, "Failed to delete wallet snapshot for {Wallet} from Redis", wallet.Value);
         }
     }
 
@@ -826,17 +818,17 @@ public class RedisRepository : IRedisRepository
     {
         try
         {
-            var snapshotsDict = await _redisCache.HashGetAllAsync<Models.Models.WalletPositionsSnapshot>(WalletSnapshotsHashKey);
+            var snapshotsDict = await redisCache.HashGetAllAsync<Models.Models.WalletPositionsSnapshot>(WalletSnapshotsHashKey);
             var result = snapshotsDict.ToDictionary(
                 kvp => new Models.Values.Wallet(kvp.Key),
                 kvp => kvp.Value
             );
-            _logger.LogInformation("Loaded {Count} wallet snapshots from Redis", result.Count);
+            logger.LogInformation("Loaded {Count} wallet snapshots from Redis", result.Count);
             return result;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load wallet snapshots from Redis");
+            logger.LogError(ex, "Failed to load wallet snapshots from Redis");
             return new Dictionary<Models.Values.Wallet, Models.Models.WalletPositionsSnapshot>();
         }
     }
@@ -849,13 +841,13 @@ public class RedisRepository : IRedisRepository
             var snapshots = await LoadAllWalletSnapshots();
             foreach (var wallet in snapshots.Keys)
             {
-                await _redisCache.HashDeleteAsync(WalletSnapshotsHashKey, wallet.Value);
+                await redisCache.HashDelete(WalletSnapshotsHashKey, wallet.Value);
             }
-            _logger.LogInformation("Cleared {Count} wallet snapshots from Redis", snapshots.Count);
+            logger.LogInformation("Cleared {Count} wallet snapshots from Redis", snapshots.Count);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to clear all wallet snapshots from Redis");
+            logger.LogError(ex, "Failed to clear all wallet snapshots from Redis");
         }
     }
 }

@@ -8,5 +8,5 @@ public interface IOrderService
     Task SubscribeToWalletOrders(Wallet wallet);
     Task SubscribeToTrackedWalletsOrders();
     Task CollectHistoryOrders();
-    void CloseOrderWithStatus(long orderId, OrderStatus status);
+    Task CloseOrderWithStatus(long orderId, OrderStatus status);
 }

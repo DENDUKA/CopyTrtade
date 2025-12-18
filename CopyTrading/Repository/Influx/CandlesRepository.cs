@@ -7,19 +7,11 @@ using InfluxDB.Client.Api.Domain;
 
 namespace CopyTrading.Repository.Influx;
 
-public class CandlesRepository : ICandlesRepository
+public class CandlesRepository(ILogger<TradeRepository> logger) : ICandlesRepository
 {
     private const string bucket = "Candles";
     private const string org = "CopyTrade";
-
-    private readonly ILogger<TradeRepository> _logger;
-    private readonly InfluxDBClient _client;
-
-    public CandlesRepository(ILogger<TradeRepository> logger)
-    {
-        _logger = logger;
-        _client = new InfluxDBClient(@"http://localhost:8086", InfluxSettings.token);
-    }
+    private readonly InfluxDBClient _client = new InfluxDBClient(@"http://localhost:8086", InfluxSettings.token);
 
     public void WriteCandles(Candle[] candles)
     {
@@ -33,7 +25,7 @@ public class CandlesRepository : ICandlesRepository
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error writing order data to InfluxDB");
+            logger.LogError(ex, "Error writing order data to InfluxDB");
         }
     }
 }

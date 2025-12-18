@@ -6,11 +6,11 @@ namespace CopyTrading.Services.Interfaces;
 
 public interface ICopyOrderStorageService
 {
-    bool AddOrder(CopyOrderV2 order);
-    CopyOrderV2[] GetAllOrders();
-    CopyOrderV2[] GetOrdersByStatus(OrderStatus status);
-    CopyOrderV2[] GetOrdersByOriginalOrderId(long originalOrderId);
-    CopyOrderV2[] GetOrdersByWalletAndSymbol(Wallet wallet, string symbol);
-    void ClearAllOrders();
-    Dictionary<string, int> GetStatistics();
+    Task<bool> AddOrder(CopyOrderV2 order);
+    Task<CopyOrderV2[]> GetAllOrders();
+    Task<CopyOrderV2[]> GetOrdersByStatus(OrderStatus status);
+    Task<CopyOrderV2[]> GetOrdersByOriginalOrderId(long originalOrderId);
+    Task<CopyOrderV2[]> GetOrdersByWalletAndSymbol(Wallet wallet, string symbol);
+    Task ClearAllOrders();
+    Task<Dictionary<string, int>> GetStatistics();
 }

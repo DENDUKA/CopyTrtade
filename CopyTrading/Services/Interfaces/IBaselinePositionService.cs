@@ -30,7 +30,7 @@ public interface IBaselinePositionService
     /// <param name="wallet">Кошелек</param>
     /// <param name="symbol">Символ</param>
     /// <returns>Базовая позиция (Quantity с учетом знака) или 0 если не найдена</returns>
-    decimal GetBaselinePosition(Wallet wallet, string symbol);
+    Task<decimal> GetBaselinePosition(Wallet wallet, string symbol);
 
     /// <summary>
     /// Проверяет, закроет ли указанный ордер позицию ниже базовой линии.

@@ -4,16 +4,9 @@ using Newtonsoft.Json;
 
 namespace CopyTrading.Repository.SQLite.Dto;
 
-public class WalletSnapshotPositionsDto
+public class WalletSnapshotPositionsDto(WalletPositionsSnapshot walletSnapshot)
 {
-    public WalletSnapshotPositionsDto(WalletPositionsSnapshot walletSnapshot)
-    {
-        Wallet = walletSnapshot.Wallet;
-        TimeStamp = walletSnapshot.TimeStamp;
-        Positions = JsonConvert.SerializeObject(walletSnapshot.Positions);
-    }
-
-    public Wallet Wallet { get; set; }
-    public DateTime TimeStamp { get; set; }
-    public string Positions { get; set; }
+    public Wallet Wallet { get; set; } = walletSnapshot.Wallet;
+    public DateTime TimeStamp { get; set; } = walletSnapshot.TimeStamp;
+    public string Positions { get; set; } = JsonConvert.SerializeObject(walletSnapshot.Positions);
 }

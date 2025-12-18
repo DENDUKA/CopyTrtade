@@ -75,17 +75,17 @@ public interface IPositionMappingService
 {
     int GetMappingsCount { get; }
 
-    PositionMapping? GetMapping(Wallet traderWallet, Wallet myWallet, string symbol, Direction direction);
+    Task<PositionMapping?> GetMapping(Wallet traderWallet, Wallet myWallet, string symbol, Direction direction);
 
-    void SaveOrUpdateMapping(PositionMapping mapping);
+    Task SaveOrUpdateMapping(PositionMapping mapping);
 
-    bool DeleteMapping(Wallet traderWallet, Wallet myWallet, string symbol, Direction direction);
+    Task<bool> DeleteMapping(Wallet traderWallet, Wallet myWallet, string symbol, Direction direction);
 
-    bool UpdateMyQuantity(Wallet traderWallet, Wallet myWallet, string symbol, Direction direction, decimal newQuantity);
+    Task<bool> UpdateMyQuantity(Wallet traderWallet, Wallet myWallet, string symbol, Direction direction, decimal newQuantity);
 
-    IEnumerable<PositionMapping> GetMappingsByTrader(Wallet traderWallet, Wallet myWallet);
+    Task<IEnumerable<PositionMapping>> GetMappingsByTrader(Wallet traderWallet, Wallet myWallet);
 
-    IEnumerable<PositionMapping> GetAllMappings();
+    Task<IEnumerable<PositionMapping>> GetAllMappings();
 
-    void ClearAllMappings();
+    Task ClearAllMappings();
 }

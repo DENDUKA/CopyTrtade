@@ -186,9 +186,9 @@
         UpdateStatistics();
     }
 
-    private void UpdateStatistics()
+    private async Task UpdateStatistics()
     {
-        statistics = ResultService.GetStatistics();
+        statistics = await ResultService.GetStatistics();
     }
 
     private void RefreshData()
@@ -197,9 +197,9 @@
         StateHasChanged();
     }
 
-    private IEnumerable<CopyOrderResult> GetFilteredResults()
+    private async Task<IEnumerable<CopyOrderResult>> GetFilteredResults()
     {
-        var results = ResultService.GetAllResults();
+        var results = await ResultService.GetAllResults();
 
         // Фильтр по символу
         if (!string.IsNullOrWhiteSpace(searchSymbol))

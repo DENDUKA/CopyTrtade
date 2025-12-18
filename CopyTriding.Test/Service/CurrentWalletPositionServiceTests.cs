@@ -1314,7 +1314,7 @@ public class CurrentWalletPositionServiceTests
 
         // Act
         service.InitializeWalletSnapshot(snapshot);
-        fillsOrderService.OnNewOrders(new[] { pendingOrder });
+        fillsOrderService.OnNewOrders([pendingOrder]);
         var result = service.GetOrderSubType(newOrder);
 
         // Assert
@@ -1387,7 +1387,7 @@ public class CurrentWalletPositionServiceTests
 
         // Act
         service.InitializeWalletSnapshot(snapshot);
-        fillsOrderService.OnNewOrders(new[] { pendingOrder1, pendingOrder2 });
+        fillsOrderService.OnNewOrders([pendingOrder1, pendingOrder2]);
         var result = service.GetOrderSubType(newShortOrder);
 
         // Assert
@@ -1461,7 +1461,7 @@ public class CurrentWalletPositionServiceTests
 
         // Act
         service.InitializeWalletSnapshot(snapshot);
-        fillsOrderService.OnNewOrders(new[] { pendingShort1, pendingShort2 });
+        fillsOrderService.OnNewOrders([pendingShort1, pendingShort2]);
         var result = service.GetOrderSubType(newShortOrder);
 
         // Assert
@@ -1535,7 +1535,7 @@ public class CurrentWalletPositionServiceTests
 
         // Act
         service.InitializeWalletSnapshot(snapshot);
-        fillsOrderService.OnNewOrders(new[] { pendingLong1, pendingLong2 });
+        fillsOrderService.OnNewOrders([pendingLong1, pendingLong2]);
         var result = service.GetOrderSubType(newLongOrder);
 
         // Assert
@@ -1586,7 +1586,7 @@ public class CurrentWalletPositionServiceTests
 
         // Act
         service.InitializeWalletSnapshot(snapshot);
-        fillsOrderService.OnNewOrders(new[] { order }); // Добавляем в pending
+        fillsOrderService.OnNewOrders([order]); // Добавляем в pending
         var result = service.GetOrderSubType(order); // Пересчитываем для того же ордера
 
         // Assert
@@ -1650,7 +1650,7 @@ public class CurrentWalletPositionServiceTests
 
         // Act
         service.InitializeWalletSnapshot(snapshot);
-        fillsOrderService.OnNewOrders(new[] { pendingLong1, pendingLong2 });
+        fillsOrderService.OnNewOrders([pendingLong1, pendingLong2]);
         var result = service.GetOrderSubType(newShortOrder);
 
         // Assert
@@ -1713,7 +1713,7 @@ public class CurrentWalletPositionServiceTests
 
         // Act
         service.InitializeWalletSnapshot(snapshot);
-        fillsOrderService.OnNewOrders(new[] { pendingLong });
+        fillsOrderService.OnNewOrders([pendingLong]);
         var result = service.GetOrderSubType(newShortOrder);
 
         // Assert
@@ -1797,7 +1797,7 @@ public class CurrentWalletPositionServiceTests
 
         // Act
         service.InitializeWalletSnapshot(snapshot);
-        fillsOrderService.OnNewOrders(new[] { pendingLong1, pendingLong2, pendingShort1 });
+        fillsOrderService.OnNewOrders([pendingLong1, pendingLong2, pendingShort1]);
         var result = service.GetOrderSubType(newShortOrder);
 
         // Assert

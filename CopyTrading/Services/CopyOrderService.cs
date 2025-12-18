@@ -8,6 +8,7 @@ using CopyTrading.Providers.Hyperliquid.Interfaces;
 using CopyTrading.Services.Interfaces;
 using CopyTrading.Settings;
 using CryptoExchange.Net.SharedApis;
+using System.Threading.Tasks;
 
 namespace CopyTrading.Services;
 
@@ -249,7 +250,7 @@ public class CopyOrderService(
 
         try
         {
-            var mapping = _positionMappingService.GetMapping(order.Wallet, _myWallet, order.Symbol, order.Direction);
+            var mapping = await _positionMappingService.GetMapping(order.Wallet, _myWallet, order.Symbol, order.Direction);
 
             // Если маппинг не найден - обрабатываем отдельно
             if (mapping == null)
@@ -385,9 +386,9 @@ public class CopyOrderService(
     /// <summary>
     /// Установить базовую линию для созданного маппинга
     /// </summary>
-    private void SetBaselineForNewMapping(OriginalOrder order, decimal traderQuantityAtEntry)
+    private async Task SetBaselineForNewMapping(OriginalOrder order, decimal traderQuantityAtEntry)
     {
-        var createdMapping = _positionMappingService.GetMapping(order.Wallet, _myWallet, order.Symbol, order.Direction);
+        var createdMapping = await _positionMappingService.GetMapping(order.Wallet, _myWallet, order.Symbol, order.Direction);
         if (createdMapping != null)
         {
             createdMapping.TraderQuantityAtEntry = traderQuantityAtEntry;
@@ -403,7 +404,7 @@ public class CopyOrderService(
     /// <summary>
     /// Получить маппинг для decrease (используя противоположное direction)
     /// </summary>
-    private PositionMapping? GetMappingForDecrease(OriginalOrder order)
+    private Task<PositionMapping?> GetMappingForDecrease(OriginalOrder order)
     {
         return _positionMappingService.GetMapping(order.Wallet, _myWallet, order.Symbol, order.Direction.Opposite());
     }
@@ -488,7 +489,7 @@ public class CopyOrderService(
         try
         {
             // Получаем маппинг (с противоположным direction)
-            var mapping = GetMappingForDecrease(order);
+            var mapping = await GetMappingForDecrease(order);
             if (mapping == null)
             {
                 var errorMsg = "Невозможно скопировать decrease - у нас нет открытой позиции (маппинг не найден)";
@@ -554,7 +555,7 @@ public class CopyOrderService(
         {
             // FIX: Close ордер имеет противоположное направление (Short закрывает Long),
             // но маппинг создан с направлением позиции (Long), поэтому используем Opposite()
-            var mapping = _positionMappingService.GetMapping(order.Wallet, _myWallet, order.Symbol, order.Direction.Opposite());
+            var mapping = await _positionMappingService.GetMapping(order.Wallet, _myWallet, order.Symbol, order.Direction.Opposite());
 
             if (mapping == null)
             {
@@ -672,7 +673,7 @@ public class CopyOrderService(
     /// Создать копируемый ордер на основе уже рассчитанного количества
     /// Используется для Increase/Decrease/Close позиций
     /// </summary>
-    private async Task<CopyOrderV2> CreateCopyOrderFromQuantity(OriginalOrder order, decimal myQuantity, decimal positionRatio,  OrderSubType orderSubType, CopyTradeWalletSettings walletSettings =null)
+    private static async Task<CopyOrderV2> CreateCopyOrderFromQuantity(OriginalOrder order, decimal myQuantity, decimal positionRatio,  OrderSubType orderSubType, CopyTradeWalletSettings walletSettings =null)
     {
         // Генерируем уникальный временный ID для копируемого ордера
         var tempOrderId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -758,7 +759,7 @@ public class CopyOrderService(
     /// <summary>
     /// Опубликовать событие создания копируемого ордера
     /// </summary>
-    private void PublishCopyOrderCreated(OriginalOrder originalOrder, CopyOrderV2 copyOrder)
+    private static void PublishCopyOrderCreated(OriginalOrder originalOrder, CopyOrderV2 copyOrder)
     {
         DataBusEvents.CopyOrderCreated?.Invoke(copyOrder);
     }

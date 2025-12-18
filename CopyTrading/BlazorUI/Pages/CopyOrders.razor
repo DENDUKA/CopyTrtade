@@ -182,14 +182,14 @@
         UpdateStatistics();
     }
 
-    private void UpdateStatistics()
+    private async Task UpdateStatistics()
     {
-        statistics = CopyOrderStorage.GetStatistics();
+        statistics = await CopyOrderStorage.GetStatistics();
     }
 
-    private IEnumerable<CopyOrderV2> GetFilteredOrders()
+    private async Task<IEnumerable<CopyOrderV2>> GetFilteredOrders()
     {
-        var orders = CopyOrderStorage.GetAllOrders();
+        var orders = await CopyOrderStorage.GetAllOrders();
 
         // Фильтр по символу
         if (!string.IsNullOrWhiteSpace(searchSymbol))

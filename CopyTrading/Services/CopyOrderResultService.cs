@@ -3,6 +3,7 @@ using CopyTrading.Models.Models.Enums;
 using CopyTrading.Models.Values;
 using CopyTrading.Repository.RedisInterfaces;
 using CopyTrading.Services.Interfaces;
+using System.Threading.Tasks;
 
 namespace CopyTrading.Services;
 
@@ -11,27 +12,19 @@ namespace CopyTrading.Services;
 /// Хранит информацию об успешных и неудачных попытках копирования
 /// Хранит данные в Redis для персистентности
 /// </summary>
-public class CopyOrderResultService : ICopyOrderResultService
+public class CopyOrderResultService(
+    IRedisRepository redisRepository,
+    ILogger<CopyOrderResultService> logger) : ICopyOrderResultService
 {
-    private readonly IRedisRepository _redisRepository;
-    private readonly ILogger<CopyOrderResultService> _logger;
 
     // Константы для управления размером кэша
     private const int MaxResultsThreshold = 2000;  // Порог для начала очистки
     private const int TargetResultsCount = 500;    // Целевое количество после очистки
 
-    public CopyOrderResultService(
-        IRedisRepository redisRepository,
-        ILogger<CopyOrderResultService> logger)
-    {
-        _redisRepository = redisRepository;
-        _logger = logger;
-    }
-
     /// <summary>
     /// Сохраняет результат успешного копирования ордера
     /// </summary>
-    public void SaveSuccess(string originalOrderId, Wallet traderWallet, string symbol, string copyOrderId)
+    public async Task SaveSuccess(string originalOrderId, Wallet traderWallet, string symbol, string copyOrderId)
     {
         try
         {
@@ -46,22 +39,22 @@ public class CopyOrderResultService : ICopyOrderResultService
                 CopyOrderId = copyOrderId
             };
 
-            _redisRepository.SaveCopyOrderResult(result).GetAwaiter().GetResult();
-            _logger.LogInformation($"CopyOrderResult SUCCESS: {result}");
+            await redisRepository.SaveCopyOrderResult(result);
+            logger.LogInformation($"CopyOrderResult SUCCESS: {result}");
 
             // Проверяем необходимость очистки после добавления результата
             CleanupOldResultsIfNeeded();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to save success result to Redis");
+            logger.LogError(ex, "Failed to save success result to Redis");
         }
     }
 
     /// <summary>
     /// Сохраняет результат неудачного копирования ордера (ошибка)
     /// </summary>
-    public void SaveFailure(string originalOrderId, Wallet traderWallet, string symbol, string errorMessage)
+    public async Task SaveFailure(string originalOrderId, Wallet traderWallet, string symbol, string errorMessage)
     {
         try
         {
@@ -76,22 +69,22 @@ public class CopyOrderResultService : ICopyOrderResultService
                 CopyOrderId = null
             };
 
-            _redisRepository.SaveCopyOrderResult(result).GetAwaiter().GetResult();
-            _logger.LogError($"CopyOrderResult ERROR: {result}");
+            await redisRepository.SaveCopyOrderResult(result);
+            logger.LogError($"CopyOrderResult ERROR: {result}");
 
             // Проверяем необходимость очистки после добавления результата
             CleanupOldResultsIfNeeded();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to save failure result to Redis");
+            logger.LogError(ex, "Failed to save failure result to Redis");
         }
     }
 
     /// <summary>
     /// Сохраняет предупреждение (ордер не скопирован, но это не ошибка)
     /// </summary>
-    public void SaveWarning(string originalOrderId, Wallet traderWallet, string symbol, string warningMessage)
+    public async Task SaveWarning(string originalOrderId, Wallet traderWallet, string symbol, string warningMessage)
     {
         try
         {
@@ -106,30 +99,30 @@ public class CopyOrderResultService : ICopyOrderResultService
                 CopyOrderId = null
             };
 
-            _redisRepository.SaveCopyOrderResult(result).GetAwaiter().GetResult();
-            _logger.LogWarning($"CopyOrderResult WARNING: {result}");
+            await redisRepository.SaveCopyOrderResult(result);
+            logger.LogWarning($"CopyOrderResult WARNING: {result}");
 
             // Проверяем необходимость очистки после добавления результата
             CleanupOldResultsIfNeeded();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to save warning result to Redis");
+            logger.LogError(ex, "Failed to save warning result to Redis");
         }
     }
 
     /// <summary>
     /// Получить результат по ID оригинального ордера
     /// </summary>
-    public CopyOrderResult? GetResult(string originalOrderId)
+    public Task<CopyOrderResult?> GetResult(string originalOrderId)
     {
         try
         {
-            return _redisRepository.GetCopyOrderResult(originalOrderId).GetAwaiter().GetResult();
+            return redisRepository.GetCopyOrderResult(originalOrderId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get copy order result from Redis");
+            logger.LogError(ex, "Failed to get copy order result from Redis");
             return null;
         }
     }
@@ -137,16 +130,16 @@ public class CopyOrderResultService : ICopyOrderResultService
     /// <summary>
     /// Получить все результаты
     /// </summary>
-    public IEnumerable<CopyOrderResult> GetAllResults()
+    public async Task<IEnumerable<CopyOrderResult>> GetAllResults()
     {
         try
         {
-            var results = _redisRepository.LoadAllCopyOrderResults().GetAwaiter().GetResult();
+            var results = await redisRepository.LoadAllCopyOrderResults();
             return results.Values.OrderByDescending(r => r.Timestamp);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get all copy order results from Redis");
+            logger.LogError(ex, "Failed to get all copy order results from Redis");
             return Enumerable.Empty<CopyOrderResult>();
         }
     }
@@ -154,11 +147,11 @@ public class CopyOrderResultService : ICopyOrderResultService
     /// <summary>
     /// Получить статистику по результатам
     /// </summary>
-    public (int Total, int Success, int Warning, int Error, double SuccessRate) GetStatistics()
+    public async Task<(int Total, int Success, int Warning, int Error, double SuccessRate)> GetStatistics()
     {
         try
         {
-            var results = _redisRepository.LoadAllCopyOrderResults().GetAwaiter().GetResult();
+            var results = await redisRepository.LoadAllCopyOrderResults();
             var allResults = results.Values.ToList();
             var total = allResults.Count;
             var success = allResults.Count(r => r.Status == CopyOrderResultStatus.Success);
@@ -170,7 +163,7 @@ public class CopyOrderResultService : ICopyOrderResultService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get copy order results statistics from Redis");
+            logger.LogError(ex, "Failed to get copy order results statistics from Redis");
             return (0, 0, 0, 0, 0.0);
         }
     }
@@ -178,23 +171,23 @@ public class CopyOrderResultService : ICopyOrderResultService
     /// <summary>
     /// Очистить все результаты (используется для тестирования)
     /// </summary>
-    public void ClearAllResults()
+    public async Task ClearAllResults()
     {
         try
         {
-            var results = _redisRepository.LoadAllCopyOrderResults().GetAwaiter().GetResult();
+            var results = await redisRepository.LoadAllCopyOrderResults();
             var count = results.Count;
 
             if (count > 0)
             {
-                _redisRepository.DeleteCopyOrderResults(results.Keys).GetAwaiter().GetResult();
+                await redisRepository.DeleteCopyOrderResults(results.Keys);
             }
 
-            _logger.LogInformation($"Все результаты очищены (было {count})");
+            logger.LogInformation($"Все результаты очищены (было {count})");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to clear all copy order results from Redis");
+            logger.LogError(ex, "Failed to clear all copy order results from Redis");
         }
     }
 
@@ -202,11 +195,11 @@ public class CopyOrderResultService : ICopyOrderResultService
     /// Автоматическая очистка старых результатов при превышении порога
     /// Удаляет старые результаты (по времени) до достижения целевого количества
     /// </summary>
-    private void CleanupOldResultsIfNeeded()
+    private async Task CleanupOldResultsIfNeeded()
     {
         try
         {
-            var results = _redisRepository.LoadAllCopyOrderResults().GetAwaiter().GetResult();
+            var results = await redisRepository.LoadAllCopyOrderResults();
 
             // Проверяем, превышен ли порог
             if (results.Count <= MaxResultsThreshold)
@@ -214,7 +207,7 @@ public class CopyOrderResultService : ICopyOrderResultService
                 return;
             }
 
-            _logger.LogInformation($"CopyOrderResultService: Начинаем очистку старых результатов. Текущее количество: {results.Count}");
+            logger.LogInformation($"CopyOrderResultService: Начинаем очистку старых результатов. Текущее количество: {results.Count}");
 
             // Получаем все результаты, отсортированные по времени (от старых к новым)
             var resultsToRemove = results.Values
@@ -222,27 +215,27 @@ public class CopyOrderResultService : ICopyOrderResultService
                 .Take(results.Count - TargetResultsCount)
                 .ToList();
 
-            _logger.LogInformation($"CopyOrderResultService: Будет удалено {resultsToRemove.Count} старых результатов");
+            logger.LogInformation($"CopyOrderResultService: Будет удалено {resultsToRemove.Count} старых результатов");
 
             if (resultsToRemove.Count > 0)
             {
                 // Удаляем старые результаты batch-операцией
                 var resultIdsToRemove = resultsToRemove.Select(r => r.OriginalOrderId);
-                _redisRepository.DeleteCopyOrderResults(resultIdsToRemove).GetAwaiter().GetResult();
+                await redisRepository.DeleteCopyOrderResults(resultIdsToRemove);
 
                 foreach (var result in resultsToRemove)
                 {
-                    _logger.LogDebug($"CopyOrderResultService: Удален результат OriginalOrderId={result.OriginalOrderId}, " +
+                    logger.LogDebug($"CopyOrderResultService: Удален результат OriginalOrderId={result.OriginalOrderId}, " +
                                    $"Symbol={result.Symbol}, Timestamp={result.Timestamp}, Status={result.Status}");
                 }
             }
 
             var remainingCount = results.Count - resultsToRemove.Count;
-            _logger.LogInformation($"CopyOrderResultService: Очистка завершена. Удалено: {resultsToRemove.Count}, Осталось: {remainingCount}");
+            logger.LogInformation($"CopyOrderResultService: Очистка завершена. Удалено: {resultsToRemove.Count}, Осталось: {remainingCount}");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to cleanup old copy order results from Redis");
+            logger.LogError(ex, "Failed to cleanup old copy order results from Redis");
         }
     }
 }

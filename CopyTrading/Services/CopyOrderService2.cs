@@ -114,7 +114,7 @@ public class CopyOrderService2 : ICopyOrderService
 
 
 
-    private async Task OnMarketOrdersHandler(OriginalOrder[] orders)
+    private static async Task OnMarketOrdersHandler(OriginalOrder[] orders)
     {
 
     }
@@ -127,7 +127,7 @@ public class CopyOrderService2 : ICopyOrderService
         var nearestLongOrders = await _activeWindowService.GetNearestOrders(wallet, symbol, Direction.Long, count: 3);
         var nearestShortOrders = await _activeWindowService.GetNearestOrders(wallet, symbol, Direction.Short, count: 3);
 
-        var copyedOrders = _copyOrderStorageService.GetOrdersByWalletAndSymbol(wallet, symbol);
+        var copyedOrders = await _copyOrderStorageService.GetOrdersByWalletAndSymbol(wallet, symbol);
 
         var allNearestOrders = nearestLongOrders.Concat(nearestShortOrders).ToArray();
 

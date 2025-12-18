@@ -5,6 +5,7 @@ using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Models.Trade;
 using CopyTrading.Repository.RedisInterfaces;
 using CopyTrading.Services.Interfaces;
+using System.Threading.Tasks;
 
 namespace CopyTrading.Services;
 
@@ -103,7 +104,7 @@ public class FillsOrderService : IFillsOrderService
     /// </summary>
     /// <param name="orders">Массив исторических ордеров</param>
     /// <returns>Количество добавленных ордеров</returns>
-    public int AddHistoricalOrders(OriginalOrder[] orders)
+    public async Task<int> AddHistoricalOrders(OriginalOrder[] orders)
     {
         int addedCount = 0;
         int skippedCount = 0;
@@ -111,7 +112,7 @@ public class FillsOrderService : IFillsOrderService
         foreach (var order in orders)
         {
             // Проверяем, существует ли ордер в Redis
-            bool exists = _redisRepository.OrderExists(order.OrderId).GetAwaiter().GetResult();
+            bool exists = await _redisRepository.OrderExists(order.OrderId);
             if (exists)
             {
                 skippedCount++;
@@ -123,7 +124,7 @@ public class FillsOrderService : IFillsOrderService
             var orderFills = new OrderFills(order);
 
             // Сохраняем в Redis
-            _redisRepository.SaveOrder(orderFills).GetAwaiter().GetResult();
+            await _redisRepository.SaveOrder(orderFills);
             addedCount++;
         }
 

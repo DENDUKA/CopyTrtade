@@ -192,7 +192,7 @@ public class OrdersTradesSubscriber(
                 return;
             }
 
-            int addedCount = _fillsOrderService.AddHistoricalOrders(activeOrders);
+            int addedCount = await _fillsOrderService.AddHistoricalOrders(activeOrders);
 
             _logger.LogInformation(
                 $"LoadActiveOrdersForWallet: Для {wallet} загружено {activeOrders.Length} открытых ордеров, " +

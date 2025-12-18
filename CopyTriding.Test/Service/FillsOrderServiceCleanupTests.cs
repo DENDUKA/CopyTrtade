@@ -7,6 +7,7 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
 using System.Reflection;
+using System.Threading.Tasks;
 
 namespace CopyTrading.Test.Service;
 
@@ -22,7 +23,7 @@ public class FillsOrderServiceCleanupTests
     }
 
     [Fact]
-    public void CleanupShouldNotRunWhenOrdersCountBelowThreshold()
+    public async Task CleanupShouldNotRunWhenOrdersCountBelowThreshold()
     {
         // Arrange - добавляем 100 завершенных ордеров (меньше 2000)
         for (int i = 0; i < 100; i++)
@@ -31,19 +32,19 @@ public class FillsOrderServiceCleanupTests
             _service.OnNewOrders([order]);
         }
 
-        var ordersCountBefore = _service.GetAllOrderFills().Length;
+        var ordersCountBefore = (await _service.GetAllOrderFills()).Length;
 
         // Act - вызываем OnNewOrders для триггера очистки
         var newOrder = CreateOrder(9999, OrderStatus.Open, DateTime.Now);
         _service.OnNewOrders([newOrder]);
 
         // Assert - количество не должно измениться (кроме одного добавленного)
-        var ordersCountAfter = _service.GetAllOrderFills().Length;
+        var ordersCountAfter = (await _service.GetAllOrderFills()).Length;
         ordersCountAfter.Should().Be(ordersCountBefore + 1);
     }
 
     [Fact]
-    public void CleanupShouldRemoveOldCompletedOrdersWhenThresholdExceeded()
+    public async Task CleanupShouldRemoveOldCompletedOrdersWhenThresholdExceeded()
     {
         // Arrange - добавляем 2100 завершенных ордеров (больше 2000)
         for (int i = 0; i < 2100; i++)
@@ -67,7 +68,7 @@ public class FillsOrderServiceCleanupTests
         _service.OnNewOrders([newOrder]);
 
         // Assert - количество должно быть около 500 (целевое значение после очистки)
-        var ordersCount = _service.GetAllOrderFills().Length;
+        var ordersCount = (await _service.GetAllOrderFills()).Length;
         ordersCount.Should().BeLessThanOrEqualTo(501); // 500 + 1 новый открытый ордер
     }
 
@@ -99,7 +100,7 @@ public class FillsOrderServiceCleanupTests
     }
 
     [Fact]
-    public void CleanupShouldNotRemoveOpenOrders()
+    public async Task CleanupShouldNotRemoveOpenOrders()
     {
         // Arrange - добавляем 1500 завершенных и 600 открытых ордеров
         for (int i = 0; i < 1500; i++)
@@ -116,7 +117,7 @@ public class FillsOrderServiceCleanupTests
             GetOrdersDict().TryAdd(order.OrderId, orderFills);
         }
 
-        var openOrdersBefore = _service.GetAllOrderFills()
+        var openOrdersBefore = (await _service.GetAllOrderFills())
             .Count(o => o.OriginalOrder.Status == OrderStatus.Open);
 
         openOrdersBefore.Should().Be(600);
@@ -126,14 +127,14 @@ public class FillsOrderServiceCleanupTests
         _service.OnNewOrders([newOrder]);
 
         // Assert - открытые ордера не должны быть удалены
-        var openOrdersAfter = _service.GetAllOrderFills()
+        var openOrdersAfter = (await _service.GetAllOrderFills())
             .Count(o => o.OriginalOrder.Status == OrderStatus.Open);
 
         openOrdersAfter.Should().Be(601); // 600 + 1 новый
     }
 
     // Вспомогательный метод для создания тестового ордера
-    private OriginalOrder CreateOrder(long orderId, OrderStatus status, DateTime time)
+    private static OriginalOrder CreateOrder(long orderId, OrderStatus status, DateTime time)
     {
         return new OriginalOrder
         {

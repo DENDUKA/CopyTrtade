@@ -7,20 +7,11 @@ using InfluxDB.Client.Api.Domain;
 
 namespace CopyTrading.Repository.Influx;
 
-public class OrderRepository : IOrderRepository
+public class OrderRepository(ILogger<OrderRepository> logger) : IOrderRepository
 {
     private const string bucket = "Orders";
     private const string org = "CopyTrade";
-
-    private readonly ILogger<OrderRepository> _logger;
-    private readonly InfluxDBClient _client;
-
-    public OrderRepository(ILogger<OrderRepository> logger)
-    {
-        _logger = logger;
-
-        _client = new InfluxDBClient(@"http://localhost:8086", InfluxSettings.token);
-    }
+    private readonly InfluxDBClient _client = new InfluxDBClient(@"http://localhost:8086", InfluxSettings.token);
 
     public void WriteOrder(OriginalOrder[] orders)
     {
@@ -34,7 +25,7 @@ public class OrderRepository : IOrderRepository
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error writing order data to InfluxDB");
+            logger.LogError(ex, "Error writing order data to InfluxDB");
         }
     }
 }

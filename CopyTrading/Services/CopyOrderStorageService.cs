@@ -4,6 +4,7 @@ using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Values;
 using CopyTrading.Repository.RedisInterfaces;
 using CopyTrading.Services.Interfaces;
+using System.Threading.Tasks;
 
 namespace CopyTrading.Services;
 
@@ -44,12 +45,12 @@ public class CopyOrderStorageService : ICopyOrderStorageService
     /// <summary>
     /// Добавить копируемый ордер в хранилище
     /// </summary>
-    public bool AddOrder(CopyOrderV2 order)
+    public async Task<bool> AddOrder(CopyOrderV2 order)
     {
         try
         {
             // Сохраняем в Redis
-            _redisRepository.SaveCopyOrder(order).GetAwaiter().GetResult();
+            await _redisRepository.SaveCopyOrder(order);
 
             _logger.LogInformation(
                 $"Копируемый ордер добавлен: ID={order.OrderId}, Symbol={order.OriginalOrder.Symbol}, " +
@@ -57,7 +58,7 @@ public class CopyOrderStorageService : ICopyOrderStorageService
                 $"OriginalOrderId={order.OriginalOrderId}");
 
             // Проверяем необходимость очистки после добавления ордера
-            CleanupOldOrdersIfNeeded();
+            await CleanupOldOrdersIfNeeded();
 
             return true;
         }
@@ -71,11 +72,11 @@ public class CopyOrderStorageService : ICopyOrderStorageService
     /// <summary>
     /// Получить все копируемые ордера
     /// </summary>
-    public CopyOrderV2[] GetAllOrders()
+    public async Task<CopyOrderV2[]> GetAllOrders()
     {
         try
         {
-            var orders = _redisRepository.LoadAllCopyOrders().GetAwaiter().GetResult();
+            var orders = await _redisRepository.LoadAllCopyOrders();
             return [.. orders.Values];
         }
         catch (Exception ex)
@@ -88,11 +89,11 @@ public class CopyOrderStorageService : ICopyOrderStorageService
     /// <summary>
     /// Получить копируемые ордера по статусу
     /// </summary>
-    public CopyOrderV2[] GetOrdersByStatus(OrderStatus status)
+    public async Task<CopyOrderV2[]> GetOrdersByStatus(OrderStatus status)
     {
         try
         {
-            var orders = _redisRepository.LoadAllCopyOrders().GetAwaiter().GetResult();
+            var orders = await _redisRepository.LoadAllCopyOrders();
             return [.. orders.Values.Where(o => o.OriginalOrder.Status == status)];
         }
         catch (Exception ex)
@@ -105,48 +106,48 @@ public class CopyOrderStorageService : ICopyOrderStorageService
     /// <summary>
     /// Получить копируемые ордера по OriginalOrderId (ID ордера трейдера)
     /// </summary>
-    public CopyOrderV2[] GetOrdersByOriginalOrderId(long originalOrderId)
+    public Task<CopyOrderV2[]> GetOrdersByOriginalOrderId(long originalOrderId)
     {
         try
         {
-            return _redisRepository.GetCopyOrdersByOriginalId(originalOrderId).GetAwaiter().GetResult();
+            return _redisRepository.GetCopyOrdersByOriginalId(originalOrderId);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to get copy orders by original order ID from Redis");
-            return [];
+            return Task.FromResult(Array.Empty<CopyOrderV2>());
         }
     }
 
     /// <summary>
     /// Получить копируемые ордера по кошельку и символу
     /// </summary>
-    public CopyOrderV2[] GetOrdersByWalletAndSymbol(Wallet wallet, string symbol)
+    public Task<CopyOrderV2[]> GetOrdersByWalletAndSymbol(Wallet wallet, string symbol)
     {
         try
         {
-            return _redisRepository.GetCopyOrdersByWalletAndSymbol(wallet, symbol).GetAwaiter().GetResult();
+            return _redisRepository.GetCopyOrdersByWalletAndSymbol(wallet, symbol);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to get copy orders by wallet and symbol from Redis");
-            return [];
+            return Task.FromResult(Array.Empty<CopyOrderV2>());
         }
     }
 
     /// <summary>
     /// Очистить все копируемые ордера
     /// </summary>
-    public void ClearAllOrders()
+    public async Task ClearAllOrders()
     {
         try
         {
-            var orders = _redisRepository.LoadAllCopyOrders().GetAwaiter().GetResult();
+            var orders = await _redisRepository.LoadAllCopyOrders();
             var count = orders.Count;
 
             if (count > 0)
             {
-                _redisRepository.DeleteCopyOrders(orders.Keys).GetAwaiter().GetResult();
+                await _redisRepository.DeleteCopyOrders(orders.Keys);
             }
 
             _logger.LogInformation($"Все копируемые ордера очищены (было {count})");
@@ -160,11 +161,11 @@ public class CopyOrderStorageService : ICopyOrderStorageService
     /// <summary>
     /// Получить статистику по копируемым ордерам
     /// </summary>
-    public Dictionary<string, int> GetStatistics()
+    public async Task<Dictionary<string, int>> GetStatistics()
     {
         try
         {
-            var orders = _redisRepository.LoadAllCopyOrders().GetAwaiter().GetResult();
+            var orders = await _redisRepository.LoadAllCopyOrders();
             var ordersList = orders.Values.ToList();
 
             return new Dictionary<string, int>
@@ -198,11 +199,11 @@ public class CopyOrderStorageService : ICopyOrderStorageService
     /// Проверяет необходимость очистки старых ордеров и выполняет её при необходимости
     /// Удаляет старые копируемые ордера, начиная с самых старых, пока количество не уменьшится до целевого
     /// </summary>
-    private void CleanupOldOrdersIfNeeded()
+    private async Task CleanupOldOrdersIfNeeded()
     {
         try
         {
-            var orders = _redisRepository.LoadAllCopyOrders().GetAwaiter().GetResult();
+            var orders = await _redisRepository.LoadAllCopyOrders();
 
             // Проверяем, превышен ли порог
             if (orders.Count <= MaxOrdersThreshold)
@@ -224,7 +225,7 @@ public class CopyOrderStorageService : ICopyOrderStorageService
             {
                 // Удаляем старые ордера batch-операцией
                 var orderIdsToRemove = ordersToRemove.Select(o => o.OrderId);
-                _redisRepository.DeleteCopyOrders(orderIdsToRemove).GetAwaiter().GetResult();
+                await _redisRepository.DeleteCopyOrders(orderIdsToRemove);
 
                 foreach (var order in ordersToRemove)
                 {
