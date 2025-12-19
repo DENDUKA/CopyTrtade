@@ -5,7 +5,9 @@ using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Models.Trade;
 using CopyTrading.Models.Values;
 using CopyTrading.Providers.Hyperliquid.Interfaces;
+using CopyTrading.Repository.RedisInterfaces;
 using CopyTrading.Services;
+using CopyTrading.Services.Interfaces;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -16,7 +18,7 @@ public class CurrentWalletPositionServiceTests
 {
     private readonly Mock<IWalletInfoProvider> _walletInfoProvider = new(MockBehavior.Strict);
     private readonly Mock<ILogger<CurrentWalletPositionService>> _logger = new(MockBehavior.Loose);
-    private readonly CopyOrderStorageService _storageService = new(Mock.Of<ILogger<CopyOrderStorageService>>());
+    private readonly CopyOrderStorageService _storageService = new(Mock.Of<IRedisRepository>(), Mock.Of<ILogger<CopyOrderStorageService>>());
 
     [Fact]
     public async Task CurrentLongPosInitialize_Add_Succsess()
@@ -26,7 +28,8 @@ public class CurrentWalletPositionServiceTests
 
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
-            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>()),
+            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>()),
+            Mock.Of<IRedisRepository>(),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -106,7 +109,8 @@ public class CurrentWalletPositionServiceTests
 
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
-            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>()),
+            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>()),
+            Mock.Of<IRedisRepository>(),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -186,7 +190,8 @@ public class CurrentWalletPositionServiceTests
 
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
-            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>()),
+            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>()),
+            Mock.Of<IRedisRepository>(),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -223,7 +228,8 @@ public class CurrentWalletPositionServiceTests
 
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
-            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>()),
+            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>()),
+            Mock.Of<IRedisRepository>(),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -270,7 +276,8 @@ public class CurrentWalletPositionServiceTests
 
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
-            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>()),
+            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>()),
+            Mock.Of<IRedisRepository>(),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -317,7 +324,8 @@ public class CurrentWalletPositionServiceTests
 
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
-            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>()),
+            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>()),
+            Mock.Of<IRedisRepository>(),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -386,7 +394,8 @@ public class CurrentWalletPositionServiceTests
 
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
-            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>()),
+            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>()),
+            Mock.Of<IRedisRepository>(),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -426,7 +435,8 @@ public class CurrentWalletPositionServiceTests
 
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
-            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>()),
+            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>()),
+            Mock.Of<IRedisRepository>(),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -479,7 +489,8 @@ public class CurrentWalletPositionServiceTests
 
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
-            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>()),
+            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>()),
+            Mock.Of<IRedisRepository>(),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -516,7 +527,8 @@ public class CurrentWalletPositionServiceTests
 
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
-            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>()),
+            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>()),
+            Mock.Of<IRedisRepository>(),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -543,7 +555,8 @@ public class CurrentWalletPositionServiceTests
 
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
-            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>()),
+            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>()),
+            Mock.Of<IRedisRepository>(),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -603,7 +616,8 @@ public class CurrentWalletPositionServiceTests
 
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
-            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>()),
+            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>()),
+            Mock.Of<IRedisRepository>(),
             _logger.Object);
 
         // Act
@@ -624,7 +638,8 @@ public class CurrentWalletPositionServiceTests
         // Arrange
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
-            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>()),
+            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>()),
+            Mock.Of<IRedisRepository>(),
             _logger.Object);
 
         var wallet = new Wallet("0x7bde2b9240a2ee352108c6823a9fa20f225b83a0");
@@ -670,7 +685,8 @@ public class CurrentWalletPositionServiceTests
 
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
-            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>()),
+            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>()),
+            Mock.Of<IRedisRepository>(),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -749,7 +765,8 @@ public class CurrentWalletPositionServiceTests
 
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
-            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>()),
+            new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>()),
+            Mock.Of<IRedisRepository>(),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -947,10 +964,11 @@ public class CurrentWalletPositionServiceTests
     {
         // Arrange
         var wallet = new Wallet("0x1234567890123456789012345678901234567890");
-        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
             fillsOrderService,
+            Mock.Of<IRedisRepository>(),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -984,10 +1002,11 @@ public class CurrentWalletPositionServiceTests
     {
         // Arrange
         var wallet = new Wallet("0x1234567890123456789012345678901234567890");
-        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
             fillsOrderService,
+            Mock.Of<IRedisRepository>(),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -1031,10 +1050,11 @@ public class CurrentWalletPositionServiceTests
     {
         // Arrange
         var wallet = new Wallet("0x1234567890123456789012345678901234567890");
-        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
             fillsOrderService,
+            Mock.Of<IRedisRepository>(),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -1078,10 +1098,11 @@ public class CurrentWalletPositionServiceTests
     {
         // Arrange
         var wallet = new Wallet("0x1234567890123456789012345678901234567890");
-        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
             fillsOrderService,
+            Mock.Of<IRedisRepository>(),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -1125,10 +1146,11 @@ public class CurrentWalletPositionServiceTests
     {
         // Arrange
         var wallet = new Wallet("0x1234567890123456789012345678901234567890");
-        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
             fillsOrderService,
+            Mock.Of<IRedisRepository>(),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -1172,10 +1194,11 @@ public class CurrentWalletPositionServiceTests
     {
         // Arrange
         var wallet = new Wallet("0x1234567890123456789012345678901234567890");
-        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
             fillsOrderService,
+            Mock.Of<IRedisRepository>(),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -1219,10 +1242,11 @@ public class CurrentWalletPositionServiceTests
     {
         // Arrange
         var wallet = new Wallet("0x1234567890123456789012345678901234567890");
-        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
             fillsOrderService,
+            Mock.Of<IRedisRepository>(),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -1266,10 +1290,11 @@ public class CurrentWalletPositionServiceTests
     {
         // Arrange
         var wallet = new Wallet("0x1234567890123456789012345678901234567890");
-        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
             fillsOrderService,
+            Mock.Of<IRedisRepository>(),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -1328,10 +1353,11 @@ public class CurrentWalletPositionServiceTests
     {
         // Arrange
         var wallet = new Wallet("0x1234567890123456789012345678901234567890");
-        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
             fillsOrderService,
+            Mock.Of<IRedisRepository>(),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -1402,10 +1428,11 @@ public class CurrentWalletPositionServiceTests
     {
         // Arrange
         var wallet = new Wallet("0x1234567890123456789012345678901234567890");
-        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
             fillsOrderService,
+            Mock.Of<IRedisRepository>(),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -1476,10 +1503,11 @@ public class CurrentWalletPositionServiceTests
     {
         // Arrange
         var wallet = new Wallet("0x1234567890123456789012345678901234567890");
-        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
             fillsOrderService,
+            Mock.Of<IRedisRepository>(),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -1550,10 +1578,11 @@ public class CurrentWalletPositionServiceTests
     {
         // Arrange
         var wallet = new Wallet("0x1234567890123456789012345678901234567890");
-        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
             fillsOrderService,
+            Mock.Of<IRedisRepository>(),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -1601,10 +1630,11 @@ public class CurrentWalletPositionServiceTests
     {
         // Arrange
         var wallet = new Wallet("0x1234567890123456789012345678901234567890");
-        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
             fillsOrderService,
+            Mock.Of<IRedisRepository>(),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -1665,10 +1695,11 @@ public class CurrentWalletPositionServiceTests
     {
         // Arrange
         var wallet = new Wallet("0x1234567890123456789012345678901234567890");
-        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
             fillsOrderService,
+            Mock.Of<IRedisRepository>(),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -1727,10 +1758,11 @@ public class CurrentWalletPositionServiceTests
     {
         // Arrange
         var wallet = new Wallet("0x1234567890123456789012345678901234567890");
-        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
             fillsOrderService,
+            Mock.Of<IRedisRepository>(),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -1814,10 +1846,11 @@ public class CurrentWalletPositionServiceTests
     {
         // Arrange
         var wallet = new Wallet("0x1234567890123456789012345678901234567890");
-        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
             fillsOrderService,
+            Mock.Of<IRedisRepository>(),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -1861,10 +1894,11 @@ public class CurrentWalletPositionServiceTests
     {
         // Arrange
         var wallet = new Wallet("0x1234567890123456789012345678901234567890");
-        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
         var service = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
             fillsOrderService,
+            Mock.Of<IRedisRepository>(),
             _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
@@ -1913,8 +1947,8 @@ public class CurrentWalletPositionServiceTests
     {
         // Arrange
         var wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00");
-        var fillsService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
-        var service = new CurrentWalletPositionService(_walletInfoProvider.Object, fillsService, _logger.Object);
+        var fillsService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
+        var service = new CurrentWalletPositionService(_walletInfoProvider.Object, fillsService, Mock.Of<IRedisRepository>(), _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
         {
@@ -1948,8 +1982,8 @@ public class CurrentWalletPositionServiceTests
     {
         // Arrange
         var wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00");
-        var fillsService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
-        var service = new CurrentWalletPositionService(_walletInfoProvider.Object, fillsService, _logger.Object);
+        var fillsService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
+        var service = new CurrentWalletPositionService(_walletInfoProvider.Object, fillsService, Mock.Of<IRedisRepository>(), _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
         {
@@ -1986,8 +2020,8 @@ public class CurrentWalletPositionServiceTests
     {
         // Arrange
         var wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00");
-        var fillsService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
-        var service = new CurrentWalletPositionService(_walletInfoProvider.Object, fillsService, _logger.Object);
+        var fillsService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
+        var service = new CurrentWalletPositionService(_walletInfoProvider.Object, fillsService, Mock.Of<IRedisRepository>(), _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
         {
@@ -2024,8 +2058,8 @@ public class CurrentWalletPositionServiceTests
     {
         // Arrange
         var wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00");
-        var fillsService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
-        var service = new CurrentWalletPositionService(_walletInfoProvider.Object, fillsService, _logger.Object);
+        var fillsService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
+        var service = new CurrentWalletPositionService(_walletInfoProvider.Object, fillsService, Mock.Of<IRedisRepository>(), _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
         {
@@ -2074,8 +2108,8 @@ public class CurrentWalletPositionServiceTests
     {
         // Arrange
         var wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00");
-        var fillsService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
-        var service = new CurrentWalletPositionService(_walletInfoProvider.Object, fillsService, _logger.Object);
+        var fillsService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
+        var service = new CurrentWalletPositionService(_walletInfoProvider.Object, fillsService, Mock.Of<IRedisRepository>(), _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
         {
@@ -2122,8 +2156,8 @@ public class CurrentWalletPositionServiceTests
     {
         // Arrange
         var wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00");
-        var fillsService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
-        var service = new CurrentWalletPositionService(_walletInfoProvider.Object, fillsService, _logger.Object);
+        var fillsService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
+        var service = new CurrentWalletPositionService(_walletInfoProvider.Object, fillsService, Mock.Of<IRedisRepository>(), _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
         {
@@ -2171,8 +2205,8 @@ public class CurrentWalletPositionServiceTests
     {
         // Arrange
         var wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00");
-        var fillsService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
-        var service = new CurrentWalletPositionService(_walletInfoProvider.Object, fillsService, _logger.Object);
+        var fillsService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
+        var service = new CurrentWalletPositionService(_walletInfoProvider.Object, fillsService, Mock.Of<IRedisRepository>(), _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
         {
@@ -2221,8 +2255,8 @@ public class CurrentWalletPositionServiceTests
     {
         // Arrange
         var wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00");
-        var fillsService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
-        var service = new CurrentWalletPositionService(_walletInfoProvider.Object, fillsService, _logger.Object);
+        var fillsService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
+        var service = new CurrentWalletPositionService(_walletInfoProvider.Object, fillsService, Mock.Of<IRedisRepository>(), _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
         {
@@ -2272,8 +2306,8 @@ public class CurrentWalletPositionServiceTests
     {
         // Arrange
         var wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00");
-        var fillsService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
-        var service = new CurrentWalletPositionService(_walletInfoProvider.Object, fillsService, _logger.Object);
+        var fillsService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
+        var service = new CurrentWalletPositionService(_walletInfoProvider.Object, fillsService, Mock.Of<IRedisRepository>(), _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
         {
@@ -2320,8 +2354,8 @@ public class CurrentWalletPositionServiceTests
     {
         // Arrange
         var wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00");
-        var fillsService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
-        var service = new CurrentWalletPositionService(_walletInfoProvider.Object, fillsService, _logger.Object);
+        var fillsService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
+        var service = new CurrentWalletPositionService(_walletInfoProvider.Object, fillsService, Mock.Of<IRedisRepository>(), _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
         {
@@ -2365,8 +2399,8 @@ public class CurrentWalletPositionServiceTests
     {
         // Arrange
         var wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00");
-        var fillsService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
-        var service = new CurrentWalletPositionService(_walletInfoProvider.Object, fillsService, _logger.Object);
+        var fillsService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
+        var service = new CurrentWalletPositionService(_walletInfoProvider.Object, fillsService, Mock.Of<IRedisRepository>(), _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
         {
@@ -2414,8 +2448,8 @@ public class CurrentWalletPositionServiceTests
     {
         // Arrange
         var wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00");
-        var fillsService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
-        var service = new CurrentWalletPositionService(_walletInfoProvider.Object, fillsService, _logger.Object);
+        var fillsService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
+        var service = new CurrentWalletPositionService(_walletInfoProvider.Object, fillsService, Mock.Of<IRedisRepository>(), _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
         {
@@ -2462,8 +2496,8 @@ public class CurrentWalletPositionServiceTests
     {
         // Arrange
         var wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00");
-        var fillsService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
-        var service = new CurrentWalletPositionService(_walletInfoProvider.Object, fillsService, _logger.Object);
+        var fillsService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
+        var service = new CurrentWalletPositionService(_walletInfoProvider.Object, fillsService, Mock.Of<IRedisRepository>(), _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
         {
@@ -2510,8 +2544,8 @@ public class CurrentWalletPositionServiceTests
     {
         // Arrange
         var wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00");
-        var fillsService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
-        var service = new CurrentWalletPositionService(_walletInfoProvider.Object, fillsService, _logger.Object);
+        var fillsService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
+        var service = new CurrentWalletPositionService(_walletInfoProvider.Object, fillsService, Mock.Of<IRedisRepository>(), _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
         {
@@ -2568,8 +2602,8 @@ public class CurrentWalletPositionServiceTests
     {
         // Arrange
         var wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00");
-        var fillsService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
-        var service = new CurrentWalletPositionService(_walletInfoProvider.Object, fillsService, _logger.Object);
+        var fillsService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
+        var service = new CurrentWalletPositionService(_walletInfoProvider.Object, fillsService, Mock.Of<IRedisRepository>(), _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
         {
@@ -2613,8 +2647,8 @@ public class CurrentWalletPositionServiceTests
     {
         // Arrange
         var wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00");
-        var fillsService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
-        var service = new CurrentWalletPositionService(_walletInfoProvider.Object, fillsService, _logger.Object);
+        var fillsService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
+        var service = new CurrentWalletPositionService(_walletInfoProvider.Object, fillsService, Mock.Of<IRedisRepository>(), _logger.Object);
 
         var snapshot = new WalletPositionsSnapshot
         {

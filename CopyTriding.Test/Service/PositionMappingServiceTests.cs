@@ -26,7 +26,7 @@ public class PositionMappingServiceTests
     }
 
     [Fact]
-    public void SaveOrUpdateMapping_ShouldAddNewMapping()
+    public async Task SaveOrUpdateMapping_ShouldAddNewMapping()
     {
         // Arrange
         var mapping = new PositionMapping
@@ -41,17 +41,17 @@ public class PositionMappingServiceTests
         };
 
         // Act
-        _service.SaveOrUpdateMapping(mapping);
+        await _service.SaveOrUpdateMapping(mapping);
 
         // Assert
-        var retrieved = _service.GetMapping(_traderWallet, _myWallet, "BTC", Direction.Long);
+        var retrieved = await _service.GetMapping(_traderWallet, _myWallet, "BTC", Direction.Long);
         retrieved.Should().NotBeNull();
         retrieved!.MyQuantity.Should().Be(0.15M);
         retrieved.PositionRatio.Should().Be(0.1M);
     }
 
     [Fact]
-    public void SaveOrUpdateMapping_ShouldUpdateExistingMapping()
+    public async Task SaveOrUpdateMapping_ShouldUpdateExistingMapping()
     {
         // Arrange
         var mapping = new PositionMapping
@@ -65,31 +65,31 @@ public class PositionMappingServiceTests
             LastUpdate = DateTime.UtcNow
         };
 
-        _service.SaveOrUpdateMapping(mapping);
+        await _service.SaveOrUpdateMapping(mapping);
 
         // Act - обновляем количества
         mapping.MyQuantity = 1.5M;
-        _service.SaveOrUpdateMapping(mapping);
+        await _service.SaveOrUpdateMapping(mapping);
 
         // Assert
-        var retrieved = _service.GetMapping(_traderWallet, _myWallet, "ETH", Direction.Short);
+        var retrieved = await _service.GetMapping(_traderWallet, _myWallet, "ETH", Direction.Short);
         retrieved.Should().NotBeNull();
         retrieved.MyQuantity.Should().Be(1.5M);
         retrieved.PositionRatio.Should().Be(0.1M);
     }
 
     [Fact]
-    public void GetMapping_ShouldReturnNull_WhenMappingDoesNotExist()
+    public async Task GetMapping_ShouldReturnNull_WhenMappingDoesNotExist()
     {
         // Act
-        var retrieved = _service.GetMapping(_traderWallet, _myWallet, "SOL", Direction.Long);
+        var retrieved = await _service.GetMapping(_traderWallet, _myWallet, "SOL", Direction.Long);
 
         // Assert
         retrieved.Should().BeNull();
     }
 
     [Fact]
-    public void DeleteMapping_ShouldRemoveMapping()
+    public async Task DeleteMapping_ShouldRemoveMapping()
     {
         // Arrange
         var mapping = new PositionMapping
@@ -103,29 +103,29 @@ public class PositionMappingServiceTests
             LastUpdate = DateTime.UtcNow
         };
 
-        _service.SaveOrUpdateMapping(mapping);
+        await _service.SaveOrUpdateMapping(mapping);
 
         // Act
-        var deleted = _service.DeleteMapping(_traderWallet, _myWallet, "AVAX", Direction.Long);
+        var deleted = await _service.DeleteMapping(_traderWallet, _myWallet, "AVAX", Direction.Long);
 
         // Assert
         deleted.Should().BeTrue();
-        var retrieved = _service.GetMapping(_traderWallet, _myWallet, "AVAX", Direction.Long);
+        var retrieved = await _service.GetMapping(_traderWallet, _myWallet, "AVAX", Direction.Long);
         retrieved.Should().BeNull();
     }
 
     [Fact]
-    public void DeleteMapping_ShouldReturnFalse_WhenMappingDoesNotExist()
+    public async Task DeleteMapping_ShouldReturnFalse_WhenMappingDoesNotExist()
     {
         // Act
-        var deleted = _service.DeleteMapping(_traderWallet, _myWallet, "DOGE", Direction.Short);
+        var deleted = await _service.DeleteMapping(_traderWallet, _myWallet, "DOGE", Direction.Short);
 
         // Assert
         deleted.Should().BeFalse();
     }
 
     [Fact]
-    public void UpdateMyQuantity_ShouldUpdateQuantity_WhenMappingExists()
+    public async Task UpdateMyQuantity_ShouldUpdateQuantity_WhenMappingExists()
     {
         // Arrange
         var mapping = new PositionMapping
@@ -139,29 +139,29 @@ public class PositionMappingServiceTests
             LastUpdate = DateTime.UtcNow
         };
 
-        _service.SaveOrUpdateMapping(mapping);
+        await _service.SaveOrUpdateMapping(mapping);
 
         // Act
-        var updated = _service.UpdateMyQuantity(_traderWallet, _myWallet, "ADA", Direction.Short, 150M);
+        var updated = await _service.UpdateMyQuantity(_traderWallet, _myWallet, "ADA", Direction.Short, 150M);
 
         // Assert
         updated.Should().BeTrue();
-        var retrieved = _service.GetMapping(_traderWallet, _myWallet, "ADA", Direction.Short);
+        var retrieved = await _service.GetMapping(_traderWallet, _myWallet, "ADA", Direction.Short);
         retrieved!.MyQuantity.Should().Be(150M);
     }
 
     [Fact]
-    public void UpdateMyQuantity_ShouldReturnFalse_WhenMappingDoesNotExist()
+    public async Task UpdateMyQuantity_ShouldReturnFalse_WhenMappingDoesNotExist()
     {
         // Act
-        var updated = _service.UpdateMyQuantity(_traderWallet, _myWallet, "DOT", Direction.Long, 50M);
+        var updated = await _service.UpdateMyQuantity(_traderWallet, _myWallet, "DOT", Direction.Long, 50M);
 
         // Assert
         updated.Should().BeFalse();
     }
 
     [Fact]
-    public void GetMappingsByTrader_ShouldReturnAllMappingsForTrader()
+    public async Task GetMappingsByTrader_ShouldReturnAllMappingsForTrader()
     {
         // Arrange
         var mapping1 = new PositionMapping
@@ -197,12 +197,12 @@ public class PositionMappingServiceTests
             LastUpdate = DateTime.UtcNow
         };
 
-        _service.SaveOrUpdateMapping(mapping1);
-        _service.SaveOrUpdateMapping(mapping2);
-        _service.SaveOrUpdateMapping(mapping3);
+        await _service.SaveOrUpdateMapping(mapping1);
+        await _service.SaveOrUpdateMapping(mapping2);
+        await _service.SaveOrUpdateMapping(mapping3);
 
         // Act
-        var mappings = _service.GetMappingsByTrader(_traderWallet, _myWallet);
+        var mappings = await _service.GetMappingsByTrader(_traderWallet, _myWallet);
 
         // Assert
         mappings.Should().HaveCount(3);
@@ -212,17 +212,17 @@ public class PositionMappingServiceTests
     }
 
     [Fact]
-    public void GetMappingsByTrader_ShouldReturnEmpty_WhenNoMappingsExist()
+    public async Task GetMappingsByTrader_ShouldReturnEmpty_WhenNoMappingsExist()
     {
         // Act
-        var mappings = _service.GetMappingsByTrader(_traderWallet, _myWallet);
+        var mappings = await _service.GetMappingsByTrader(_traderWallet, _myWallet);
 
         // Assert
         mappings.Should().BeEmpty();
     }
 
     [Fact]
-    public void GetAllMappings_ShouldReturnAllMappings()
+    public async Task GetAllMappings_ShouldReturnAllMappings()
     {
         // Arrange
         var anotherTrader = new Wallet("0xabcdef1234567890abcdef1234567890abcdef12");
@@ -249,18 +249,18 @@ public class PositionMappingServiceTests
             LastUpdate = DateTime.UtcNow
         };
 
-        _service.SaveOrUpdateMapping(mapping1);
-        _service.SaveOrUpdateMapping(mapping2);
+        await _service.SaveOrUpdateMapping(mapping1);
+        await _service.SaveOrUpdateMapping(mapping2);
 
         // Act
-        var allMappings = _service.GetAllMappings();
+        var allMappings = await _service.GetAllMappings();
 
         // Assert
         allMappings.Should().HaveCount(2);
     }
 
     [Fact]
-    public void GetMappingsCount_ShouldReturnCorrectCount()
+    public async Task GetMappingsCount_ShouldReturnCorrectCount()
     {
         // Arrange
         var mapping1 = new PositionMapping
@@ -288,18 +288,18 @@ public class PositionMappingServiceTests
         // Act & Assert
         _service.GetMappingsCount.Should().Be(0);
 
-        _service.SaveOrUpdateMapping(mapping1);
+        await _service.SaveOrUpdateMapping(mapping1);
         _service.GetMappingsCount.Should().Be(1);
 
-        _service.SaveOrUpdateMapping(mapping2);
+        await _service.SaveOrUpdateMapping(mapping2);
         _service.GetMappingsCount.Should().Be(2);
 
-        _service.DeleteMapping(_traderWallet, _myWallet, "BTC", Direction.Long);
+        await _service.DeleteMapping(_traderWallet, _myWallet, "BTC", Direction.Long);
         _service.GetMappingsCount.Should().Be(1);
     }
 
     [Fact]
-    public void HedgePositions_ShouldBeMaintainedSeparately()
+    public async Task HedgePositions_ShouldBeMaintainedSeparately()
     {
         // Arrange - создаем Long и Short позиции по одному символу
         var longMapping = new PositionMapping
@@ -325,12 +325,12 @@ public class PositionMappingServiceTests
         };
 
         // Act
-        _service.SaveOrUpdateMapping(longMapping);
-        _service.SaveOrUpdateMapping(shortMapping);
+        await _service.SaveOrUpdateMapping(longMapping);
+        await _service.SaveOrUpdateMapping(shortMapping);
 
         // Assert - обе позиции должны существовать независимо
-        var longRetrieved = _service.GetMapping(_traderWallet, _myWallet, "BTC", Direction.Long);
-        var shortRetrieved = _service.GetMapping(_traderWallet, _myWallet, "BTC", Direction.Short);
+        var longRetrieved = await _service.GetMapping(_traderWallet, _myWallet, "BTC", Direction.Long);
+        var shortRetrieved = await _service.GetMapping(_traderWallet, _myWallet, "BTC", Direction.Short);
 
         longRetrieved.Should().NotBeNull();
         shortRetrieved.Should().NotBeNull();
@@ -339,17 +339,17 @@ public class PositionMappingServiceTests
         shortRetrieved!.MyQuantity.Should().Be(0.05M);
 
         // Удаление Long не должно влиять на Short
-        _service.DeleteMapping(_traderWallet, _myWallet, "BTC", Direction.Long);
+        await _service.DeleteMapping(_traderWallet, _myWallet, "BTC", Direction.Long);
 
-        longRetrieved = _service.GetMapping(_traderWallet, _myWallet, "BTC", Direction.Long);
-        shortRetrieved = _service.GetMapping(_traderWallet, _myWallet, "BTC", Direction.Short);
+        longRetrieved = await _service.GetMapping(_traderWallet, _myWallet, "BTC", Direction.Long);
+        shortRetrieved = await _service.GetMapping(_traderWallet, _myWallet, "BTC", Direction.Short);
 
         longRetrieved.Should().BeNull();
         shortRetrieved.Should().NotBeNull();
     }
 
     [Fact]
-    public void SaveOrUpdateMapping_ShouldUpdateLastUpdateTime()
+    public async Task SaveOrUpdateMapping_ShouldUpdateLastUpdateTime()
     {
         // Arrange
         var mapping = new PositionMapping
@@ -363,17 +363,17 @@ public class PositionMappingServiceTests
             LastUpdate = DateTime.UtcNow.AddHours(-1) // Старая дата
         };
 
-        _service.SaveOrUpdateMapping(mapping);
-        var firstSave = _service.GetMapping(_traderWallet, _myWallet, "LINK", Direction.Long);
+        await _service.SaveOrUpdateMapping(mapping);
+        var firstSave = await _service.GetMapping(_traderWallet, _myWallet, "LINK", Direction.Long);
         var firstTimestamp = firstSave!.LastUpdate;
 
         // Act - небольшая задержка чтобы время точно изменилось
         Thread.Sleep(10);
         mapping.MyQuantity = 15M;
-        _service.SaveOrUpdateMapping(mapping);
+        await _service.SaveOrUpdateMapping(mapping);
 
         // Assert
-        var secondSave = _service.GetMapping(_traderWallet, _myWallet, "LINK", Direction.Long);
+        var secondSave = await _service.GetMapping(_traderWallet, _myWallet, "LINK", Direction.Long);
         secondSave!.LastUpdate.Should().BeAfter(firstTimestamp);
     }
 }

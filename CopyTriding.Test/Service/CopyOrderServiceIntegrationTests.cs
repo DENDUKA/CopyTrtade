@@ -9,6 +9,7 @@ using CopyTrading.Models.Models.Trade;
 using CopyTrading.Models.Values;
 using CopyTrading.Providers.Hyperliquid.Interfaces;
 using CopyTrading.Providers.Hyperliquid.Subscribers;
+using CopyTrading.Repository.RedisInterfaces;
 using CopyTrading.Services;
 using CopyTrading.Services.Interfaces;
 using CryptoExchange.Net.SharedApis;
@@ -113,10 +114,10 @@ public class CopyOrderServiceIntegrationTests
         _baselinePositionServiceMock = new Mock<IBaselinePositionService>(MockBehavior.Loose);
 
         // Создаем реальные сервисы для проверки
-        _copyOrderResultService = new CopyOrderResultService(_resultLogger.Object);
-        _storageService = new CopyOrderStorageService(_storageLogger.Object);
-        _positionMappingService = new PositionMappingService(_mappingLogger.Object);
-        _currentWalletPositionService = new CurrentWalletPositionService(_walletInfoProvider.Object, new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>()), _positionLogger.Object);
+        _copyOrderResultService = new CopyOrderResultService(Mock.Of<IRedisRepository>(), _resultLogger.Object);
+        _storageService = new CopyOrderStorageService(Mock.Of<IRedisRepository>(), _storageLogger.Object);
+        _positionMappingService = new PositionMappingService(Mock.Of<IRedisRepository>(), _mappingLogger.Object);
+        _currentWalletPositionService = new CurrentWalletPositionService(_walletInfoProvider.Object, new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>()), Mock.Of<IRedisRepository>(), _positionLogger.Object);
     }
 
     [Fact]
@@ -239,14 +240,14 @@ public class CopyOrderServiceIntegrationTests
         await Task.Delay(200);
 
         // Проверяем CopyOrderResultService
-        var result1 = _copyOrderResultService.GetResult("1001");
+        var result1 = await _copyOrderResultService.GetResult("1001");
         result1.Should().NotBeNull();
         result1!.IsSuccess.Should().BeTrue();
         result1.Symbol.Should().Be(symbol);
         result1.Message.Should().Be("Success");
 
         // Проверяем CopyOrderStorageService
-        var allOrders = _storageService.GetAllOrders();
+        var allOrders = await _storageService.GetAllOrders();
         allOrders.Should().HaveCount(1);
         var copyOrder1 = allOrders.First();
         copyOrder1.OriginalOrderId.Should().Be(1001);
@@ -256,7 +257,7 @@ public class CopyOrderServiceIntegrationTests
         copyOrder1.Quantity.Should().Be(10m);
 
         // Проверяем PositionMappingService
-        var mapping = _positionMappingService.GetMapping(_traderWallet, _myWallet, symbol, Direction.Long);
+        var mapping = await _positionMappingService.GetMapping(_traderWallet, _myWallet, symbol, Direction.Long);
         mapping.Should().NotBeNull();
         mapping!.MyQuantity.Should().Be(10m);
         mapping.TraderQuantityAtEntry.Should().Be(100m);
@@ -313,19 +314,19 @@ public class CopyOrderServiceIntegrationTests
         await Task.Delay(50);
 
         // Проверяем результат для второго ордера
-        var result2 = _copyOrderResultService.GetResult("1002");
+        var result2 = await _copyOrderResultService.GetResult("1002");
 
         // Проверяем итоговую статистику CopyOrderResultService
-        var (Total, Success, Warning, Error, SuccessRate) = _copyOrderResultService.GetStatistics();
+        var (Total, Success, Warning, Error, SuccessRate) = await _copyOrderResultService.GetStatistics();
         Total.Should().Be(2);
         Success.Should().Be(2);
 
         // Проверяем что первый ордер точно есть в Storage
-        allOrders = _storageService.GetAllOrders();
+        allOrders = await _storageService.GetAllOrders();
         allOrders.Should().Contain(o => o.OriginalOrderId == 1001);
 
         // Проверяем PositionMappingService
-        mapping = _positionMappingService.GetMapping(_traderWallet, _myWallet, symbol, Direction.Long);
+        mapping = await _positionMappingService.GetMapping(_traderWallet, _myWallet, symbol, Direction.Long);
         mapping.Should().NotBeNull();
         mapping!.MyQuantity.Should().Be(5m);
         mapping.TraderQuantityAtEntry.Should().Be(100m);
@@ -384,16 +385,16 @@ public class CopyOrderServiceIntegrationTests
         await Task.Delay(100);
 
         // Проверяем результат для третьего ордера
-        var result3 = _copyOrderResultService.GetResult("1003");
+        var result3 = await _copyOrderResultService.GetResult("1003");
         result3.Should().NotBeNull();
         result3!.IsSuccess.Should().BeTrue();
 
         // Проверяем что маппинг был УДАЛЕН (трейдер ушел ниже baseline)
-        mapping = _positionMappingService.GetMapping(_traderWallet, _myWallet, symbol, Direction.Long);
+        mapping = await _positionMappingService.GetMapping(_traderWallet, _myWallet, symbol, Direction.Long);
         mapping.Should().BeNull("трейдер ушел ниже базовой линии, позиция должна быть полностью закрыта");
 
         // Проверяем статистику
-        (Total, Success, Warning, Error, SuccessRate) = _copyOrderResultService.GetStatistics();
+        (Total, Success, Warning, Error, SuccessRate) = await _copyOrderResultService.GetStatistics();
         Total.Should().Be(3);
         Success.Should().Be(3);
 
@@ -450,12 +451,12 @@ public class CopyOrderServiceIntegrationTests
         await Task.Delay(200);
 
         // Проверяем результат для четвертого ордера
-        var result4 = _copyOrderResultService.GetResult("1004");
+        var result4 = await _copyOrderResultService.GetResult("1004");
         result4.Should().NotBeNull();
         result4!.IsSuccess.Should().BeTrue();
 
         // Проверяем что создался НОВЫЙ маппинг
-        mapping = _positionMappingService.GetMapping(_traderWallet, _myWallet, symbol, Direction.Long);
+        mapping = await _positionMappingService.GetMapping(_traderWallet, _myWallet, symbol, Direction.Long);
         mapping.Should().NotBeNull("должен быть создан новый маппинг");
 
         // Открываем позицию пропорционально увеличению: 50 * 0.5 = 25m
@@ -465,14 +466,14 @@ public class CopyOrderServiceIntegrationTests
         mapping.TraderQuantityAtEntry.Should().Be(80m);
 
         // Проверяем финальную статистику
-        (Total, Success, Warning, Error, SuccessRate) = _copyOrderResultService.GetStatistics();
+        (Total, Success, Warning, Error, SuccessRate) = await _copyOrderResultService.GetStatistics();
         Total.Should().Be(4);
         Success.Should().Be(4);
 
         // Проверяем что все 4 ордера есть в Storage
         // NOTE: Проверяем только наличие ордеров, а не точное количество,
         // так как при параллельном запуске тестов могут быть ордера из других тестов
-        allOrders = _storageService.GetAllOrders();
+        allOrders = await _storageService.GetAllOrders();
         allOrders.Should().Contain(o => o.OriginalOrderId == 1001);
         allOrders.Should().Contain(o => o.OriginalOrderId == 1002);
         allOrders.Should().Contain(o => o.OriginalOrderId == 1003);
@@ -507,7 +508,7 @@ public class CopyOrderServiceIntegrationTests
         await Task.Delay(200);
 
         // Assert
-        var result = _copyOrderResultService.GetResult("2001");
+        var result = await _copyOrderResultService.GetResult("2001");
         result.Should().NotBeNull();
         result!.IsSuccess.Should().BeTrue();
 
@@ -515,13 +516,13 @@ public class CopyOrderServiceIntegrationTests
         // orderRatio = 5000 / 20000 = 0.25
         // myVolumeUsd = 10000 * 0.25 = 2500
         // myQuantity = 2500 / 50000 = 0.05 BTC
-        var mapping = _positionMappingService.GetMapping(_traderWallet, _myWallet, symbol, Direction.Long);
+        var mapping = await _positionMappingService.GetMapping(_traderWallet, _myWallet, symbol, Direction.Long);
         mapping.Should().NotBeNull();
         mapping!.MyQuantity.Should().Be(0.05m);
         mapping.TraderQuantityAtEntry.Should().Be(0m); // Open позиция - baseline = 0
 
         // Проверяем storage
-        var orders = _storageService.GetAllOrders();
+        var orders = await _storageService.GetAllOrders();
         orders.Should().HaveCount(1);
         orders.First().OriginalOrderId.Should().Be(2001);
     }
@@ -555,14 +556,14 @@ public class CopyOrderServiceIntegrationTests
         await Task.Delay(200);
 
         // Assert
-        var result = _copyOrderResultService.GetResult("2002");
+        var result = await _copyOrderResultService.GetResult("2002");
         result.Should().NotBeNull();
         result!.IsSuccess.Should().BeTrue();
 
         // orderRatio = 6000 / 15000 = 0.4
         // myVolumeUsd = 7500 * 0.4 = 3000
         // myQuantity = 3000 / 3000 = 1 ETH
-        var mapping = _positionMappingService.GetMapping(_traderWallet, _myWallet, symbol, Direction.Short);
+        var mapping = await _positionMappingService.GetMapping(_traderWallet, _myWallet, symbol, Direction.Short);
         mapping.Should().NotBeNull();
         mapping!.MyQuantity.Should().Be(1m);
         mapping.TraderQuantityAtEntry.Should().Be(0m);
@@ -610,16 +611,16 @@ public class CopyOrderServiceIntegrationTests
         await Task.Delay(200);
 
         // Assert
-        var result = _copyOrderResultService.GetResult("2003");
+        var result = await _copyOrderResultService.GetResult("2003");
         result.Should().NotBeNull();
         result!.IsSuccess.Should().BeTrue("Close операция должна успешно выполниться");
 
         // Маппинг должен быть удален после успешного закрытия позиции
-        var mappingAfter = _positionMappingService.GetMapping(_traderWallet, _myWallet, symbol, Direction.Long);
+        var mappingAfter = await _positionMappingService.GetMapping(_traderWallet, _myWallet, symbol, Direction.Long);
         mappingAfter.Should().BeNull("позиция полностью закрыта");
 
         // Проверяем что ордер в storage
-        var orders = _storageService.GetAllOrders();
+        var orders = await _storageService.GetAllOrders();
         orders.Should().Contain(o => o.OriginalOrderId == 2003);
     }
 
@@ -661,12 +662,12 @@ public class CopyOrderServiceIntegrationTests
         await Task.Delay(200);
 
         // Assert
-        var result = _copyOrderResultService.GetResult("2004");
+        var result = await _copyOrderResultService.GetResult("2004");
         result.Should().NotBeNull();
         result!.IsSuccess.Should().BeTrue("Close операция должна успешно выполниться");
 
         // Маппинг должен быть удален после успешного закрытия позиции
-        var mappingAfter = _positionMappingService.GetMapping(_traderWallet, _myWallet, symbol, Direction.Short);
+        var mappingAfter = await _positionMappingService.GetMapping(_traderWallet, _myWallet, symbol, Direction.Short);
         mappingAfter.Should().BeNull("Short позиция полностью закрыта");
     }
 
@@ -711,12 +712,12 @@ public class CopyOrderServiceIntegrationTests
         await Task.Delay(200);
 
         // Assert
-        var result = _copyOrderResultService.GetResult("2005");
+        var result = await _copyOrderResultService.GetResult("2005");
         result.Should().NotBeNull();
         result!.IsSuccess.Should().BeTrue("ордер был успешно создан до отмены");
 
         // Storage должен содержать ордер со статусом Canceled
-        var orders = _storageService.GetOrdersByStatus(OrderStatus.Canceled);
+        var orders = await _storageService.GetOrdersByStatus(OrderStatus.Canceled);
         orders.Should().Contain(o => o.OriginalOrderId == 2005);
     }
 
@@ -742,11 +743,11 @@ public class CopyOrderServiceIntegrationTests
 
         // Assert - CopyOrder не должен быть создан (т.к. ордер Rejected, не Open)
         // Но событие CopyOrderClosed должно быть вызвано
-        var result = _copyOrderResultService.GetResult("2006");
+        var result = await _copyOrderResultService.GetResult("2006");
         // Result может быть null если ордер не был скопирован
 
         // Проверяем что маппинг не создан
-        var mapping = _positionMappingService.GetMapping(_traderWallet, _myWallet, symbol, Direction.Long);
+        var mapping = await _positionMappingService.GetMapping(_traderWallet, _myWallet, symbol, Direction.Long);
         mapping.Should().BeNull("rejected ордер не должен создавать маппинг");
     }
 
@@ -773,7 +774,7 @@ public class CopyOrderServiceIntegrationTests
         await Task.Delay(200);
 
         // Assert
-        var result = _copyOrderResultService.GetResult("2007");
+        var result = await _copyOrderResultService.GetResult("2007");
         // Ордер со статусом Filled обрабатывается через HandleFilledOrder
         // Note: результат может отсутствовать, т.к. HandleFilledOrder не создает CopyOrder для уже исполненных ордеров
         // result.Should().NotBeNull();
@@ -807,7 +808,7 @@ public class CopyOrderServiceIntegrationTests
         await Task.Delay(200);
 
         // Assert
-        var result = _copyOrderResultService.GetResult("2008");
+        var result = await _copyOrderResultService.GetResult("2008");
         result.Should().NotBeNull();
 
         // Проверяем что либо не прошло валидацию, либо создалось с минимальным объемом
@@ -815,7 +816,7 @@ public class CopyOrderServiceIntegrationTests
         {
             result.Message.Should().Contain("минимальн"); // Проверяем что в сообщении упоминается минимум
             // Маппинг не должен быть создан
-            var mapping = _positionMappingService.GetMapping(_traderWallet, _myWallet, symbol, Direction.Long);
+            var mapping = await _positionMappingService.GetMapping(_traderWallet, _myWallet, symbol, Direction.Long);
             mapping.Should().BeNull();
         }
         else
@@ -854,7 +855,7 @@ public class CopyOrderServiceIntegrationTests
         await Task.Delay(200);
 
         // Assert
-        var result = _copyOrderResultService.GetResult("2009");
+        var result = await _copyOrderResultService.GetResult("2009");
         result.Should().NotBeNull();
 
         // Проверяем что либо не прошло валидацию, либо округлилось до минимума
@@ -897,8 +898,8 @@ public class CopyOrderServiceIntegrationTests
         await Task.Delay(500);  // Увеличиваем время для обработки обоих трейдеров
 
         // Assert
-        var result1 = _copyOrderResultService.GetResult("3001");
-        var result2 = _copyOrderResultService.GetResult("3002");
+        var result1 = await _copyOrderResultService.GetResult("3001");
+        var result2 = await _copyOrderResultService.GetResult("3002");
 
         result1.Should().NotBeNull();
         result1!.IsSuccess.Should().BeTrue();
@@ -911,8 +912,8 @@ public class CopyOrderServiceIntegrationTests
         result2.IsSuccess.Should().BeTrue();
 
         // Проверяем маппинги для обоих трейдеров
-        var mapping1 = _positionMappingService.GetMapping(_traderWallet, _myWallet, "BTC", Direction.Long);
-        var mapping2 = _positionMappingService.GetMapping(trader2Wallet, _myWallet, "ETH", Direction.Long);
+        var mapping1 = await _positionMappingService.GetMapping(_traderWallet, _myWallet, "BTC", Direction.Long);
+        var mapping2 = await _positionMappingService.GetMapping(trader2Wallet, _myWallet, "ETH", Direction.Long);
 
         mapping1.Should().NotBeNull();
         mapping2.Should().NotBeNull();
@@ -965,8 +966,8 @@ public class CopyOrderServiceIntegrationTests
         await Task.Delay(300);
 
         // Assert
-        var mapping1 = _positionMappingService.GetMapping(_traderWallet, _myWallet, "BTC", Direction.Long);
-        var mapping2 = _positionMappingService.GetMapping(trader2Wallet, _myWallet, "BTC", Direction.Long);
+        var mapping1 = await _positionMappingService.GetMapping(_traderWallet, _myWallet, "BTC", Direction.Long);
+        var mapping2 = await _positionMappingService.GetMapping(trader2Wallet, _myWallet, "BTC", Direction.Long);
 
         mapping1.Should().NotBeNull("маппинг для trader1 должен существовать");
         mapping2.Should().NotBeNull("маппинг для trader2 должен существовать");
@@ -1008,16 +1009,16 @@ public class CopyOrderServiceIntegrationTests
         await Task.Delay(300);
 
         // Assert
-        var btcMapping = _positionMappingService.GetMapping(_traderWallet, _myWallet, "BTC", Direction.Long);
-        var ethMapping = _positionMappingService.GetMapping(_traderWallet, _myWallet, "ETH", Direction.Long);
-        var bnbMapping = _positionMappingService.GetMapping(_traderWallet, _myWallet, "BNB", Direction.Short);
+        var btcMapping = await _positionMappingService.GetMapping(_traderWallet, _myWallet, "BTC", Direction.Long);
+        var ethMapping = await _positionMappingService.GetMapping(_traderWallet, _myWallet, "ETH", Direction.Long);
+        var bnbMapping = await _positionMappingService.GetMapping(_traderWallet, _myWallet, "BNB", Direction.Short);
 
         btcMapping.Should().NotBeNull();
         ethMapping.Should().NotBeNull();
         bnbMapping.Should().NotBeNull();
 
         // Проверяем все маппинги
-        var allMappings = _positionMappingService.GetAllMappings();
+        var allMappings = await _positionMappingService.GetAllMappings();
         allMappings.Should().HaveCount(3);
     }
 
@@ -1046,7 +1047,7 @@ public class CopyOrderServiceIntegrationTests
         await Task.Delay(200);
 
         // Assert
-        var result = _copyOrderResultService.GetResult("3008");
+        var result = await _copyOrderResultService.GetResult("3008");
         result.Should().NotBeNull();
 
         // С нулевым балансом копируемый ордер может не пройти валидацию или создаться с 0 quantity
@@ -1086,12 +1087,12 @@ public class CopyOrderServiceIntegrationTests
         // orderRatio = 25000 / 1000000 = 0.025
         // myVolumeUsd = 1000 * 0.025 = 25
         // myQuantity = 25 / 50000 = 0.0005 BTC
-        var result = _copyOrderResultService.GetResult("3009");
+        var result = await _copyOrderResultService.GetResult("3009");
         result.Should().NotBeNull();
 
         if (result!.IsSuccess)
         {
-            var mapping = _positionMappingService.GetMapping(_traderWallet, _myWallet, symbol, Direction.Long);
+            var mapping = await _positionMappingService.GetMapping(_traderWallet, _myWallet, symbol, Direction.Long);
             mapping.Should().NotBeNull();
             mapping!.MyQuantity.Should().Be(0.001m); // Округлено по QuantityDecimals
         }
@@ -1138,11 +1139,11 @@ public class CopyOrderServiceIntegrationTests
         await Task.Delay(200);
 
         // Assert
-        var result = _copyOrderResultService.GetResult("3010");
+        var result = await _copyOrderResultService.GetResult("3010");
         result.Should().NotBeNull();
         result!.IsSuccess.Should().BeTrue();
 
-        var mappingAfter = _positionMappingService.GetMapping(_traderWallet, _myWallet, symbol, Direction.Short);
+        var mappingAfter = await _positionMappingService.GetMapping(_traderWallet, _myWallet, symbol, Direction.Short);
         mappingAfter.Should().NotBeNull();
         // MyQuantity должно увеличиться: 1 + 0.5 = 1.5
         mappingAfter!.MyQuantity.Should().Be(1.5m);
@@ -1187,11 +1188,11 @@ public class CopyOrderServiceIntegrationTests
         await Task.Delay(200);
 
         // Assert
-        var result = _copyOrderResultService.GetResult("3011");
+        var result = await _copyOrderResultService.GetResult("3011");
         result.Should().NotBeNull();
         result!.IsSuccess.Should().BeTrue();
 
-        var mappingAfter = _positionMappingService.GetMapping(_traderWallet, _myWallet, symbol, Direction.Short);
+        var mappingAfter = await _positionMappingService.GetMapping(_traderWallet, _myWallet, symbol, Direction.Short);
         mappingAfter.Should().NotBeNull();
         // closeRatio = 1 / 3 = 0.333
         // closeQuantity = 1.5 * 0.333 = 0.5
@@ -1262,17 +1263,17 @@ public class CopyOrderServiceIntegrationTests
         await Task.Delay(200);
 
         // Assert
-        var (Total, Success, Warning, Error, SuccessRate) = _copyOrderResultService.GetStatistics();
+        var (Total, Success, Warning, Error, SuccessRate) = await _copyOrderResultService.GetStatistics();
         // Open + 3×Increase + 2×Decrease + Close = 7 операций
         Total.Should().BeGreaterThanOrEqualTo(7, "должно быть минимум 7 операций");
         Success.Should().BeGreaterThanOrEqualTo(7, "минимум 7 успешных операций");
 
         // Маппинг должен быть удален после Close
-        var mapping = _positionMappingService.GetMapping(_traderWallet, _myWallet, symbol, Direction.Long);
+        var mapping = await _positionMappingService.GetMapping(_traderWallet, _myWallet, symbol, Direction.Long);
         mapping.Should().BeNull("позиция закрыта, маппинг удален");
 
         // Все ордера в storage
-        var orders = _storageService.GetAllOrders();
+        var orders = await _storageService.GetAllOrders();
         orders.Should().Contain(o => o.OriginalOrderId == 4001);
         orders.Should().Contain(o => o.OriginalOrderId == 4007);
     }
@@ -1311,7 +1312,7 @@ public class CopyOrderServiceIntegrationTests
         await Task.Delay(100);
 
         // Проверяем что маппинг удален после Close
-        var mappingAfterClose = _positionMappingService.GetMapping(_traderWallet, _myWallet, symbol, Direction.Long);
+        var mappingAfterClose = await _positionMappingService.GetMapping(_traderWallet, _myWallet, symbol, Direction.Long);
         mappingAfterClose.Should().BeNull("маппинг должен быть удален после закрытия позиции");
 
         // Обновляем snapshot чтобы показать что позиция закрыта (empty positions)
@@ -1333,7 +1334,7 @@ public class CopyOrderServiceIntegrationTests
         await Task.Delay(100);
 
         // Assert
-        var mappingAfterReopen = _positionMappingService.GetMapping(_traderWallet, _myWallet, symbol, Direction.Long);
+        var mappingAfterReopen = await _positionMappingService.GetMapping(_traderWallet, _myWallet, symbol, Direction.Long);
         mappingAfterReopen.Should().NotBeNull("должен быть создан новый маппинг");
 
         // Новая позиция после close должна иметь baseline = 0
@@ -1449,7 +1450,7 @@ public class CopyOrderServiceIntegrationTests
     private IntegrationTestableCopyOrderService CreateService()
     {
         // Создаем реальный FillsOrderService для корректного расчета SubType
-        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
 
         // Создаем TradeService, который подписывается на DataBusEvents.NewTrades
         var tradeService = new TradeService(
@@ -1519,7 +1520,7 @@ public class CopyOrderServiceIntegrationTests
         _exchangeInfoProvider.Reset();
 
         // Пересоздаем _storageService чтобы он снова подписался на события
-        _storageService = new CopyOrderStorageService(_storageLogger.Object);
+        _storageService = new CopyOrderStorageService(Mock.Of<IRedisRepository>(), _storageLogger.Object);
     }
 
     /// <summary>
@@ -1653,11 +1654,11 @@ public class CopyOrderServiceIntegrationTests
         await Task.Delay(200);
 
         // Проверяем первую копию
-        var result1 = _copyOrderResultService.GetResult("1001");
+        var result1 = await _copyOrderResultService.GetResult("1001");
         result1.Should().NotBeNull();
         result1!.IsSuccess.Should().BeTrue();
 
-        var copyOrders = _storageService.GetAllOrders().ToList();
+        var copyOrders = (await _storageService.GetAllOrders()).ToList();
         copyOrders.Should().HaveCount(1);
 
         // Наш ордер: orderRatio = 20,000 / 10,000 = 2.0 (200%)
@@ -1688,11 +1689,11 @@ public class CopyOrderServiceIntegrationTests
         await Task.Delay(200);
 
         // Проверяем вторую копию
-        var result2 = _copyOrderResultService.GetResult("1002");
+        var result2 = await _copyOrderResultService.GetResult("1002");
         result2.Should().NotBeNull();
         result2!.IsSuccess.Should().BeTrue();
 
-        copyOrders = _storageService.GetAllOrders().ToList();
+        copyOrders = (await _storageService.GetAllOrders()).ToList();
         copyOrders.Should().HaveCount(2);
         copyOrders[1].Quantity.Should().Be(1m);  // Снова 1 ETH (та же пропорция)
         copyOrders[1].VolumeUsd.Should().Be(2000m);
@@ -1735,7 +1736,7 @@ public class CopyOrderServiceIntegrationTests
 
         // После отмены ордеров 1001 и 1002, копируемые ордера тоже должны быть закрыты
         // Они остаются в storage (просто закрыты), всего 2 ордера
-        copyOrders = _storageService.GetAllOrders().ToList();
+        copyOrders = (await _storageService.GetAllOrders()).ToList();
         copyOrders.Should().HaveCount(2);  // Только 2 ордера (1001, 1002), order3 еще не отправлен
 
         // ============================================================
@@ -1747,11 +1748,11 @@ public class CopyOrderServiceIntegrationTests
         await Task.Delay(200);
 
         // Проверяем что order3 скопирован
-        var result3 = _copyOrderResultService.GetResult("1003");
+        var result3 = await _copyOrderResultService.GetResult("1003");
         result3.Should().NotBeNull();
         result3!.IsSuccess.Should().BeTrue();
 
-        copyOrders = _storageService.GetAllOrders().ToList();
+        copyOrders = (await _storageService.GetAllOrders()).ToList();
         copyOrders.Should().HaveCount(3);  // Теперь 3 ордера (1001, 1002, 1003)
 
         // Snapshot пустой (ордера не исполнились) → order3 определяется как Open
@@ -1769,14 +1770,14 @@ public class CopyOrderServiceIntegrationTests
         await Task.Delay(200);
 
         // Финальные проверки
-        var stats = _copyOrderResultService.GetStatistics();
+        var stats = await _copyOrderResultService.GetStatistics();
         stats.Total.Should().Be(3);  // 3 ордера (1001, 1002, 1003)
         stats.Success.Should().Be(3);  // Все 3 ордера успешно скопированы
         stats.Warning.Should().Be(0);
         stats.Error.Should().Be(0);
 
         // Проверяем что все 3 ордера Long
-        copyOrders = _storageService.GetAllOrders().ToList();
+        copyOrders = (await _storageService.GetAllOrders()).ToList();
         copyOrders.Should().HaveCount(3);
         copyOrders.Should().AllSatisfy(o => o.OriginalOrder.Direction.Should().Be(Direction.Long));
 
@@ -1899,7 +1900,7 @@ public class CopyOrderServiceIntegrationTests
         await Task.Delay(200);
 
         // Проверяем первую копию
-        var resultA1 = _copyOrderResultService.GetResult("1001");
+        var resultA1 = await _copyOrderResultService.GetResult("1001");
         resultA1.Should().NotBeNull();
         if (!resultA1!.IsSuccess)
         {
@@ -1925,7 +1926,7 @@ public class CopyOrderServiceIntegrationTests
         await Task.Delay(200);
 
         // Проверяем вторую копию
-        var resultA2 = _copyOrderResultService.GetResult("1002");
+        var resultA2 = await _copyOrderResultService.GetResult("1002");
         resultA2.Should().NotBeNull();
         resultA2!.IsSuccess.Should().BeTrue();
 
@@ -1951,7 +1952,7 @@ public class CopyOrderServiceIntegrationTests
         await Task.Delay(200);
 
         // Проверяем первую копию
-        var resultB1 = _copyOrderResultService.GetResult("2001");
+        var resultB1 = await _copyOrderResultService.GetResult("2001");
         resultB1.Should().NotBeNull();
         resultB1!.IsSuccess.Should().BeTrue();
 
@@ -1973,14 +1974,14 @@ public class CopyOrderServiceIntegrationTests
         await Task.Delay(200);
 
         // Проверяем вторую копию
-        var resultB2 = _copyOrderResultService.GetResult("2002");
+        var resultB2 = await _copyOrderResultService.GetResult("2002");
         resultB2.Should().NotBeNull();
         resultB2!.IsSuccess.Should().BeTrue();
 
         // ============================================================
         // Assert - Проверяем финальные объемы
         // ============================================================
-        var allOrders = _storageService.GetAllOrders().ToList();
+        var allOrders = (await _storageService.GetAllOrders()).ToList();
         allOrders.Should().HaveCount(4);  // 2 BTC + 2 ETH
 
         // Получаем BTC ордера (Трейдер A)
@@ -2021,7 +2022,7 @@ public class CopyOrderServiceIntegrationTests
         traderBInvestmentPercent.Should().BeApproximately(65m, 1m);
 
         // Проверяем статистику
-        var stats = _copyOrderResultService.GetStatistics();
+        var stats = await _copyOrderResultService.GetStatistics();
         stats.Total.Should().Be(4);
         stats.Success.Should().Be(4);
         stats.Warning.Should().Be(0);

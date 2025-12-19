@@ -139,7 +139,7 @@
                                         @foreach (var orderFills in GetSortedOrders(openOrders))
                                         {
                                             var order = orderFills.OriginalOrder;
-                                            var copyOrders = GetCopyOrders(order.OrderId);
+                                            var copyOrders = GetCopyOrdersSync(order.OrderId);
                                             <tr>
                                                 <td><code>@order.OrderId</code></td>
                                                 <td><strong>@order.Symbol</strong></td>
@@ -193,12 +193,14 @@
     private List<Wallet> wallets = new();
     private Dictionary<Wallet, WalletPositionsSnapshot?> snapshotsCache = new();
     private Dictionary<Wallet, OrderFills[]> openOrdersCache = new();
+    private Dictionary<long, CopyOrderV2[]> copyOrdersCache = new();
 
     protected override async Task OnInitializedAsync()
     {
-        LoadWallets();
+        await LoadWallets();
         await LoadAllSnapshots();
         await LoadAllOpenOrders();
+        await LoadAllCopyOrders();
     }
 
     private async Task LoadWallets()
@@ -223,6 +225,23 @@
         {
             var openOrders = await FillsOrderService.GetOpenOrdersByWallet(wallet);
             openOrdersCache[wallet] = openOrders;
+        }
+        StateHasChanged();
+    }
+
+    private async Task LoadAllCopyOrders()
+    {
+        foreach (var wallet in wallets)
+        {
+            var openOrders = GetOpenOrders(wallet);
+            if (openOrders != null)
+            {
+                foreach (var orderFills in openOrders)
+                {
+                    var copyOrders = await CopyOrderStorageService.GetOrdersByOriginalOrderId(orderFills.OriginalOrder.OrderId);
+                    copyOrdersCache[orderFills.OriginalOrder.OrderId] = copyOrders;
+                }
+            }
         }
         StateHasChanged();
     }
@@ -264,9 +283,9 @@
         NavigationManager.NavigateTo($"/wallet/{wallet.Value}");
     }
 
-    private Task<CopyOrderV2[]> GetCopyOrders(long originalOrderId)
+    private CopyOrderV2[] GetCopyOrdersSync(long originalOrderId)
     {
-        return CopyOrderStorageService.GetOrdersByOriginalOrderId(originalOrderId);
+        return copyOrdersCache.TryGetValue(originalOrderId, out var orders) ? orders : Array.Empty<CopyOrderV2>();
     }
 }
 

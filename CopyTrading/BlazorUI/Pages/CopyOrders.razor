@@ -114,7 +114,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var order in GetFilteredOrders())
+                        @foreach (var order in GetFilteredOrdersSync())
                         {
                             <tr>
                                 <td>@order.OrderId</td>
@@ -149,7 +149,7 @@
                     </tbody>
                 </table>
 
-                @if (!GetFilteredOrders().Any())
+                @if (!GetFilteredOrdersSync().Any())
                 {
                     <div class="alert alert-info text-center">
                         Нет копируемых ордеров
@@ -161,8 +161,18 @@
 </div>
 
 @code {
-    private Dictionary<string, int> statistics = new();
+    private Dictionary<string, int> statistics = new()
+    {
+        ["Total"] = 0,
+        ["Open"] = 0,
+        ["Filled"] = 0,
+        ["Canceled"] = 0,
+        ["Rejected"] = 0,
+        ["Triggered"] = 0,
+        ["MarginCanceled"] = 0
+    };
     private string searchSymbol = "";
+    private IEnumerable<CopyOrderV2> allOrders = Enumerable.Empty<CopyOrderV2>();
 
     // Фильтры по статусу
     private bool filterOpen = false;
@@ -177,9 +187,10 @@
     private bool filterSubTypeDecrease = false;
     private bool filterSubTypeClose = false;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        UpdateStatistics();
+        await UpdateStatistics();
+        await LoadOrders();
     }
 
     private async Task UpdateStatistics()
@@ -187,14 +198,19 @@
         statistics = await CopyOrderStorage.GetStatistics();
     }
 
-    private async Task<IEnumerable<CopyOrderV2>> GetFilteredOrders()
+    private async Task LoadOrders()
     {
-        var orders = await CopyOrderStorage.GetAllOrders();
+        allOrders = await CopyOrderStorage.GetAllOrders();
+    }
+
+    private IEnumerable<CopyOrderV2> GetFilteredOrdersSync()
+    {
+        var orders = allOrders;
 
         // Фильтр по символу
         if (!string.IsNullOrWhiteSpace(searchSymbol))
         {
-            orders = orders.Where(o => o.OriginalOrder.Symbol.Contains(searchSymbol, StringComparison.OrdinalIgnoreCase)).ToArray();
+            orders = orders.Where(o => o.OriginalOrder.Symbol.Contains(searchSymbol, StringComparison.OrdinalIgnoreCase));
         }
 
         // Фильтр по статусу
@@ -206,7 +222,7 @@
                 (filterCanceled && o.OriginalOrder.Status == OrderStatus.Canceled) ||
                 (filterRejected && o.OriginalOrder.Status == OrderStatus.Rejected) ||
                 (filterTriggered && o.OriginalOrder.Status == OrderStatus.Triggered)
-            ).ToArray();
+            );
         }
 
         // Фильтр по OrderSubType
@@ -217,7 +233,7 @@
                 (filterSubTypeIncrease && o.OrderSubType == OrderSubType.Increase) ||
                 (filterSubTypeDecrease && o.OrderSubType == OrderSubType.Decrease) ||
                 (filterSubTypeClose && o.OrderSubType == OrderSubType.Close)
-            ).ToArray();
+            );
         }
 
         return orders.OrderByDescending(o => o.OrderId);

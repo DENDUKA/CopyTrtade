@@ -48,9 +48,11 @@ public class RealtimeUpdateService : IRealtimeUpdateService
             _logger.LogInformation($"RealtimeUpdateService: Получено {tradesData.Trades.Length} новых трейдов");
 
             // Отправляем всем подключенным клиентам
-            await _hubContext.Clients.All.SendAsync("ReceiveTrades", tradesData.Trades);
-
-            _logger.LogDebug($"Отправлено {tradesData.Trades.Length} трейдов всем клиентам");
+            if (_hubContext.Clients != null)
+            {
+                await _hubContext.Clients.All.SendAsync("ReceiveTrades", tradesData.Trades);
+                _logger.LogDebug($"Отправлено {tradesData.Trades.Length} трейдов всем клиентам");
+            }
         }
         catch (Exception ex)
         {
@@ -77,9 +79,11 @@ public class RealtimeUpdateService : IRealtimeUpdateService
             _logger.LogInformation($"RealtimeUpdateService: Получено {orders.Length} новых ордеров");
 
             // Отправляем всем подключенным клиентам
-            await _hubContext.Clients?.All.SendAsync("ReceiveOrders", orders);
-
-            _logger.LogDebug($"Отправлено {orders.Length} ордеров всем клиентам");
+            if (_hubContext.Clients != null)
+            {
+                await _hubContext.Clients.All.SendAsync("ReceiveOrders", orders);
+                _logger.LogDebug($"Отправлено {orders.Length} ордеров всем клиентам");
+            }
         }
         catch (Exception ex)
         {
@@ -97,9 +101,11 @@ public class RealtimeUpdateService : IRealtimeUpdateService
             _logger.LogInformation($"RealtimeUpdateService: Ордер завершен - {orderFills.OriginalOrder.OrderId}");
 
             // Отправляем всем подключенным клиентам
-            await _hubContext.Clients?.All.SendAsync("ReceiveOrderFinished", orderFills);
-
-            _logger.LogDebug($"Отправлено уведомление о завершении ордера {orderFills.OriginalOrder.OrderId}");
+            if (_hubContext.Clients != null)
+            {
+                await _hubContext.Clients.All.SendAsync("ReceiveOrderFinished", orderFills);
+                _logger.LogDebug($"Отправлено уведомление о завершении ордера {orderFills.OriginalOrder.OrderId}");
+            }
         }
         catch (Exception ex)
         {
@@ -117,7 +123,10 @@ public class RealtimeUpdateService : IRealtimeUpdateService
             _logger.LogDebug("Отправка обновления позиций всем клиентам");
 
             // Уведомляем клиентов что нужно обновить позиции
-            await _hubContext.Clients.All.SendAsync("PositionsUpdated");
+            if (_hubContext.Clients != null)
+            {
+                await _hubContext.Clients.All.SendAsync("PositionsUpdated");
+            }
         }
         catch (Exception ex)
         {

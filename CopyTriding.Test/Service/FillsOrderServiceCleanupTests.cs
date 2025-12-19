@@ -2,7 +2,9 @@ using CopyTrading.Models.Models.Enums;
 using CopyTrading.Models.Models.Enums.Order;
 using CopyTrading.Models.Models.Orders;
 using CopyTrading.Models.Values;
+using CopyTrading.Repository.RedisInterfaces;
 using CopyTrading.Services;
+using CopyTrading.Services.Interfaces;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -19,7 +21,7 @@ public class FillsOrderServiceCleanupTests
     public FillsOrderServiceCleanupTests()
     {
         _loggerMock = new Mock<ILogger<FillsOrderService>>();
-        _service = new FillsOrderService(_loggerMock.Object);
+        _service = new FillsOrderService(_loggerMock.Object, Mock.Of<IRedisRepository>());
     }
 
     [Fact]
@@ -73,7 +75,7 @@ public class FillsOrderServiceCleanupTests
     }
 
     [Fact]
-    public void CleanupShouldRemoveOldestOrdersFirst()
+    public async Task CleanupShouldRemoveOldestOrdersFirst()
     {
         // Arrange - добавляем 2100 завершенных ордеров с разным временем
         var oldestOrderId = 100L;
@@ -93,10 +95,10 @@ public class FillsOrderServiceCleanupTests
         _service.OnNewOrders([newOrder]);
 
         // Assert - самые старые ордера должны быть удалены
-        _service.GetOrderFillsByOrderId(oldestOrderId).Should().BeNull();
+        (await _service.GetOrderFillsByOrderId(oldestOrderId)).Should().BeNull();
 
         // Самые новые ордера должны остаться
-        _service.GetOrderFillsByOrderId(newestOrderId).Should().NotBeNull();
+        (await _service.GetOrderFillsByOrderId(newestOrderId)).Should().NotBeNull();
     }
 
     [Fact]

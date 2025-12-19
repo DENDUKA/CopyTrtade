@@ -96,7 +96,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var result in GetFilteredResults())
+                        @foreach (var result in GetFilteredResultsSync())
                         {
                             <tr class="@GetRowClass(result.Status)">
                                 <td>@result.Timestamp.ToLocalTime().ToString("HH:mm:ss")</td>
@@ -163,7 +163,7 @@
                     </tbody>
                 </table>
 
-                @if (!GetFilteredResults().Any())
+                @if (!GetFilteredResultsSync().Any())
                 {
                     <div class="alert alert-info text-center">
                         Нет результатов копирования ордеров
@@ -180,10 +180,12 @@
     private bool filterSuccess = false;
     private bool filterWarning = false;
     private bool filterError = false;
+    private IEnumerable<CopyOrderResult> allResults = Enumerable.Empty<CopyOrderResult>();
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        UpdateStatistics();
+        await UpdateStatistics();
+        await LoadResults();
     }
 
     private async Task UpdateStatistics()
@@ -191,15 +193,21 @@
         statistics = await ResultService.GetStatistics();
     }
 
-    private void RefreshData()
+    private async Task LoadResults()
     {
-        UpdateStatistics();
+        allResults = await ResultService.GetAllResults();
+    }
+
+    private async Task RefreshData()
+    {
+        await UpdateStatistics();
+        await LoadResults();
         StateHasChanged();
     }
 
-    private async Task<IEnumerable<CopyOrderResult>> GetFilteredResults()
+    private IEnumerable<CopyOrderResult> GetFilteredResultsSync()
     {
-        var results = await ResultService.GetAllResults();
+        var results = allResults;
 
         // Фильтр по символу
         if (!string.IsNullOrWhiteSpace(searchSymbol))

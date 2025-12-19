@@ -29,29 +29,29 @@ public class CopyOrderStorageServiceCleanupTests
     }
 
     [Fact]
-    public void CleanupShouldNotRunWhenOrdersCountBelowThreshold()
+    public async Task CleanupShouldNotRunWhenOrdersCountBelowThreshold()
     {
         // Arrange - добавляем 100 ордеров (меньше порога 2000)
         for (int i = 0; i < 100; i++)
         {
             var copyOrder = CreateCopyOrder(i, OrderStatus.Filled, DateTime.Now.AddMinutes(-i));
-            _service.AddOrder(copyOrder);
+            await _service.AddOrder(copyOrder);
         }
 
-        var ordersCountBefore = _service.GetAllOrders().Length;
+        var ordersCountBefore = (await _service.GetAllOrders()).Length;
 
         // Act - добавляем новый ордер (должен триггернуть проверку очистки)
         var newOrder = CreateCopyOrder(9999, OrderStatus.Open, DateTime.Now);
-        _service.AddOrder(newOrder);
+        await _service.AddOrder(newOrder);
 
         // Assert - количество не должно измениться (кроме одного добавленного)
-        var ordersCountAfter = _service.GetAllOrders().Length;
+        var ordersCountAfter = (await _service.GetAllOrders()).Length;
         ordersCountAfter.Should().Be(ordersCountBefore + 1);
         ordersCountAfter.Should().Be(101);
     }
 
     [Fact]
-    public void CleanupShouldRemoveOldOrdersWhenThresholdExceeded()
+    public async Task CleanupShouldRemoveOldOrdersWhenThresholdExceeded()
     {
         // Arrange - напрямую добавляем 2000 ордеров в словарь (имитируем накопление данных)
         for (int i = 0; i < 2000; i++)
@@ -70,16 +70,16 @@ public class CopyOrderStorageServiceCleanupTests
         // Act - добавляем новый ордер через AddOrder, который ДОЛЖЕН запустить очистку
         // (2000 в словаре + 1 добавляемый = 2001 > порог 2000)
         var newOrder = CreateCopyOrder(10000, OrderStatus.Open, DateTime.Now.AddMinutes(1));
-        _service.AddOrder(newOrder);
+        await _service.AddOrder(newOrder);
 
         // Assert - количество должно быть около 500-501 (целевое значение после очистки)
-        var ordersCount = _service.GetAllOrders().Length;
+        var ordersCount = (await _service.GetAllOrders()).Length;
         ordersCount.Should().BeLessThanOrEqualTo(501); // 500 + 1 новый ордер
         ordersCount.Should().BeGreaterThanOrEqualTo(500);
     }
 
     [Fact]
-    public void CleanupShouldRemoveOldestOrdersFirst()
+    public async Task CleanupShouldRemoveOldestOrdersFirst()
     {
         // Arrange - добавляем 2000 ордеров с разным временем
         var oldestOrderId = 0L;
@@ -98,13 +98,13 @@ public class CopyOrderStorageServiceCleanupTests
 
         // Act - добавляем новый ордер через AddOrder, который запустит очистку
         var newOrder1 = CreateCopyOrder(10000, OrderStatus.Open, DateTime.Now.AddMinutes(1));
-        _service.AddOrder(newOrder1); // 2001 - не триггерит очистку
+        await _service.AddOrder(newOrder1); // 2001 - не триггерит очистку
 
         var newOrder2 = CreateCopyOrder(10001, OrderStatus.Open, DateTime.Now.AddMinutes(2));
-        _service.AddOrder(newOrder2); // 2002 - триггерит очистку
+        await _service.AddOrder(newOrder2); // 2002 - триггерит очистку
 
         // Assert - самые старые ордера должны быть удалены
-        var allOrders = _service.GetAllOrders();
+        var allOrders = await _service.GetAllOrders();
         allOrders.Should().NotContain(o => o.OrderId == oldestOrderId, "самый старый ордер должен быть удален");
         allOrders.Should().NotContain(o => o.OrderId == middleOrderId, "средние ордера должны быть удалены");
 
@@ -115,7 +115,7 @@ public class CopyOrderStorageServiceCleanupTests
     }
 
     [Fact]
-    public void CleanupShouldRemoveAllOrderTypes()
+    public async Task CleanupShouldRemoveAllOrderTypes()
     {
         // Arrange - добавляем 2000 ордеров разных статусов (все должны быть удалены при превышении лимита)
         for (int i = 0; i < 2000; i++)
@@ -138,17 +138,17 @@ public class CopyOrderStorageServiceCleanupTests
             _storage.CopyOrders[copyOrder.OrderId] = copyOrder;
         }
 
-        _service.GetAllOrders().Length.Should().Be(2000);
+        (await _service.GetAllOrders()).Length.Should().Be(2000);
 
         // Act - добавляем 2 ордера для триггера очистки
         var newOrder1 = CreateCopyOrder(10000, OrderStatus.Open, DateTime.Now.AddMinutes(1));
-        _service.AddOrder(newOrder1); // 2001 - не триггерит
+        await _service.AddOrder(newOrder1); // 2001 - не триггерит
 
         var newOrder2 = CreateCopyOrder(10001, OrderStatus.Open, DateTime.Now.AddMinutes(2));
-        _service.AddOrder(newOrder2); // 2002 - триггерит очистку
+        await _service.AddOrder(newOrder2); // 2002 - триггерит очистку
 
         // Assert - ордера всех статусов должны быть удалены (старые)
-        var ordersAfter = _service.GetAllOrders();
+        var ordersAfter = await _service.GetAllOrders();
         ordersAfter.Length.Should().BeLessThanOrEqualTo(501);
 
         // Проверяем что остались только новые ордера (ID >= 1500), т.к. удалено ~1500 самых старых
@@ -157,7 +157,7 @@ public class CopyOrderStorageServiceCleanupTests
     }
 
     [Fact]
-    public void CleanupShouldLogCorrectInformation()
+    public async Task CleanupShouldLogCorrectInformation()
     {
         // Arrange - добавляем 2000 ордеров
         for (int i = 0; i < 2000; i++)
@@ -168,10 +168,10 @@ public class CopyOrderStorageServiceCleanupTests
 
         // Act - добавляем 2 ордера, второй должен запустить очистку
         var newOrder1 = CreateCopyOrder(10000, OrderStatus.Open, DateTime.Now);
-        _service.AddOrder(newOrder1); // 2001
+        await _service.AddOrder(newOrder1); // 2001
 
         var newOrder2 = CreateCopyOrder(10001, OrderStatus.Open, DateTime.Now.AddSeconds(1));
-        _service.AddOrder(newOrder2); // 2002 - триггерит очистку
+        await _service.AddOrder(newOrder2); // 2002 - триггерит очистку
 
         // Assert - проверяем что логирование было вызвано
         _loggerMock.Verify(
@@ -196,7 +196,7 @@ public class CopyOrderStorageServiceCleanupTests
     }
 
     [Fact]
-    public void CleanupShouldReduceToTargetCount()
+    public async Task CleanupShouldReduceToTargetCount()
     {
         // Arrange - добавляем ровно 2000 ордеров
         for (int i = 0; i < 2000; i++)
@@ -209,34 +209,34 @@ public class CopyOrderStorageServiceCleanupTests
 
         // Act - добавляем 2 ордера, второй должен запустить очистку
         var newOrder1 = CreateCopyOrder(10000, OrderStatus.Open, DateTime.Now.AddMinutes(1));
-        _service.AddOrder(newOrder1); // 2001 - не триггерит
+        await _service.AddOrder(newOrder1); // 2001 - не триггерит
 
         var newOrder2 = CreateCopyOrder(10001, OrderStatus.Open, DateTime.Now.AddMinutes(2));
-        _service.AddOrder(newOrder2); // 2002 - триггерит очистку
+        await _service.AddOrder(newOrder2); // 2002 - триггерит очистку
 
         // Assert - должно остаться ровно 500-501 ордер (500 целевых + 0-1 новых)
-        var ordersCount = _service.GetAllOrders().Length;
+        var ordersCount = (await _service.GetAllOrders()).Length;
         ordersCount.Should().BeInRange(500, 501);
     }
 
     [Fact]
-    public void MultipleCleanupsShouldWorkCorrectly()
+    public async Task MultipleCleanupsShouldWorkCorrectly()
     {
         // Arrange - добавляем 2000 ордеров
         for (int i = 0; i < 2000; i++)
         {
             var copyOrder = CreateCopyOrder(i, OrderStatus.Filled, DateTime.Now.AddMinutes(-2000 + i));
-            GetCopyOrdersDict().TryAdd(copyOrder.OrderId, copyOrder);
+            _storage.CopyOrders[copyOrder.OrderId] = copyOrder;
         }
 
         // Act 1 - первая очистка
         var newOrder1 = CreateCopyOrder(10000, OrderStatus.Open, DateTime.Now.AddMinutes(1));
-        _service.AddOrder(newOrder1); // 2001
+        await _service.AddOrder(newOrder1); // 2001
 
         var newOrder2 = CreateCopyOrder(10001, OrderStatus.Open, DateTime.Now.AddMinutes(2));
-        _service.AddOrder(newOrder2); // 2002 - триггерит первую очистку
+        await _service.AddOrder(newOrder2); // 2002 - триггерит первую очистку
 
-        var countAfterFirstCleanup = _service.GetAllOrders().Length;
+        var countAfterFirstCleanup = (await _service.GetAllOrders()).Length;
         countAfterFirstCleanup.Should().BeInRange(500, 501);
 
         // Добавляем еще 1500 ордеров (чтобы снова превысить порог)
@@ -248,18 +248,18 @@ public class CopyOrderStorageServiceCleanupTests
 
         // Act 2 - вторая очистка
         var newOrder3 = CreateCopyOrder(30000, OrderStatus.Open, DateTime.Now.AddMinutes(10000));
-        _service.AddOrder(newOrder3); // 2001
+        await _service.AddOrder(newOrder3); // 2001
 
         var newOrder4 = CreateCopyOrder(30001, OrderStatus.Open, DateTime.Now.AddMinutes(10001));
-        _service.AddOrder(newOrder4); // 2002 - триггерит вторую очистку
+        await _service.AddOrder(newOrder4); // 2002 - триггерит вторую очистку
 
         // Assert - снова должно быть ~500-501
-        var countAfterSecondCleanup = _service.GetAllOrders().Length;
+        var countAfterSecondCleanup = (await _service.GetAllOrders()).Length;
         countAfterSecondCleanup.Should().BeInRange(500, 501);
     }
 
     [Fact]
-    public void GetStatisticsShouldWorkAfterCleanup()
+    public async Task GetStatisticsShouldWorkAfterCleanup()
     {
         // Arrange - добавляем 2000 ордеров разных статусов
         for (int i = 0; i < 2000; i++)
@@ -271,13 +271,13 @@ public class CopyOrderStorageServiceCleanupTests
 
         // Act - добавляем 2 ордера, второй запустит очистку
         var newOrder1 = CreateCopyOrder(10000, OrderStatus.Canceled, DateTime.Now.AddMinutes(1));
-        _service.AddOrder(newOrder1); // 2001
+        await _service.AddOrder(newOrder1); // 2001
 
         var newOrder2 = CreateCopyOrder(10001, OrderStatus.Open, DateTime.Now.AddMinutes(2));
-        _service.AddOrder(newOrder2); // 2002 - триггерит очистку
+        await _service.AddOrder(newOrder2); // 2002 - триггерит очистку
 
         // Assert - статистика должна работать корректно
-        var stats = _service.GetStatistics();
+        var stats = await _service.GetStatistics();
         stats["Total"].Should().BeInRange(500, 501);
         stats["Total"].Should().Be(stats["Open"] + stats["Filled"] + stats["Canceled"] +
                                    stats["Triggered"] + stats["Rejected"] + stats["MarginCanceled"]);

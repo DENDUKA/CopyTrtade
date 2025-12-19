@@ -8,6 +8,7 @@ using CopyTrading.Models.Models.Trade;
 using CopyTrading.Models.Values;
 using CopyTrading.Providers.Hyperliquid.Interfaces;
 using CopyTrading.Providers.Hyperliquid.Subscribers;
+using CopyTrading.Repository.RedisInterfaces;
 using CopyTrading.Services;
 using CopyTrading.Services.Interfaces;
 using CryptoExchange.Net.SharedApis;
@@ -79,11 +80,12 @@ public class CopyOrderServiceTests
 
         // Инициализация моков для TradeService и OrderService
         // Создаем реальный FillsOrderService и сохраняем его в поле класса
-        _fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>());
+        _fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
 
         _currentWalletPositionService = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
             _fillsOrderService,
+            Mock.Of<IRedisRepository>(),
             _positionLogger.Object);
 
         // Создаем мок OrdersTradesSubscriber после создания _currentWalletPositionService
@@ -108,9 +110,9 @@ public class CopyOrderServiceTests
         _orderServiceMock = new Mock<IOrderService>(MockBehavior.Loose);
 
         // Создаем реальные сервисы
-        _copyOrderResultService = new CopyOrderResultService(_resultLogger.Object);
-        _storageService = new CopyOrderStorageService(_storageLogger.Object);
-        _positionMappingService = new PositionMappingService(_mappingLogger.Object);
+        _copyOrderResultService = new CopyOrderResultService(Mock.Of<IRedisRepository>(), _resultLogger.Object);
+        _storageService = new CopyOrderStorageService(Mock.Of<IRedisRepository>(), _storageLogger.Object);
+        _positionMappingService = new PositionMappingService(Mock.Of<IRedisRepository>(), _mappingLogger.Object);
     }
 
     private void CreateServices()
@@ -176,7 +178,7 @@ public class CopyOrderServiceTests
         _exchangeInfoProvider.Reset();
 
         // Пересоздаем _storageService
-        _storageService = new CopyOrderStorageService(_storageLogger.Object);
+        _storageService = new CopyOrderStorageService(Mock.Of<IRedisRepository>(), _storageLogger.Object);
     }
 
     private void InitializeEmptyWalletSnapshot(Wallet wallet)
@@ -266,7 +268,7 @@ public class CopyOrderServiceTests
         await Task.Delay(100);
 
         // Assert
-        var allOrders = _storageService.GetAllOrders();
+        var allOrders = await _storageService.GetAllOrders();
         allOrders.Should().HaveCount(1);
 
         var copyOrder = allOrders.First();
@@ -350,7 +352,7 @@ public class CopyOrderServiceTests
         await Task.Delay(100);
 
         // Assert
-        var allOrders = _storageService.GetAllOrders();
+        var allOrders = await _storageService.GetAllOrders();
         allOrders.Should().HaveCount(1);
 
         var copyOrder = allOrders.First();
@@ -432,7 +434,7 @@ public class CopyOrderServiceTests
         await Task.Delay(100);
 
         // Assert
-        var allOrders = _storageService.GetAllOrders();
+        var allOrders = await _storageService.GetAllOrders();
         allOrders.Should().HaveCount(1);
 
         var copyOrder = allOrders.First();
@@ -513,7 +515,7 @@ public class CopyOrderServiceTests
         await Task.Delay(100);
 
         // Assert
-        var allOrders = _storageService.GetAllOrders();
+        var allOrders = await _storageService.GetAllOrders();
         allOrders.Should().HaveCount(1);
 
         var copyOrder = allOrders.First();
@@ -718,7 +720,7 @@ public class CopyOrderServiceTests
         await Task.Delay(100);
 
         // Assert - проверяем основные результаты
-        var allOrders = _storageService.GetAllOrders();
+        var allOrders = await _storageService.GetAllOrders();
         allOrders.Should().HaveCount(4, "должно быть создано 4 копируемых ордера");
 
         // Проверяем что все ордера созданы
@@ -938,7 +940,7 @@ public class CopyOrderServiceTests
         await Task.Delay(100);
 
         // Assert - проверяем основные результаты
-        var allOrders = _storageService.GetAllOrders();
+        var allOrders = await _storageService.GetAllOrders();
         allOrders.Should().HaveCount(4, "должно быть создано 4 копируемых ордера");
 
         // Проверяем что все ордера созданы
