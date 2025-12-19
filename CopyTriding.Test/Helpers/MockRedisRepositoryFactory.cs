@@ -66,6 +66,29 @@ public static class MockRedisRepositoryFactory
                     storage.Orders.Remove(id);
                 return Task.CompletedTask;
             });
+
+        mock.Setup(x => x.GetPendingOrdersByWalletAndSymbol(It.IsAny<string>(), It.IsAny<string>()))
+            .Returns((string wallet, string symbol) =>
+            {
+                var pendingOrders = storage.Orders.Values
+                    .Where(o => o.OriginalOrder.Wallet.Value == wallet &&
+                                o.OriginalOrder.Symbol == symbol &&
+                                (o.OriginalOrder.Status == OrderStatus.Open ||
+                                 o.OriginalOrder.Status == OrderStatus.Triggered))
+                    .ToArray();
+                return Task.FromResult(pendingOrders);
+            });
+
+        mock.Setup(x => x.UpdateOrderSubType(It.IsAny<long>(), It.IsAny<OrderSubType>()))
+            .Returns((long orderId, OrderSubType newSubType) =>
+            {
+                if (storage.Orders.TryGetValue(orderId, out var order))
+                {
+                    order.OriginalOrder.SubType = newSubType;
+                    return Task.FromResult(true);
+                }
+                return Task.FromResult(false);
+            });
     }
 
     private static void SetupPendingTrades(Mock<IRedisRepository> mock, MockRedisStorage storage)

@@ -360,7 +360,7 @@ public class CopyOrderService(
         await OpenNewPosition(syntheticOrder);
 
         // Устанавливаем базовую линию - позицию трейдера ДО increase
-        SetBaselineForNewMapping(order, traderQuantityBeforeIncrease.Value);
+        await SetBaselineForNewMapping(order, traderQuantityBeforeIncrease.Value);
     }
 
     /// <summary>
@@ -457,14 +457,14 @@ public class CopyOrderService(
     /// <summary>
     /// Обновить или удалить маппинг после decrease
     /// </summary>
-    private void UpdateOrDeleteMappingAfterDecrease(OriginalOrder order, PositionMapping mapping, decimal myCloseQuantity)
+    private async Task UpdateOrDeleteMappingAfterDecrease(OriginalOrder order, PositionMapping mapping, decimal myCloseQuantity)
     {
         // Проверяем: закрыли всю позицию или частично?
         if (myCloseQuantity >= mapping.MyQuantity)
         {
             // Закрыли ВСЁ - удаляем маппинг
             _logger.LogInformation($"CopyOrderService.UpdateOrDeleteMappingAfterDecrease: OrderId={order.OrderId} Закрываем ВСЮ позицию {myCloseQuantity}, удаляем маппинг");
-            _positionMappingService.DeleteMapping(order.Wallet, _myWallet, order.Symbol, order.Direction.Opposite());
+            await _positionMappingService.DeleteMapping(order.Wallet, _myWallet, order.Symbol, order.Direction.Opposite());
         }
         else
         {
@@ -530,7 +530,7 @@ public class CopyOrderService(
             PublishCopyOrderCreated(order, copyOrder);
 
             // Обновляем или удаляем маппинг
-            UpdateOrDeleteMappingAfterDecrease(order, mapping, myDecreaseQuantity);
+            await UpdateOrDeleteMappingAfterDecrease(order, mapping, myDecreaseQuantity);
 
             // Сохраняем результат
             SaveSuccessResult(order, copyOrder);
@@ -573,7 +573,7 @@ public class CopyOrderService(
             {
                 var errorMsg = "mapping.MyQuantity = 0 - позиция не была открыта";
                 _logger.LogWarning($"CopyOrderService.ClosePosition: OrderId={order.OrderId} {errorMsg}, удаляем маппинг");
-                _positionMappingService.DeleteMapping(order.Wallet, _myWallet, order.Symbol, order.Direction.Opposite());
+                await _positionMappingService.DeleteMapping(order.Wallet, _myWallet, order.Symbol, order.Direction.Opposite());
                 SaveWarningResult(order, errorMsg);
                 return;
             }
@@ -593,7 +593,7 @@ public class CopyOrderService(
             _logger.LogInformation($"CopyOrderService.ClosePosition: OrderId={order.OrderId} Success, закрываем полностью {myCloseQuantity}");
 
             // Удаляем маппинг (позиция полностью закрыта)
-            _positionMappingService.DeleteMapping(order.Wallet, _myWallet, order.Symbol, order.Direction.Opposite());
+            await _positionMappingService.DeleteMapping(order.Wallet, _myWallet, order.Symbol, order.Direction.Opposite());
 
             // Сохраняем результат
             SaveSuccessResult(order, copyOrder);

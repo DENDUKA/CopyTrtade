@@ -151,6 +151,9 @@ public class FillsOrderService : IFillsOrderService
 
             await OnOrderFinished(newOrder);
         }
+
+        // Автоматическая очистка старых ордеров при превышении порога
+        await CleanupOldCompletedOrdersIfNeeded();
     }
 
     public async void OnNewTrades((OriginalTrade[] Trades, bool IsSnapshot) trades)
@@ -524,6 +527,54 @@ public class FillsOrderService : IFillsOrderService
     private void LogPendingTradesAdded(long orderId, int count)
     {
         _logger.LogInformation($"FillsOrderService.LogPendingTradesAdded: OrderId={orderId} Добавлено {count} pending трейдов");
+    }
+
+    #endregion
+
+    #region Cleanup
+
+    /// <summary>
+    /// Автоматическая очистка старых завершенных ордеров при превышении порога
+    /// </summary>
+    private async Task CleanupOldCompletedOrdersIfNeeded()
+    {
+        const int MaxOrdersThreshold = 2000;
+        const int TargetOrdersCount = 500;
+
+        var allOrders = await _redisRepository.LoadAllOrders();
+        if (allOrders == null || allOrders.Count <= MaxOrdersThreshold)
+        {
+            return;
+        }
+
+        _logger.LogInformation($"FillsOrderService.Cleanup: Начинаем очистку, текущее количество ордеров: {allOrders.Count}");
+
+        // Получаем только завершенные ордера (Filled, Canceled, Rejected)
+        var completedOrders = allOrders.Values
+            .Where(o => o.OriginalOrder.Status == OrderStatus.Filled ||
+                        o.OriginalOrder.Status == OrderStatus.Canceled ||
+                        o.OriginalOrder.Status == OrderStatus.Rejected)
+            .OrderBy(o => o.OriginalOrder.Time)  // Сортируем по времени (старые первыми)
+            .ToList();
+
+        // Сколько нужно удалить
+        var ordersToDeleteCount = allOrders.Count - TargetOrdersCount;
+        if (ordersToDeleteCount <= 0)
+        {
+            return;
+        }
+
+        // Удаляем самые старые завершенные ордера
+        var ordersToDelete = completedOrders
+            .Take(ordersToDeleteCount)
+            .Select(o => o.OriginalOrder.OrderId)
+            .ToList();
+
+        if (ordersToDelete.Any())
+        {
+            await _redisRepository.DeleteOrders(ordersToDelete);
+            _logger.LogInformation($"FillsOrderService.Cleanup: Удалено {ordersToDelete.Count} старых завершенных ордеров. Осталось: {allOrders.Count - ordersToDelete.Count}");
+        }
     }
 
     #endregion

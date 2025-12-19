@@ -12,6 +12,7 @@ using CopyTrading.Providers.Hyperliquid.Subscribers;
 using CopyTrading.Repository.RedisInterfaces;
 using CopyTrading.Services;
 using CopyTrading.Services.Interfaces;
+using CopyTrading.Test.Helpers;
 using CryptoExchange.Net.SharedApis;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
@@ -35,6 +36,8 @@ public class CopyOrderServiceIntegrationTests
     private readonly PositionMappingService _positionMappingService;
     private readonly CopyOrderResultService _copyOrderResultService;
     private CopyOrderStorageService _storageService;  // Не readonly - будет пересоздаваться в ResetServices
+    private readonly Mock<IRedisRepository> _sharedRedisMock;  // Shared Redis mock для всех сервисов
+    private readonly MockRedisStorage _sharedRedisStorage;  // Shared in-memory storage
 
     // Loggers
     private readonly Mock<ILogger<CopyOrderService>> _logger;
@@ -114,11 +117,14 @@ public class CopyOrderServiceIntegrationTests
         _orderRepositorySQLiteMock = new Mock<Repository.SQLite.OrderRepository>(MockBehavior.Loose, Mock.Of<ILogger<Repository.SQLite.OrderRepository>>());
         _baselinePositionServiceMock = new Mock<IBaselinePositionService>(MockBehavior.Loose);
 
-        // Создаем реальные сервисы для проверки
-        _copyOrderResultService = new CopyOrderResultService(Mock.Of<IRedisRepository>(), _resultLogger.Object);
-        _storageService = new CopyOrderStorageService(Mock.Of<IRedisRepository>(), _storageLogger.Object);
-        _positionMappingService = new PositionMappingService(Mock.Of<IRedisRepository>(), _mappingLogger.Object);
-        _currentWalletPositionService = new CurrentWalletPositionService(_walletInfoProvider.Object, new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>()), Mock.Of<IRedisRepository>(), _positionLogger.Object);
+        // Создаем shared Redis mock для всех сервисов
+        (_sharedRedisMock, _sharedRedisStorage) = MockRedisRepositoryFactory.Create();
+
+        // Создаем реальные сервисы для проверки с shared Redis
+        _copyOrderResultService = new CopyOrderResultService(_sharedRedisMock.Object, _resultLogger.Object);
+        _storageService = new CopyOrderStorageService(_sharedRedisMock.Object, _storageLogger.Object);
+        _positionMappingService = new PositionMappingService(_sharedRedisMock.Object, _mappingLogger.Object);
+        _currentWalletPositionService = new CurrentWalletPositionService(_walletInfoProvider.Object, new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), _sharedRedisMock.Object), _sharedRedisMock.Object, _positionLogger.Object);
     }
 
     [Fact]
@@ -206,7 +212,7 @@ public class CopyOrderServiceIntegrationTests
             ]
         };
 
-        _currentWalletPositionService.InitializeWalletSnapshot(startSnapshot);
+        await _currentWalletPositionService.InitializeWalletSnapshot(startSnapshot);
 
         var increaseOrder = new OriginalOrder
         {
@@ -497,7 +503,7 @@ public class CopyOrderServiceIntegrationTests
 
         var service = CreateService();
 
-        InitializeEmptyWalletSnapshot(_traderWallet);
+        await InitializeEmptyWalletSnapshot(_traderWallet);
 
         // Трейдер открывает новую Long позицию: 0.1 BTC @ $50,000 = $5,000 (25% от баланса)
         var order = CreateOrder(2001, _traderWallet, symbol, 50000m, 0.1m, Direction.Long);
@@ -545,7 +551,7 @@ public class CopyOrderServiceIntegrationTests
         var service = CreateService();
 
         // Инициализируем пустой snapshot
-        InitializeEmptyWalletSnapshot(_traderWallet);
+        await InitializeEmptyWalletSnapshot(_traderWallet);
 
         // Трейдер открывает новую Short позицию: 2 ETH @ $3,000 = $6,000 (40% от баланса)
         var order = CreateOrder(2002, _traderWallet, symbol, 3000m, 2m, Direction.Short);
@@ -695,7 +701,7 @@ public class CopyOrderServiceIntegrationTests
         var service = CreateService();
 
         var snapshot = CreateSnapshot(_traderWallet, symbol, 5, Direction.Long);
-        _currentWalletPositionService.InitializeWalletSnapshot(snapshot);
+        await _currentWalletPositionService.InitializeWalletSnapshot(snapshot);
 
         // Сначала открываем ордер
         var order = CreateOrder(2005, _traderWallet, symbol, 50000m, 0.05m, Direction.Long, status: OrderStatus.Open);
@@ -795,7 +801,7 @@ public class CopyOrderServiceIntegrationTests
         var service = CreateService();
 
         // Инициализируем пустой snapshot
-        InitializeEmptyWalletSnapshot(_traderWallet);
+        await InitializeEmptyWalletSnapshot(_traderWallet);
 
         // Трейдер открывает позицию: 0.001 BTC @ $50,000 = $50
         // Мы должны открыть пропорционально: orderRatio = 50/100000 = 0.0005
@@ -841,7 +847,7 @@ public class CopyOrderServiceIntegrationTests
         var service = CreateService();
 
         // Инициализируем пустой snapshot
-        InitializeEmptyWalletSnapshot(_traderWallet);
+        await InitializeEmptyWalletSnapshot(_traderWallet);
 
         // Трейдер: 0.5 ETH @ $3,000 = $1,500
         // Мы: orderRatio = 1500/50000 = 0.03
@@ -882,8 +888,8 @@ public class CopyOrderServiceIntegrationTests
 
         var service = CreateService();
 
-        InitializeEmptyWalletSnapshot(_traderWallet);
-        InitializeEmptyWalletSnapshot(trader2Wallet);
+        await InitializeEmptyWalletSnapshot(_traderWallet);
+        await InitializeEmptyWalletSnapshot(trader2Wallet);
 
         // Trader1 открывает BTC
         var order1 = CreateOrder(3001, _traderWallet, "BTC", 50000m, 0.1m, Direction.Long);
@@ -942,7 +948,7 @@ public class CopyOrderServiceIntegrationTests
             TimeStamp = DateTime.UtcNow,
             Positions = []
         };
-        _currentWalletPositionService.InitializeWalletSnapshot(emptySnapshot1);
+        await _currentWalletPositionService.InitializeWalletSnapshot(emptySnapshot1);
 
         var emptySnapshot2 = new WalletPositionsSnapshot
         {
@@ -950,7 +956,7 @@ public class CopyOrderServiceIntegrationTests
             TimeStamp = DateTime.UtcNow,
             Positions = []
         };
-        _currentWalletPositionService.InitializeWalletSnapshot(emptySnapshot2);
+        await _currentWalletPositionService.InitializeWalletSnapshot(emptySnapshot2);
 
         // Оба трейдера открывают BTC Long
         // Trader1: 0.1 BTC @ 50000 = 5000 USD, orderRatio = 5000/20000 = 0.25 (25%)
@@ -992,7 +998,7 @@ public class CopyOrderServiceIntegrationTests
         var service = CreateService();
 
         // Инициализируем пустой snapshot
-        InitializeEmptyWalletSnapshot(_traderWallet);
+        await InitializeEmptyWalletSnapshot(_traderWallet);
 
         // Трейдер открывает 3 разные позиции
         var btcOrder = CreateOrder(3005, _traderWallet, "BTC", 50000m, 0.1m, Direction.Long);
@@ -1037,7 +1043,7 @@ public class CopyOrderServiceIntegrationTests
         var service = CreateService();
 
         // Инициализируем пустой snapshot
-        InitializeEmptyWalletSnapshot(_traderWallet);
+        await InitializeEmptyWalletSnapshot(_traderWallet);
 
         var order = CreateOrder(3008, _traderWallet, symbol, 50000m, 0.1m, Direction.Long);
         var trade = CreateTrade(7008, 3008, _traderWallet, symbol, 50000m, 0.1m, Direction.Long, OrderSubType.Open);
@@ -1073,7 +1079,7 @@ public class CopyOrderServiceIntegrationTests
         var service = CreateService();
 
         // Инициализируем пустой snapshot
-        InitializeEmptyWalletSnapshot(_traderWallet);
+        await InitializeEmptyWalletSnapshot(_traderWallet);
 
         // Трейдер: 0.5 BTC @ $50,000 = $25,000 (2.5% от баланса)
         var order = CreateOrder(3009, _traderWallet, symbol, 50000m, 0.5m, Direction.Long);
@@ -1115,7 +1121,7 @@ public class CopyOrderServiceIntegrationTests
 
         // Трейдер уже в Short позиции: -2 ETH
         var snapshot = CreateSnapshot(_traderWallet, symbol, 2m, Direction.Short);
-        _currentWalletPositionService.InitializeWalletSnapshot(snapshot);
+        await _currentWalletPositionService.InitializeWalletSnapshot(snapshot);
 
         // Создаем маппинг
         var mapping = new PositionMapping
@@ -1165,7 +1171,7 @@ public class CopyOrderServiceIntegrationTests
 
         // Трейдер в Short позиции: -3 ETH
         var snapshot = CreateSnapshot(_traderWallet, symbol, 3m, Direction.Short);
-        _currentWalletPositionService.InitializeWalletSnapshot(snapshot);
+        await _currentWalletPositionService.InitializeWalletSnapshot(snapshot);
 
         var mapping = new PositionMapping
         {
@@ -1215,7 +1221,7 @@ public class CopyOrderServiceIntegrationTests
         var service = CreateService();
 
         // Инициализируем пустой snapshot
-        InitializeEmptyWalletSnapshot(_traderWallet);
+        await InitializeEmptyWalletSnapshot(_traderWallet);
 
         // Шаг 1: Open
         var openOrder = CreateOrder(4001, _traderWallet, symbol, 50000m, 0.1m, Direction.Long);
@@ -1254,6 +1260,10 @@ public class CopyOrderServiceIntegrationTests
             DataBusEvents.NewTrades?.Invoke(([decreaseTrade], false));
             await Task.Delay(50);
         }
+
+        // Обновляем snapshot перед Close (позиция после всех операций: 0.1 + 0.06 - 0.06 = 0.1)
+        var snapshotBeforeClose = CreateSnapshot(_traderWallet, symbol, 0.1m, Direction.Long);
+        UpdateWalletSnapshot(snapshotBeforeClose);
 
         // Шаг 4: Close (Short order to close Long position)
         var closeOrder = CreateOrder(4007, _traderWallet, symbol, 50000m, 0.1m, Direction.Short);
@@ -1294,7 +1304,7 @@ public class CopyOrderServiceIntegrationTests
 
         // Открываем, закрываем, снова открываем
         var snapshot1 = CreateSnapshot(_traderWallet, symbol, 0.1m, Direction.Long);
-        _currentWalletPositionService.InitializeWalletSnapshot(snapshot1);
+        await _currentWalletPositionService.InitializeWalletSnapshot(snapshot1);
 
         // Open
         var openOrder1 = CreateOrder(5001, _traderWallet, symbol, 50000m, 0.1m, Direction.Long);
@@ -1450,8 +1460,8 @@ public class CopyOrderServiceIntegrationTests
 
     private IntegrationTestableCopyOrderService CreateService()
     {
-        // Создаем реальный FillsOrderService для корректного расчета SubType
-        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
+        // Создаем реальный FillsOrderService для корректного расчета SubType с shared Redis
+        var fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), _sharedRedisMock.Object);
 
         // Создаем TradeService, который подписывается на DataBusEvents.NewTrades
         var tradeService = new TradeService(
@@ -1507,11 +1517,21 @@ public class CopyOrderServiceIntegrationTests
 
     private void ResetServices()
     {
-        // Очищаем все данные
+        // Очищаем все данные в shared Redis storage
+        _sharedRedisStorage.Orders.Clear();
+        _sharedRedisStorage.PendingTrades.Clear();
+        _sharedRedisStorage.OrderErrors.Clear();
+        _sharedRedisStorage.PositionMappings.Clear();
+        _sharedRedisStorage.BaselinePositions.Clear();
+        _sharedRedisStorage.CopyOrders.Clear();
+        _sharedRedisStorage.CopyOrderResults.Clear();
+        _sharedRedisStorage.WalletSnapshots.Clear();
+
+        // Очищаем все данные в сервисах (in-memory кэши)
         _positionMappingService.ClearAllMappings();
         _storageService.ClearAllOrders();
         _copyOrderResultService.ClearAllResults();
-        _currentWalletPositionService.ClearAllSnapshots();  // Очищаем snapshots
+        _currentWalletPositionService.ClearAllSnapshots();
 
         // Очищаем все подписки на события (отписываем все старые экземпляры CopyOrderService)
         DataBusEvents.ClearAllSubscriptions();
@@ -1520,14 +1540,14 @@ public class CopyOrderServiceIntegrationTests
         _walletInfoProvider.Reset();
         _exchangeInfoProvider.Reset();
 
-        // Пересоздаем _storageService чтобы он снова подписался на события
-        _storageService = new CopyOrderStorageService(Mock.Of<IRedisRepository>(), _storageLogger.Object);
+        // Пересоздаем _storageService чтобы он снова подписался на события (с shared Redis!)
+        _storageService = new CopyOrderStorageService(_sharedRedisMock.Object, _storageLogger.Object);
     }
 
     /// <summary>
     /// Инициализирует пустой snapshot (для тестов)
     /// </summary>
-    private void InitializeEmptyWalletSnapshot(Wallet wallet)
+    private async Task InitializeEmptyWalletSnapshot(Wallet wallet)
     {
         var emptySnapshot = new WalletPositionsSnapshot
         {
@@ -1536,7 +1556,7 @@ public class CopyOrderServiceIntegrationTests
             Positions = []
         };
 
-        _currentWalletPositionService.InitializeWalletSnapshot(emptySnapshot);
+        await _currentWalletPositionService.InitializeWalletSnapshot(emptySnapshot);
     }
 
     /// <summary>
@@ -1545,7 +1565,10 @@ public class CopyOrderServiceIntegrationTests
     /// </summary>
     private void UpdateWalletSnapshot(WalletPositionsSnapshot snapshot)
     {
-        // Принудительно обновляем snapshot через рефлексию
+        // Сохраняем snapshot в Redis
+        _sharedRedisStorage.WalletSnapshots[snapshot.Wallet.Value] = snapshot;
+
+        // Принудительно обновляем snapshot в in-memory кэше через рефлексию
         var field = typeof(CurrentWalletPositionService).GetField("_walletPositionSnapshot",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
 
@@ -1631,7 +1654,7 @@ public class CopyOrderServiceIntegrationTests
             });
 
         // Инициализируем пустой snapshot для трейдера
-        InitializeEmptyWalletSnapshot(_traderWallet);
+        await InitializeEmptyWalletSnapshot(_traderWallet);
 
         // Создаем тестируемый сервис
         var service = CreateService();
@@ -1874,8 +1897,8 @@ public class CopyOrderServiceIntegrationTests
             .Setup(x => x.GetExchangeInfo("ETH"))
             .ReturnsAsync(ethExchangeInfo);
 
-        InitializeEmptyWalletSnapshot(traderA);
-        InitializeEmptyWalletSnapshot(traderB);
+        await InitializeEmptyWalletSnapshot(traderA);
+        await InitializeEmptyWalletSnapshot(traderB);
 
         // Создаем тестируемый сервис
         var service = CreateService();

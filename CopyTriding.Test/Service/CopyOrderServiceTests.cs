@@ -40,6 +40,10 @@ public class CopyOrderServiceTests
     private readonly Mock<ILogger<TradeService>> _tradeServiceLogger;
     private readonly Mock<ILogger<OrderService>> _orderServiceLogger;
 
+    // Shared Redis mock для всех сервисов
+    private readonly Mock<IRedisRepository> _sharedRedisMock;
+    private readonly Test.Helpers.MockRedisStorage _sharedRedisStorage;
+
     // Mocks для TradeService и OrderService
     private readonly FillsOrderService _fillsOrderService;
     private readonly Mock<OrdersTradesSubscriber> _orderProviderMock;
@@ -78,14 +82,17 @@ public class CopyOrderServiceTests
         _tradeServiceLogger = new Mock<ILogger<TradeService>>();
         _orderServiceLogger = new Mock<ILogger<OrderService>>();
 
+        // Создаем shared Redis mock для всех сервисов
+        (_sharedRedisMock, _sharedRedisStorage) = Test.Helpers.MockRedisRepositoryFactory.Create();
+
         // Инициализация моков для TradeService и OrderService
-        // Создаем реальный FillsOrderService и сохраняем его в поле класса
-        _fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
+        // Создаем реальный FillsOrderService с shared Redis
+        _fillsOrderService = new FillsOrderService(Mock.Of<ILogger<FillsOrderService>>(), _sharedRedisMock.Object);
 
         _currentWalletPositionService = new CurrentWalletPositionService(
             _walletInfoProvider.Object,
             _fillsOrderService,
-            Mock.Of<IRedisRepository>(),
+            _sharedRedisMock.Object,
             _positionLogger.Object);
 
         // Создаем мок OrdersTradesSubscriber после создания _currentWalletPositionService
@@ -109,10 +116,10 @@ public class CopyOrderServiceTests
         _baselinePositionServiceMock = new Mock<IBaselinePositionService>(MockBehavior.Loose);
         _orderServiceMock = new Mock<IOrderService>(MockBehavior.Loose);
 
-        // Создаем реальные сервисы
-        _copyOrderResultService = new CopyOrderResultService(Mock.Of<IRedisRepository>(), _resultLogger.Object);
-        _storageService = new CopyOrderStorageService(Mock.Of<IRedisRepository>(), _storageLogger.Object);
-        _positionMappingService = new PositionMappingService(Mock.Of<IRedisRepository>(), _mappingLogger.Object);
+        // Создаем реальные сервисы с shared Redis
+        _copyOrderResultService = new CopyOrderResultService(_sharedRedisMock.Object, _resultLogger.Object);
+        _storageService = new CopyOrderStorageService(_sharedRedisMock.Object, _storageLogger.Object);
+        _positionMappingService = new PositionMappingService(_sharedRedisMock.Object, _mappingLogger.Object);
     }
 
     private void CreateServices()
@@ -164,7 +171,17 @@ public class CopyOrderServiceTests
 
     private void ResetServices()
     {
-        // Очищаем все данные
+        // Очищаем все данные в shared Redis storage
+        _sharedRedisStorage.Orders.Clear();
+        _sharedRedisStorage.PendingTrades.Clear();
+        _sharedRedisStorage.OrderErrors.Clear();
+        _sharedRedisStorage.PositionMappings.Clear();
+        _sharedRedisStorage.BaselinePositions.Clear();
+        _sharedRedisStorage.CopyOrders.Clear();
+        _sharedRedisStorage.CopyOrderResults.Clear();
+        _sharedRedisStorage.WalletSnapshots.Clear();
+
+        // Очищаем все данные в сервисах (in-memory кэши)
         _positionMappingService.ClearAllMappings();
         _storageService.ClearAllOrders();
         _copyOrderResultService.ClearAllResults();
@@ -177,8 +194,8 @@ public class CopyOrderServiceTests
         _walletInfoProvider.Reset();
         _exchangeInfoProvider.Reset();
 
-        // Пересоздаем _storageService
-        _storageService = new CopyOrderStorageService(Mock.Of<IRedisRepository>(), _storageLogger.Object);
+        // Пересоздаем _storageService с shared Redis
+        _storageService = new CopyOrderStorageService(_sharedRedisMock.Object, _storageLogger.Object);
     }
 
     private void InitializeEmptyWalletSnapshot(Wallet wallet)

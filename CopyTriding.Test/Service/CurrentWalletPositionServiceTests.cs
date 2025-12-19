@@ -2140,7 +2140,7 @@ public class CurrentWalletPositionServiceTests
             new OriginalOrder { OrderId = 5, Wallet = wallet, Symbol = "BTC", Direction = Direction.Long, Quantity = 2M, Price = 49000M, Status = OrderStatus.Open }   // Ниже - НЕ учитывается
         };
 
-        fillsService.OnNewOrders(pendingOrders);
+        await fillsService.OnNewOrders(pendingOrders);
 
         var currentOrder = new OriginalOrder
         {
@@ -2189,7 +2189,7 @@ public class CurrentWalletPositionServiceTests
             new OriginalOrder { OrderId = 3, Wallet = wallet, Symbol = "BTC", Direction = Direction.Short, Quantity = 10M, Price = 52000M, Status = OrderStatus.Open }
         };
 
-        fillsService.OnNewOrders(pendingOrders);
+        await fillsService.OnNewOrders(pendingOrders);
 
         var currentOrder = new OriginalOrder
         {
@@ -2239,7 +2239,7 @@ public class CurrentWalletPositionServiceTests
             new OriginalOrder { OrderId = 4, Wallet = wallet, Symbol = "BTC", Direction = Direction.Long, Quantity = 3M, Price = 45000M, Status = OrderStatus.Open }
         };
 
-        fillsService.OnNewOrders(pendingOrders);
+        await fillsService.OnNewOrders(pendingOrders);
 
         var currentOrder = new OriginalOrder
         {
@@ -2290,7 +2290,7 @@ public class CurrentWalletPositionServiceTests
             new OriginalOrder { OrderId = 5, Wallet = wallet, Symbol = "BTC", Direction = Direction.Short, Quantity = 2M, Price = 51000M, Status = OrderStatus.Open }   // Выше - НЕ учитывается
         };
 
-        fillsService.OnNewOrders(pendingOrders);
+        await fillsService.OnNewOrders(pendingOrders);
 
         var currentOrder = new OriginalOrder
         {
@@ -2342,7 +2342,7 @@ public class CurrentWalletPositionServiceTests
             new OriginalOrder { OrderId = 6, Wallet = wallet, Symbol = "BTC", Direction = Direction.Short, Quantity = 7M, Price = 51000M, Status = OrderStatus.Open }    // Short >= 50k - НЕ учитывается
         };
 
-        fillsService.OnNewOrders(pendingOrders);
+        await fillsService.OnNewOrders(pendingOrders);
 
         var currentOrder = new OriginalOrder
         {
@@ -2391,7 +2391,7 @@ public class CurrentWalletPositionServiceTests
             new OriginalOrder { OrderId = 2, Wallet = wallet, Symbol = "BTC", Direction = Direction.Long, Quantity = 10M, Price = 52000M, Status = OrderStatus.Open }   // Учитывается
         };
 
-        fillsService.OnNewOrders(pendingOrders);
+        await fillsService.OnNewOrders(pendingOrders);
 
         var currentOrder = new OriginalOrder
         {
@@ -2437,7 +2437,7 @@ public class CurrentWalletPositionServiceTests
             new OriginalOrder { OrderId = 3, Wallet = wallet, Symbol = "BTC", Direction = Direction.Long, Quantity = 3M, Price = 52000M, Status = OrderStatus.Open }
         };
 
-        fillsService.OnNewOrders(pendingOrders);
+        await fillsService.OnNewOrders(pendingOrders);
 
         var currentOrder = new OriginalOrder
         {
@@ -2487,7 +2487,7 @@ public class CurrentWalletPositionServiceTests
             new OriginalOrder { OrderId = 3, Wallet = wallet, Symbol = "ETH", Direction = Direction.Long, Quantity = 20M, Price = 2100M, Status = OrderStatus.Open } // Другой символ
         };
 
-        fillsService.OnNewOrders(pendingOrders);
+        await fillsService.OnNewOrders(pendingOrders);
 
         var currentOrder = new OriginalOrder
         {
@@ -2535,7 +2535,7 @@ public class CurrentWalletPositionServiceTests
             new OriginalOrder { OrderId = 2, Wallet = wallet, Symbol = "BTC", Direction = Direction.Short, Quantity = 30M, Price = 55000M, Status = OrderStatus.Open }
         };
 
-        fillsService.OnNewOrders(pendingOrders);
+        await fillsService.OnNewOrders(pendingOrders);
 
         // Short ордер - должен учитывать Short pending с меньшей ценой
         var currentOrder = new OriginalOrder
@@ -2584,7 +2584,7 @@ public class CurrentWalletPositionServiceTests
             new OriginalOrder { OrderId = 2, Wallet = wallet, Symbol = "BTC", Direction = Direction.Long, Quantity = 30M, Price = 45000M, Status = OrderStatus.Open }
         };
 
-        fillsService.OnNewOrders(pendingOrders);
+        await fillsService.OnNewOrders(pendingOrders);
 
         // Short ордер - учитывает ВСЕ Long pending
         var currentOrder = new OriginalOrder
@@ -2640,7 +2640,7 @@ public class CurrentWalletPositionServiceTests
             new OriginalOrder { OrderId = 7, Wallet = wallet, Symbol = "BTC", Direction = Direction.Short, Quantity = 6M, Price = 51000M, Status = OrderStatus.Open }
         };
 
-        fillsService.OnNewOrders(pendingOrders);
+        await fillsService.OnNewOrders(pendingOrders);
 
         var currentOrder = new OriginalOrder
         {
@@ -2691,7 +2691,7 @@ public class CurrentWalletPositionServiceTests
             new OriginalOrder { OrderId = 2, Wallet = wallet, Symbol = "BTC", Direction = Direction.Long, Quantity = 0.00005M, Price = 51000M, Status = OrderStatus.Open }
         };
 
-        fillsService.OnNewOrders(pendingOrders);
+        await fillsService.OnNewOrders(pendingOrders);
 
         var currentOrder = new OriginalOrder
         {
@@ -2737,7 +2737,7 @@ public class CurrentWalletPositionServiceTests
             new OriginalOrder { OrderId = 2, Wallet = wallet, Symbol = "BTC", Direction = Direction.Long, Quantity = 500000M, Price = 51000M, Status = OrderStatus.Open }
         };
 
-        fillsService.OnNewOrders(pendingOrders);
+        await fillsService.OnNewOrders(pendingOrders);
 
         var currentOrder = new OriginalOrder
         {
