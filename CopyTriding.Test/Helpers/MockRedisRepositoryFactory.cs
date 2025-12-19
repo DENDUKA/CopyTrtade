@@ -28,6 +28,7 @@ public static class MockRedisRepositoryFactory
         SetupBaselinePositions(mock, storage);
         SetupCopyOrders(mock, storage);
         SetupCopyOrderResults(mock, storage);
+        SetupWalletSnapshots(mock, storage);
 
         return (mock, storage);
     }
@@ -271,6 +272,23 @@ public static class MockRedisRepositoryFactory
                 return Task.CompletedTask;
             });
     }
+
+    private static void SetupWalletSnapshots(Mock<IRedisRepository> mock, MockRedisStorage storage)
+    {
+        mock.Setup(x => x.SaveWalletSnapshot(It.IsAny<WalletPositionsSnapshot>()))
+            .Returns((WalletPositionsSnapshot snapshot) =>
+            {
+                storage.WalletSnapshots[snapshot.Wallet.Value] = snapshot;
+                return Task.CompletedTask;
+            });
+
+        mock.Setup(x => x.GetWalletSnapshot(It.IsAny<Wallet>()))
+            .Returns((Wallet wallet) =>
+            {
+                storage.WalletSnapshots.TryGetValue(wallet.Value, out var snapshot);
+                return Task.FromResult(snapshot);
+            });
+    }
 }
 
 /// <summary>
@@ -285,4 +303,5 @@ public class MockRedisStorage
     public Dictionary<string, decimal> BaselinePositions { get; } = new();
     public Dictionary<long, CopyOrderV2> CopyOrders { get; } = new();
     public Dictionary<string, CopyOrderResult> CopyOrderResults { get; } = new();
+    public Dictionary<string, WalletPositionsSnapshot> WalletSnapshots { get; } = new();
 }
