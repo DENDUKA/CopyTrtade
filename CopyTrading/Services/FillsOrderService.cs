@@ -249,6 +249,11 @@ public class FillsOrderService : IFillsOrderService
     private async Task AddTradesFromPending(OrderFills newOrderFills)
     {
         var allPendingTrades = await _redisRepository.LoadAllPendingTrades();
+        if (allPendingTrades == null || allPendingTrades.Count == 0)
+        {
+            return;
+        }
+
         var pendingTradesForOrder = allPendingTrades.Values
             .Where(t => t.OrderId == newOrderFills.OriginalOrder.OrderId)
             .ToArray();

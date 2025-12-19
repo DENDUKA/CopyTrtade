@@ -214,7 +214,7 @@ public class CurrentWalletPositionServiceTests
 
         // Act
         service.InitializeWalletSnapshot(snapshot);
-        var orderSubType = service.GetOrderSubType(order);
+        var orderSubType = await service.GetOrderSubType(order);
 
         // Assert
         orderSubType.Should().Be(OrderSubType.Open);
@@ -262,7 +262,7 @@ public class CurrentWalletPositionServiceTests
 
         // Act
         service.InitializeWalletSnapshot(snapshot);
-        var orderSubType = service.GetOrderSubType(order);
+        var orderSubType = await service.GetOrderSubType(order);
 
         // Assert
         orderSubType.Should().Be(OrderSubType.Increase);
@@ -310,7 +310,7 @@ public class CurrentWalletPositionServiceTests
 
         // Act
         service.InitializeWalletSnapshot(snapshot);
-        var orderSubType = service.GetOrderSubType(order);
+        var orderSubType = await service.GetOrderSubType(order);
 
         // Assert
         orderSubType.Should().Be(OrderSubType.Decrease);
@@ -358,7 +358,7 @@ public class CurrentWalletPositionServiceTests
 
         // Act
         service.InitializeWalletSnapshot(snapshot);
-        var orderSubType = service.GetOrderSubType(order);
+        var orderSubType = await service.GetOrderSubType(order);
 
         // Assert
         orderSubType.Should().Be(OrderSubType.Close);
@@ -960,7 +960,7 @@ public class CurrentWalletPositionServiceTests
     #region GetOrderSubType Tests with Corner Cases
 
     [Fact]
-    public void GetOrderSubType_NoPositionNoPendingOrders_ShouldReturnOpen()
+    public async Task GetOrderSubType_NoPositionNoPendingOrders_ShouldReturnOpen()
     {
         // Arrange
         var wallet = new Wallet("0x1234567890123456789012345678901234567890");
@@ -991,14 +991,14 @@ public class CurrentWalletPositionServiceTests
 
         // Act
         service.InitializeWalletSnapshot(snapshot);
-        var result = service.GetOrderSubType(order);
+        var result = await service.GetOrderSubType(order);
 
         // Assert
         result.Should().Be(OrderSubType.Open);
     }
 
     [Fact]
-    public void GetOrderSubType_LongPositionLongOrder_ShouldReturnIncrease()
+    public async Task GetOrderSubType_LongPositionLongOrder_ShouldReturnIncrease()
     {
         // Arrange
         var wallet = new Wallet("0x1234567890123456789012345678901234567890");
@@ -1039,14 +1039,14 @@ public class CurrentWalletPositionServiceTests
 
         // Act
         service.InitializeWalletSnapshot(snapshot);
-        var result = service.GetOrderSubType(order);
+        var result = await service.GetOrderSubType(order);
 
         // Assert
         result.Should().Be(OrderSubType.Increase);
     }
 
     [Fact]
-    public void GetOrderSubType_ShortPositionShortOrder_ShouldReturnIncrease()
+    public async Task GetOrderSubType_ShortPositionShortOrder_ShouldReturnIncrease()
     {
         // Arrange
         var wallet = new Wallet("0x1234567890123456789012345678901234567890");
@@ -1087,14 +1087,14 @@ public class CurrentWalletPositionServiceTests
 
         // Act
         service.InitializeWalletSnapshot(snapshot);
-        var result = service.GetOrderSubType(order);
+        var result = await service.GetOrderSubType(order);
 
         // Assert
         result.Should().Be(OrderSubType.Increase);
     }
 
     [Fact]
-    public void GetOrderSubType_LongPositionPartialShortOrder_ShouldReturnDecrease()
+    public async Task GetOrderSubType_LongPositionPartialShortOrder_ShouldReturnDecrease()
     {
         // Arrange
         var wallet = new Wallet("0x1234567890123456789012345678901234567890");
@@ -1135,14 +1135,14 @@ public class CurrentWalletPositionServiceTests
 
         // Act
         service.InitializeWalletSnapshot(snapshot);
-        var result = service.GetOrderSubType(order);
+        var result = await service.GetOrderSubType(order);
 
         // Assert
         result.Should().Be(OrderSubType.Decrease);
     }
 
     [Fact]
-    public void GetOrderSubType_LongPositionExactShortOrder_ShouldReturnClose()
+    public async Task GetOrderSubType_LongPositionExactShortOrder_ShouldReturnClose()
     {
         // Arrange
         var wallet = new Wallet("0x1234567890123456789012345678901234567890");
@@ -1183,14 +1183,14 @@ public class CurrentWalletPositionServiceTests
 
         // Act
         service.InitializeWalletSnapshot(snapshot);
-        var result = service.GetOrderSubType(order);
+        var result = await service.GetOrderSubType(order);
 
         // Assert
         result.Should().Be(OrderSubType.Close);
     }
 
     [Fact]
-    public void GetOrderSubType_LongPositionOversizeShortOrder_ShouldReturnFlip()
+    public async Task GetOrderSubType_LongPositionOversizeShortOrder_ShouldReturnFlip()
     {
         // Arrange
         var wallet = new Wallet("0x1234567890123456789012345678901234567890");
@@ -1231,14 +1231,14 @@ public class CurrentWalletPositionServiceTests
 
         // Act
         service.InitializeWalletSnapshot(snapshot);
-        var result = service.GetOrderSubType(order);
+        var result = await service.GetOrderSubType(order);
 
         // Assert
         result.Should().Be(OrderSubType.Flip);
     }
 
     [Fact]
-    public void GetOrderSubType_ShortPositionOversizeLongOrder_ShouldReturnFlip()
+    public async Task GetOrderSubType_ShortPositionOversizeLongOrder_ShouldReturnFlip()
     {
         // Arrange
         var wallet = new Wallet("0x1234567890123456789012345678901234567890");
@@ -1279,14 +1279,14 @@ public class CurrentWalletPositionServiceTests
 
         // Act
         service.InitializeWalletSnapshot(snapshot);
-        var result = service.GetOrderSubType(order);
+        var result = await service.GetOrderSubType(order);
 
         // Assert
         result.Should().Be(OrderSubType.Flip);
     }
 
     [Fact]
-    public void GetOrderSubType_WithPendingLongOrders_ShouldIncludeInCalculation()
+    public async Task GetOrderSubType_WithPendingLongOrders_ShouldIncludeInCalculation()
     {
         // Arrange
         var wallet = new Wallet("0x1234567890123456789012345678901234567890");
@@ -1340,7 +1340,7 @@ public class CurrentWalletPositionServiceTests
         // Act
         service.InitializeWalletSnapshot(snapshot);
         fillsOrderService.OnNewOrders([pendingOrder]);
-        var result = service.GetOrderSubType(newOrder);
+        var result = await service.GetOrderSubType(newOrder);
 
         // Assert
         // Потенциальная позиция = 10 (real) + 5 (pending Long выше цены) = 15
@@ -1349,7 +1349,7 @@ public class CurrentWalletPositionServiceTests
     }
 
     [Fact]
-    public void GetOrderSubType_ShortOrder_ShouldConsiderAllLongPendingOrders()
+    public async Task GetOrderSubType_ShortOrder_ShouldConsiderAllLongPendingOrders()
     {
         // Arrange
         var wallet = new Wallet("0x1234567890123456789012345678901234567890");
@@ -1414,7 +1414,7 @@ public class CurrentWalletPositionServiceTests
         // Act
         service.InitializeWalletSnapshot(snapshot);
         fillsOrderService.OnNewOrders([pendingOrder1, pendingOrder2]);
-        var result = service.GetOrderSubType(newShortOrder);
+        var result = await service.GetOrderSubType(newShortOrder);
 
         // Assert
         // Для Short ордера: учитываем ВСЕ Long pending (независимо от цены)
@@ -1424,7 +1424,7 @@ public class CurrentWalletPositionServiceTests
     }
 
     [Fact]
-    public void GetOrderSubType_ShortOrder_ShouldConsiderOnlyLowerPriceShortPending()
+    public async Task GetOrderSubType_ShortOrder_ShouldConsiderOnlyLowerPriceShortPending()
     {
         // Arrange
         var wallet = new Wallet("0x1234567890123456789012345678901234567890");
@@ -1489,7 +1489,7 @@ public class CurrentWalletPositionServiceTests
         // Act
         service.InitializeWalletSnapshot(snapshot);
         fillsOrderService.OnNewOrders([pendingShort1, pendingShort2]);
-        var result = service.GetOrderSubType(newShortOrder);
+        var result = await service.GetOrderSubType(newShortOrder);
 
         // Assert
         // Для Short по цене 51000: учитываем только Short с ценой < 51000 (это pendingShort1)
@@ -1499,7 +1499,7 @@ public class CurrentWalletPositionServiceTests
     }
 
     [Fact]
-    public void GetOrderSubType_LongOrder_ShouldConsiderOnlyHigherPriceLongPending()
+    public async Task GetOrderSubType_LongOrder_ShouldConsiderOnlyHigherPriceLongPending()
     {
         // Arrange
         var wallet = new Wallet("0x1234567890123456789012345678901234567890");
@@ -1564,7 +1564,7 @@ public class CurrentWalletPositionServiceTests
         // Act
         service.InitializeWalletSnapshot(snapshot);
         fillsOrderService.OnNewOrders([pendingLong1, pendingLong2]);
-        var result = service.GetOrderSubType(newLongOrder);
+        var result = await service.GetOrderSubType(newLongOrder);
 
         // Assert
         // Для Long по цене 51000: учитываем только Long с ценой > 51000 (это pendingLong1)
@@ -1574,7 +1574,7 @@ public class CurrentWalletPositionServiceTests
     }
 
     [Fact]
-    public void GetOrderSubType_ShouldExcludeOrderWithSameId()
+    public async Task GetOrderSubType_ShouldExcludeOrderWithSameId()
     {
         // Arrange
         var wallet = new Wallet("0x1234567890123456789012345678901234567890");
@@ -1616,7 +1616,7 @@ public class CurrentWalletPositionServiceTests
         // Act
         service.InitializeWalletSnapshot(snapshot);
         fillsOrderService.OnNewOrders([order]); // Добавляем в pending
-        var result = service.GetOrderSubType(order); // Пересчитываем для того же ордера
+        var result = await service.GetOrderSubType(order); // Пересчитываем для того же ордера
 
         // Assert
         // Должен исключить сам себя из расчета
@@ -1626,7 +1626,7 @@ public class CurrentWalletPositionServiceTests
     }
 
     [Fact]
-    public void GetOrderSubType_NoRealPositionButPendingOrders_ShouldCalculateCorrectly()
+    public async Task GetOrderSubType_NoRealPositionButPendingOrders_ShouldCalculateCorrectly()
     {
         // Arrange
         var wallet = new Wallet("0x1234567890123456789012345678901234567890");
@@ -1681,7 +1681,7 @@ public class CurrentWalletPositionServiceTests
         // Act
         service.InitializeWalletSnapshot(snapshot);
         fillsOrderService.OnNewOrders([pendingLong1, pendingLong2]);
-        var result = service.GetOrderSubType(newShortOrder);
+        var result = await service.GetOrderSubType(newShortOrder);
 
         // Assert
         // Real = 0, Pending = 5 + 10 = 15 (ВСЕ Long учитываются для Short)
@@ -1691,7 +1691,7 @@ public class CurrentWalletPositionServiceTests
     }
 
     [Fact]
-    public void GetOrderSubType_FlipDueToPendingOrders_NotRealPosition()
+    public async Task GetOrderSubType_FlipDueToPendingOrders_NotRealPosition()
     {
         // Arrange
         var wallet = new Wallet("0x1234567890123456789012345678901234567890");
@@ -1745,7 +1745,7 @@ public class CurrentWalletPositionServiceTests
         // Act
         service.InitializeWalletSnapshot(snapshot);
         fillsOrderService.OnNewOrders([pendingLong]);
-        var result = service.GetOrderSubType(newShortOrder);
+        var result = await service.GetOrderSubType(newShortOrder);
 
         // Assert
         // Потенциальная позиция = 5 (real) + 30 (pending Long) = 35
@@ -1754,7 +1754,7 @@ public class CurrentWalletPositionServiceTests
     }
 
     [Fact]
-    public void GetOrderSubType_MultiplePendingBothDirections_ShouldCalculateCorrectly()
+    public async Task GetOrderSubType_MultiplePendingBothDirections_ShouldCalculateCorrectly()
     {
         // Arrange
         var wallet = new Wallet("0x1234567890123456789012345678901234567890");
@@ -1830,7 +1830,7 @@ public class CurrentWalletPositionServiceTests
         // Act
         service.InitializeWalletSnapshot(snapshot);
         fillsOrderService.OnNewOrders([pendingLong1, pendingLong2, pendingShort1]);
-        var result = service.GetOrderSubType(newShortOrder);
+        var result = await service.GetOrderSubType(newShortOrder);
 
         // Assert
         // Для Short по цене 51000:
@@ -1842,7 +1842,7 @@ public class CurrentWalletPositionServiceTests
     }
 
     [Fact]
-    public void GetOrderSubType_ZeroQuantityInPosition_ShouldTreatAsNoPosition()
+    public async Task GetOrderSubType_ZeroQuantityInPosition_ShouldTreatAsNoPosition()
     {
         // Arrange
         var wallet = new Wallet("0x1234567890123456789012345678901234567890");
@@ -1883,14 +1883,14 @@ public class CurrentWalletPositionServiceTests
 
         // Act
         service.InitializeWalletSnapshot(snapshot);
-        var result = service.GetOrderSubType(order);
+        var result = await service.GetOrderSubType(order);
 
         // Assert
         result.Should().Be(OrderSubType.Open);
     }
 
     [Fact]
-    public void GetOrderSubType_VerySmallQuantityDifference_ShouldReturnClose()
+    public async Task GetOrderSubType_VerySmallQuantityDifference_ShouldReturnClose()
     {
         // Arrange
         var wallet = new Wallet("0x1234567890123456789012345678901234567890");
@@ -1931,7 +1931,7 @@ public class CurrentWalletPositionServiceTests
 
         // Act
         service.InitializeWalletSnapshot(snapshot);
-        var result = service.GetOrderSubType(order);
+        var result = await service.GetOrderSubType(order);
 
         // Assert
         // Разница < 0.001 → должен быть Close
@@ -1943,7 +1943,7 @@ public class CurrentWalletPositionServiceTests
     #region CalculatePotentialPosition() Tests
 
     [Fact]
-    public void CalculatePotentialPosition_NoRealPosition_NoPendingOrders_ShouldReturnZero()
+    public async Task CalculatePotentialPosition_NoRealPosition_NoPendingOrders_ShouldReturnZero()
     {
         // Arrange
         var wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00");
@@ -1971,14 +1971,14 @@ public class CurrentWalletPositionServiceTests
         };
 
         // Act
-        var result = service.CalculatePotentialPosition(order);
+        var result = await service.CalculatePotentialPosition(order);
 
         // Assert
         result.Should().Be(0);
     }
 
     [Fact]
-    public void CalculatePotentialPosition_LongRealPosition_NoPendingOrders_ShouldReturnRealPosition()
+    public async Task CalculatePotentialPosition_LongRealPosition_NoPendingOrders_ShouldReturnRealPosition()
     {
         // Arrange
         var wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00");
@@ -2009,14 +2009,14 @@ public class CurrentWalletPositionServiceTests
         };
 
         // Act
-        var result = service.CalculatePotentialPosition(order);
+        var result = await service.CalculatePotentialPosition(order);
 
         // Assert
         result.Should().Be(10M);
     }
 
     [Fact]
-    public void CalculatePotentialPosition_ShortRealPosition_NoPendingOrders_ShouldReturnNegativePosition()
+    public async Task CalculatePotentialPosition_ShortRealPosition_NoPendingOrders_ShouldReturnNegativePosition()
     {
         // Arrange
         var wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00");
@@ -2047,14 +2047,14 @@ public class CurrentWalletPositionServiceTests
         };
 
         // Act
-        var result = service.CalculatePotentialPosition(order);
+        var result = await service.CalculatePotentialPosition(order);
 
         // Assert
         result.Should().Be(-10M);
     }
 
     [Fact]
-    public void CalculatePotentialPosition_LongOrder_ShouldOnlyConsiderLongPendingWithHigherPrice()
+    public async Task CalculatePotentialPosition_LongOrder_ShouldOnlyConsiderLongPendingWithHigherPrice()
     {
         // Arrange
         var wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00");
@@ -2096,7 +2096,7 @@ public class CurrentWalletPositionServiceTests
         };
 
         // Act
-        var result = service.CalculatePotentialPosition(currentOrder);
+        var result = await service.CalculatePotentialPosition(currentOrder);
 
         // Assert
         // Real: 100 + Pending (OrderId=2: +10, OrderId=3: +5) = 115
@@ -2104,7 +2104,7 @@ public class CurrentWalletPositionServiceTests
     }
 
     [Fact]
-    public void CalculatePotentialPosition_LongOrder_ShouldNotConsiderShortPending()
+    public async Task CalculatePotentialPosition_LongOrder_ShouldNotConsiderShortPending()
     {
         // Arrange
         var wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00");
@@ -2144,7 +2144,7 @@ public class CurrentWalletPositionServiceTests
         };
 
         // Act
-        var result = service.CalculatePotentialPosition(currentOrder);
+        var result = await service.CalculatePotentialPosition(currentOrder);
 
         // Assert
         // Short pending не учитываются для Long ордера
@@ -2152,7 +2152,7 @@ public class CurrentWalletPositionServiceTests
     }
 
     [Fact]
-    public void CalculatePotentialPosition_ShortOrder_ShouldConsiderAllLongPending()
+    public async Task CalculatePotentialPosition_ShortOrder_ShouldConsiderAllLongPending()
     {
         // Arrange
         var wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00");
@@ -2193,7 +2193,7 @@ public class CurrentWalletPositionServiceTests
         };
 
         // Act
-        var result = service.CalculatePotentialPosition(currentOrder);
+        var result = await service.CalculatePotentialPosition(currentOrder);
 
         // Assert
         // Real: 100 + All Long pending: +10 +5 +3 = 118
@@ -2201,7 +2201,7 @@ public class CurrentWalletPositionServiceTests
     }
 
     [Fact]
-    public void CalculatePotentialPosition_ShortOrder_ShouldOnlyConsiderShortPendingWithLowerPrice()
+    public async Task CalculatePotentialPosition_ShortOrder_ShouldOnlyConsiderShortPendingWithLowerPrice()
     {
         // Arrange
         var wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00");
@@ -2243,7 +2243,7 @@ public class CurrentWalletPositionServiceTests
         };
 
         // Act
-        var result = service.CalculatePotentialPosition(currentOrder);
+        var result = await service.CalculatePotentialPosition(currentOrder);
 
         // Assert
         // Real: 100 + Pending Short (OrderId=2: -10, OrderId=3: -5) = 85
@@ -2251,7 +2251,7 @@ public class CurrentWalletPositionServiceTests
     }
 
     [Fact]
-    public void CalculatePotentialPosition_ShortOrder_WithLongAndShortPending_ShouldCalculateCorrectly()
+    public async Task CalculatePotentialPosition_ShortOrder_WithLongAndShortPending_ShouldCalculateCorrectly()
     {
         // Arrange
         var wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00");
@@ -2294,7 +2294,7 @@ public class CurrentWalletPositionServiceTests
         };
 
         // Act
-        var result = service.CalculatePotentialPosition(currentOrder);
+        var result = await service.CalculatePotentialPosition(currentOrder);
 
         // Assert
         // Real: 100 + Long pending: +10 +5 + Short pending < 50k: -8 -3 = 104
@@ -2302,7 +2302,7 @@ public class CurrentWalletPositionServiceTests
     }
 
     [Fact]
-    public void CalculatePotentialPosition_ShouldExcludeOrderWithSameId()
+    public async Task CalculatePotentialPosition_ShouldExcludeOrderWithSameId()
     {
         // Arrange
         var wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00");
@@ -2342,7 +2342,7 @@ public class CurrentWalletPositionServiceTests
         };
 
         // Act
-        var result = service.CalculatePotentialPosition(currentOrder);
+        var result = await service.CalculatePotentialPosition(currentOrder);
 
         // Assert
         // Real: 100 + Only OrderId=2: +10 (OrderId=1 исключен)
@@ -2350,7 +2350,7 @@ public class CurrentWalletPositionServiceTests
     }
 
     [Fact]
-    public void CalculatePotentialPosition_NoRealPosition_WithPendingOrders_ShouldCalculateCorrectly()
+    public async Task CalculatePotentialPosition_NoRealPosition_WithPendingOrders_ShouldCalculateCorrectly()
     {
         // Arrange
         var wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00");
@@ -2387,7 +2387,7 @@ public class CurrentWalletPositionServiceTests
         };
 
         // Act
-        var result = service.CalculatePotentialPosition(currentOrder);
+        var result = await service.CalculatePotentialPosition(currentOrder);
 
         // Assert
         // Real: 0 + Pending: +5 +3 = 8
@@ -2395,7 +2395,7 @@ public class CurrentWalletPositionServiceTests
     }
 
     [Fact]
-    public void CalculatePotentialPosition_DifferentSymbol_ShouldNotAffectCalculation()
+    public async Task CalculatePotentialPosition_DifferentSymbol_ShouldNotAffectCalculation()
     {
         // Arrange
         var wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00");
@@ -2436,7 +2436,7 @@ public class CurrentWalletPositionServiceTests
         };
 
         // Act
-        var result = service.CalculatePotentialPosition(currentOrder);
+        var result = await service.CalculatePotentialPosition(currentOrder);
 
         // Assert
         // Только BTC: Real 100 + Pending BTC: +10 = 110 (ETH не учитывается)
@@ -2444,7 +2444,7 @@ public class CurrentWalletPositionServiceTests
     }
 
     [Fact]
-    public void CalculatePotentialPosition_LongPositionWithShortPending_ShouldDecrease()
+    public async Task CalculatePotentialPosition_LongPositionWithShortPending_ShouldDecrease()
     {
         // Arrange
         var wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00");
@@ -2484,7 +2484,7 @@ public class CurrentWalletPositionServiceTests
         };
 
         // Act
-        var result = service.CalculatePotentialPosition(currentOrder);
+        var result = await service.CalculatePotentialPosition(currentOrder);
 
         // Assert
         // Real: 100 + Short pending (price 55000 < 60000): -30 = 70
@@ -2492,7 +2492,7 @@ public class CurrentWalletPositionServiceTests
     }
 
     [Fact]
-    public void CalculatePotentialPosition_ShortPositionWithLongPending_ShouldDecrease()
+    public async Task CalculatePotentialPosition_ShortPositionWithLongPending_ShouldDecrease()
     {
         // Arrange
         var wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00");
@@ -2532,7 +2532,7 @@ public class CurrentWalletPositionServiceTests
         };
 
         // Act
-        var result = service.CalculatePotentialPosition(currentOrder);
+        var result = await service.CalculatePotentialPosition(currentOrder);
 
         // Assert
         // Real: -100 + All Long pending: +30 = -70
@@ -2540,7 +2540,7 @@ public class CurrentWalletPositionServiceTests
     }
 
     [Fact]
-    public void CalculatePotentialPosition_ComplexScenario_WithMultiplePendingOrders()
+    public async Task CalculatePotentialPosition_ComplexScenario_WithMultiplePendingOrders()
     {
         // Arrange
         var wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00");
@@ -2586,7 +2586,7 @@ public class CurrentWalletPositionServiceTests
         };
 
         // Act
-        var result = service.CalculatePotentialPosition(currentOrder);
+        var result = await service.CalculatePotentialPosition(currentOrder);
 
         // Assert
         // Real: 50
@@ -2598,7 +2598,7 @@ public class CurrentWalletPositionServiceTests
     }
 
     [Fact]
-    public void CalculatePotentialPosition_VerySmallQuantities_ShouldHandleCorrectly()
+    public async Task CalculatePotentialPosition_VerySmallQuantities_ShouldHandleCorrectly()
     {
         // Arrange
         var wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00");
@@ -2636,14 +2636,14 @@ public class CurrentWalletPositionServiceTests
         };
 
         // Act
-        var result = service.CalculatePotentialPosition(currentOrder);
+        var result = await service.CalculatePotentialPosition(currentOrder);
 
         // Assert
         result.Should().Be(0.00015M);
     }
 
     [Fact]
-    public void CalculatePotentialPosition_VeryLargeQuantities_ShouldHandleCorrectly()
+    public async Task CalculatePotentialPosition_VeryLargeQuantities_ShouldHandleCorrectly()
     {
         // Arrange
         var wallet = new Wallet("0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00");
@@ -2681,7 +2681,7 @@ public class CurrentWalletPositionServiceTests
         };
 
         // Act
-        var result = service.CalculatePotentialPosition(currentOrder);
+        var result = await service.CalculatePotentialPosition(currentOrder);
 
         // Assert
         result.Should().Be(1500000M);

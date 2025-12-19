@@ -79,9 +79,9 @@ public class BaselinePositionServiceTests
         await _service.Start();
 
         // Assert
-        _service.GetBaselinePosition(_wallet1, "BTC").Should().Be(10.5m);
-        _service.GetBaselinePosition(_wallet1, "ETH").Should().Be(-20.3m);
-        _service.GetBaselinePosition(_wallet2, "SOL").Should().Be(100m);
+        (await _service.GetBaselinePosition(_wallet1, "BTC")).Should().Be(10.5m);
+        (await _service.GetBaselinePosition(_wallet1, "ETH")).Should().Be(-20.3m);
+        (await _service.GetBaselinePosition(_wallet2, "SOL")).Should().Be(100m);
     }
 
     [Fact]
@@ -101,7 +101,7 @@ public class BaselinePositionServiceTests
         await _service.Start();
 
         // Assert
-        _service.GetBaselinePosition(_wallet1, "BTC").Should().Be(0);
+        (await _service.GetBaselinePosition(_wallet1, "BTC")).Should().Be(0);
     }
 
     [Fact]
@@ -127,7 +127,7 @@ public class BaselinePositionServiceTests
         await _service.Start();
 
         // Assert
-        _service.GetBaselinePosition(_wallet1, "BTC").Should().Be(0);
+        (await _service.GetBaselinePosition(_wallet1, "BTC")).Should().Be(0);
     }
 
     [Fact]
@@ -160,8 +160,8 @@ public class BaselinePositionServiceTests
         await _service.Start();
 
         // Assert
-        _service.GetBaselinePosition(_wallet1, "BTC").Should().Be(0);
-        _service.GetBaselinePosition(_wallet2, "SOL").Should().Be(100m);
+        (await _service.GetBaselinePosition(_wallet1, "BTC")).Should().Be(0);
+        (await _service.GetBaselinePosition(_wallet2, "SOL")).Should().Be(100m);
     }
 
     #endregion
@@ -205,7 +205,7 @@ public class BaselinePositionServiceTests
         await _service.OnNewTrades((trades, IsSnapshot: false));
 
         // Assert
-        _service.GetBaselinePosition(_wallet1, "BTC").Should().Be(0);
+        (await _service.GetBaselinePosition(_wallet1, "BTC")).Should().Be(0);
     }
 
     [Fact]
@@ -232,7 +232,7 @@ public class BaselinePositionServiceTests
         await _service.OnNewTrades((trades, IsSnapshot: false));
 
         // Assert
-        _service.GetBaselinePosition(_wallet1, "BTC").Should().Be(0);
+        (await _service.GetBaselinePosition(_wallet1, "BTC")).Should().Be(0);
     }
 
     [Fact]
@@ -259,7 +259,7 @@ public class BaselinePositionServiceTests
         await _service.OnNewTrades((trades, IsSnapshot: false));
 
         // Assert
-        _service.GetBaselinePosition(_wallet1, "BTC").Should().Be(8m);
+        (await _service.GetBaselinePosition(_wallet1, "BTC")).Should().Be(8m);
     }
 
     [Fact]
@@ -286,7 +286,7 @@ public class BaselinePositionServiceTests
         await _service.OnNewTrades((trades, IsSnapshot: false));
 
         // Assert
-        _service.GetBaselinePosition(_wallet1, "BTC").Should().Be(-8m);
+        (await _service.GetBaselinePosition(_wallet1, "BTC")).Should().Be(-8m);
     }
 
     [Fact]
@@ -313,7 +313,7 @@ public class BaselinePositionServiceTests
         await _service.OnNewTrades((trades, IsSnapshot: false));
 
         // Assert
-        _service.GetBaselinePosition(_wallet1, "BTC").Should().Be(10m); // Не изменилась
+        (await _service.GetBaselinePosition(_wallet1, "BTC")).Should().Be(10m); // Не изменилась
     }
 
     [Fact]
@@ -338,7 +338,7 @@ public class BaselinePositionServiceTests
         await _service.OnNewTrades((trades, IsSnapshot: false));
 
         // Assert
-        _service.GetBaselinePosition(_wallet1, "BTC").Should().Be(0); // Не создана
+        (await _service.GetBaselinePosition(_wallet1, "BTC")).Should().Be(0); // Не создана
     }
 
     [Fact]
@@ -387,9 +387,9 @@ public class BaselinePositionServiceTests
         await _service.OnNewTrades((trades, IsSnapshot: false));
 
         // Assert
-        _service.GetBaselinePosition(_wallet1, "BTC").Should().Be(8m);   // Обновлена
-        _service.GetBaselinePosition(_wallet1, "ETH").Should().Be(20m);  // Не изменилась
-        _service.GetBaselinePosition(_wallet2, "SOL").Should().Be(95m);  // Обновлена
+        (await _service.GetBaselinePosition(_wallet1, "BTC")).Should().Be(8m);   // Обновлена
+        (await _service.GetBaselinePosition(_wallet1, "ETH")).Should().Be(20m);  // Не изменилась
+        (await _service.GetBaselinePosition(_wallet2, "SOL")).Should().Be(95m);  // Обновлена
     }
 
     [Fact]
@@ -416,7 +416,7 @@ public class BaselinePositionServiceTests
         await _service.OnNewTrades((trades, IsSnapshot: false));
 
         // Assert
-        _service.GetBaselinePosition(_wallet1, "BTC").Should().Be(10m); // Не изменилась
+        (await _service.GetBaselinePosition(_wallet1, "BTC")).Should().Be(10m); // Не изменилась
     }
 
     [Fact]
@@ -453,8 +453,8 @@ public class BaselinePositionServiceTests
         await _service.OnNewTrades((trades, IsSnapshot: false));
 
         // Assert
-        _service.GetBaselinePosition(_wallet1, "BTC").Should().Be(10m);  // Не изменилась из-за ошибки
-        _service.GetBaselinePosition(_wallet2, "ETH").Should().Be(18m);  // Обновлена
+        (await _service.GetBaselinePosition(_wallet1, "BTC")).Should().Be(10m);  // Не изменилась из-за ошибки
+        (await _service.GetBaselinePosition(_wallet2, "ETH")).Should().Be(18m);  // Обновлена
     }
 
     [Fact]
@@ -482,7 +482,7 @@ public class BaselinePositionServiceTests
 
         // Assert
         // Объем уменьшился (с 10 до 5 по модулю), поэтому должна обновиться
-        _service.GetBaselinePosition(_wallet1, "BTC").Should().Be(-5m);
+        (await _service.GetBaselinePosition(_wallet1, "BTC")).Should().Be(-5m);
     }
 
     [Fact]
@@ -510,7 +510,7 @@ public class BaselinePositionServiceTests
 
         // Assert
         // Объем уменьшился (с 10 до 5 по модулю), поэтому должна обновиться
-        _service.GetBaselinePosition(_wallet1, "BTC").Should().Be(5m);
+        (await _service.GetBaselinePosition(_wallet1, "BTC")).Should().Be(5m);
     }
 
     #endregion
@@ -541,17 +541,17 @@ public class BaselinePositionServiceTests
         await _service.Start();
 
         // Act
-        var result = _service.GetBaselinePosition(_wallet1, "BTC");
+        var result = await _service.GetBaselinePosition(_wallet1, "BTC");
 
         // Assert
         result.Should().Be(10m);
     }
 
     [Fact]
-    public void GetBaselinePosition_ShouldReturnNull_WhenNotExists()
+    public async Task GetBaselinePosition_ShouldReturnNull_WhenNotExists()
     {
         // Act
-        var result = _service.GetBaselinePosition(_wallet1, "BTC");
+        var result = await _service.GetBaselinePosition(_wallet1, "BTC");
 
         // Assert
         result.Should().Be(0);
@@ -581,7 +581,7 @@ public class BaselinePositionServiceTests
         await _service.Start();
 
         // Act
-        var result = _service.GetBaselinePosition(_wallet2, "BTC");
+        var result = await _service.GetBaselinePosition(_wallet2, "BTC");
 
         // Assert
         result.Should().Be(0);
@@ -611,7 +611,7 @@ public class BaselinePositionServiceTests
         await _service.Start();
 
         // Act
-        var result = _service.GetBaselinePosition(_wallet1, "ETH");
+        var result = await _service.GetBaselinePosition(_wallet1, "ETH");
 
         // Assert
         result.Should().Be(0);

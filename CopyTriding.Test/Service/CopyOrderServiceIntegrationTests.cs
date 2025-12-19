@@ -86,13 +86,14 @@ public class CopyOrderServiceIntegrationTests
         _orderServiceLogger = new Mock<ILogger<OrderService>>();
 
         // Инициализация моков для TradeService
-        _fillsOrderServiceMock = new Mock<FillsOrderService>(Mock.Of<ILogger<FillsOrderService>>());
+        _fillsOrderServiceMock = new Mock<FillsOrderService>(Mock.Of<ILogger<FillsOrderService>>(), Mock.Of<IRedisRepository>());
         _ordersProviderMock = new Mock<IOrdersProvider>(MockBehavior.Loose);
         var ordersProviderConcreteMock = new Mock<Providers.Hyperliquid.Providers.OrdersProvider>(MockBehavior.Loose, Mock.Of<ILogger<Providers.Hyperliquid.Providers.OrdersProvider>>());
         var currentWalletPositionServiceMock = new Mock<CurrentWalletPositionService>(
             MockBehavior.Loose,
             Mock.Of<IWalletInfoProvider>(),
             _fillsOrderServiceMock.Object,
+            Mock.Of<IRedisRepository>(),
             Mock.Of<ILogger<CurrentWalletPositionService>>());
         _orderProviderMock = new Mock<OrdersTradesSubscriber>(
             MockBehavior.Loose,

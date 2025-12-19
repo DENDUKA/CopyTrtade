@@ -5,6 +5,7 @@ using CopyTrading.Models.Values;
 using CopyTrading.Repository.RedisInterfaces;
 using CopyTrading.Services;
 using CopyTrading.Services.Interfaces;
+using CopyTrading.Test.Helpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -17,11 +18,14 @@ public class FillsOrderServiceCleanupTests
 {
     private readonly Mock<ILogger<FillsOrderService>> _loggerMock;
     private readonly FillsOrderService _service;
+    private readonly MockRedisStorage _storage;
 
     public FillsOrderServiceCleanupTests()
     {
         _loggerMock = new Mock<ILogger<FillsOrderService>>();
-        _service = new FillsOrderService(_loggerMock.Object, Mock.Of<IRedisRepository>());
+        var (redisMock, storage) = MockRedisRepositoryFactory.Create();
+        _storage = storage;
+        _service = new FillsOrderService(_loggerMock.Object, redisMock.Object);
     }
 
     [Fact]
@@ -153,10 +157,9 @@ public class FillsOrderServiceCleanupTests
         };
     }
 
-    // Используем рефлексию для доступа к приватному полю _orders
-    private System.Collections.Concurrent.ConcurrentDictionary<long, OrderFills> GetOrdersDict()
+    // Используем MockRedisStorage для доступа к ордерам
+    private Dictionary<long, OrderFills> GetOrdersDict()
     {
-        var field = typeof(FillsOrderService).GetField("_orders", BindingFlags.NonPublic | BindingFlags.Instance);
-        return (System.Collections.Concurrent.ConcurrentDictionary<long, OrderFills>)field!.GetValue(_service)!;
+        return _storage.Orders;
     }
 }
