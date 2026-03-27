@@ -9,9 +9,7 @@ namespace CopyTrading.Repository.Influx;
 
 public class OrderRepository(ILogger<OrderRepository> logger) : IOrderRepository
 {
-    private const string bucket = "Orders";
-    private const string org = "CopyTrade";
-    private readonly InfluxDBClient _client = new InfluxDBClient(@"http://localhost:8086", InfluxSettings.token);
+    private readonly InfluxDBClient _client = new(InfluxSettings.Url, InfluxSettings.Token);
 
     public void WriteOrder(OriginalOrder[] orders)
     {
@@ -21,7 +19,7 @@ public class OrderRepository(ILogger<OrderRepository> logger) : IOrderRepository
 
         try
         {
-            writeApi.WriteMeasurements(measure, WritePrecision.S, bucket, org);
+            writeApi.WriteMeasurements(measure, WritePrecision.S, InfluxSettings.OrdersBucket, InfluxSettings.Org);
         }
         catch (Exception ex)
         {

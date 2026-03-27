@@ -1,0 +1,74 @@
+﻿services:
+
+  copytrading-app:
+    image: ${DOCKER_IMAGE_NAME:-copytrading-app}:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_CONFIGURATION: Release
+    container_name: copytrading-app
+    restart: unless-stopped
+    environment:
+      # --- ASP.NET Core ---
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      ASPNETCORE_URLS: http://+:5000
+      DOTNET_RUNNING_IN_CONTAINER: "true"
+
+      # --- PostgreSQL ---
+      PostgreSQL__Host: ${POSTGRES_HOST:-copytrading-postgres}
+      PostgreSQL__Port: ${POSTGRES_PORT:-5432}
+      PostgreSQL__Database: ${POSTGRES_DB:-copytrading}
+      PostgreSQL__Username: ${POSTGRES_USER:-copytrading_user}
+      PostgreSQL__Password: ${POSTGRES_PASSWORD:-copytrading_password}
+
+      # --- Redis ---
+      Redis__Host: ${REDIS_HOST:-copytrading-redis}
+      Redis__Port: ${REDIS_PORT:-6379}
+      Redis__Password: ${REDIS_PASSWORD:-}
+      Redis__Database: ${REDIS_DATABASE:-0}
+      Redis__ConnectTimeout: ${REDIS_CONNECT_TIMEOUT:-5000}
+      Redis__SyncTimeout: ${REDIS_SYNC_TIMEOUT:-5000}
+
+      # --- InfluxDB ---
+      INFLUXDB_URL: ${INFLUXDB_URL:-http://copytrading-influxdb:8086}
+      INFLUXDB_TOKEN: ${INFLUXDB_TOKEN:-CHANGE_ME_INFLUX_TOKEN}
+      INFLUXDB_ORG: ${INFLUXDB_ORG:-CopyTrade}
+      INFLUXDB_BUCKET_ORDERS: ${INFLUXDB_BUCKET_ORDERS:-copytrading}
+      INFLUXDB_BUCKET_TRADES: ${INFLUXDB_BUCKET_TRADES:-copytrading}
+      INFLUXDB_BUCKET_CANDLES: ${INFLUXDB_BUCKET_CANDLES:-copytrading}
+
+      # --- HyperLiquid API ---
+      HyperLiquid__ApiKey: ${HYPERLIQUID_API_KEY:-}
+      HyperLiquid__ApiSecret: ${HYPERLIQUID_API_SECRET:-}
+
+      # --- Runtime ---
+      CopyTrading__AutoStartDependencies: "false"
+
+    ports:
+      - "${APP_PORT:-15050}:5000"
+    volumes:
+      - sqlite_logs:/app/data/sqlite
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:5000/HealthCheck || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - copytrading-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+volumes:
+  sqlite_logs:
+    driver: local
+
+networks:
+  copytrading-network:
+    external: true
+    name: copytrading-network
+

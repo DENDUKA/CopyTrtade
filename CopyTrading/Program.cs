@@ -29,15 +29,27 @@ namespace CopyTrading
             {
                 Log.Information("Запуск приложения CopyTrading");
 
-                // Check if Docker is available and start PostgreSQL container
-                var isDockerAvailable = await DockerHelper.IsDockerAvailable();
-                if (isDockerAvailable)
+                var autoStartDependencies = !string.Equals(
+                    Environment.GetEnvironmentVariable("CopyTrading__AutoStartDependencies"),
+                    "false",
+                    StringComparison.OrdinalIgnoreCase);
+
+                var isDockerContainer = string.Equals(
+                    Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER"),
+                    "true",
+                    StringComparison.OrdinalIgnoreCase);
+
+                if (autoStartDependencies && !isDockerContainer)
                 {
-                    await DockerHelper.EnsurePostgresRunning();
-                }
-                else
-                {
-                    Console.WriteLine("[Docker] Docker is not available. Assuming PostgreSQL is running locally.");
+                    var isDockerAvailable = await DockerHelper.IsDockerAvailable();
+                    if (isDockerAvailable)
+                    {
+                        await DockerHelper.EnsurePostgresRunning();
+                    }
+                    else
+                    {
+                        Console.WriteLine("[Docker] Docker is not available. Assuming dependencies are managed externally.");
+                    }
                 }
 
                 await CreateHostBuilder(args).Build().RunAsync();

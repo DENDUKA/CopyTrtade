@@ -8,6 +8,16 @@ namespace CopyTrading.Controllers;
 public class HealthCheckController(
     IOrdersTradesSubscriber _subscribers) : ControllerBase
 {
+    [HttpGet]
+    public IActionResult Get()
+    {
+        return Ok(new
+        {
+            status = "ok",
+            timestampUtc = DateTime.UtcNow
+        });
+    }
+
     [HttpGet("SubscribersStatus")]
     public async Task<string[]> SubscribersStatus()
     {

@@ -9,9 +9,7 @@ namespace CopyTrading.Repository.Influx;
 
 public class CandlesRepository(ILogger<TradeRepository> logger) : ICandlesRepository
 {
-    private const string bucket = "Candles";
-    private const string org = "CopyTrade";
-    private readonly InfluxDBClient _client = new InfluxDBClient(@"http://localhost:8086", InfluxSettings.token);
+    private readonly InfluxDBClient _client = new(InfluxSettings.Url, InfluxSettings.Token);
 
     public void WriteCandles(Candle[] candles)
     {
@@ -21,7 +19,7 @@ public class CandlesRepository(ILogger<TradeRepository> logger) : ICandlesReposi
 
         try
         {
-            writeApi.WriteMeasurements(measure, WritePrecision.S, bucket, org);
+            writeApi.WriteMeasurements(measure, WritePrecision.S, InfluxSettings.CandlesBucket, InfluxSettings.Org);
         }
         catch (Exception ex)
         {

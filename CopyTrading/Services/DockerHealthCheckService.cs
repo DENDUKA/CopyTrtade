@@ -38,7 +38,17 @@ public class DockerHealthCheckService : IDockerHealthCheckService
 
         var allOk = redisOk && postgresOk;
 
-        if (!allOk)
+        var isDockerContainer = string.Equals(
+            Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER"),
+            "true",
+            StringComparison.OrdinalIgnoreCase);
+
+        var autoStartDependencies = !string.Equals(
+            Environment.GetEnvironmentVariable("CopyTrading__AutoStartDependencies"),
+            "false",
+            StringComparison.OrdinalIgnoreCase);
+
+        if (!allOk && autoStartDependencies && !isDockerContainer)
         {
             _logger.LogWarning("❌ Некоторые зависимости недоступны. Попытка запустить Docker контейнеры...");
 
@@ -56,6 +66,10 @@ public class DockerHealthCheckService : IDockerHealthCheckService
                 postgresOk = await CheckPostgreSQL();
                 allOk = redisOk && postgresOk;
             }
+        }
+        else if (!allOk)
+        {
+            _logger.LogWarning("Автозапуск зависимостей отключен. Ожидается, что инфраструктура уже управляется через Docker Compose/Jenkins.");
         }
 
         if (allOk)
